@@ -95,7 +95,7 @@ which can land as a config change at any point before go-live. Trace: foundation
 It stays the last item to run whatever else enters version 1, and B12's deleting data migration
 assumes it has not run yet.
 
-**B12. Service catalogue.** `todo`. The two reference tables, `ServiceCategory` and
+**B12. Service catalogue.** `done (2026-08-28)`. The two reference tables, `ServiceCategory` and
 `CatalogService`, seeded from the July 2026 declaration by a data migration and registered in the
 administration site; `Service.description` renamed to `notes` and made optional as a textarea; a
 required `catalog_service` foreign key with `PROTECT`; the engine, the form, the list and the admin
@@ -104,18 +104,24 @@ performance rule in section 8; shape in `specs/adr/0005-service-catalogue.md`. N
 precondition recorded there: step 4 deletes rows it cannot map and is only safe while B11 has not
 shipped.
 
-**B13. Submitter identity.** `todo`. The `Submitter` model with its unique normalized name, the
+**B13. Submitter identity.** `done (2026-08-28)`. The `Submitter` model with its unique normalized name, the
 pure `normalize_person_name` in `core/identity.py`, get or create on the normalized key with first
 spelling wins, the required creatable field on the registration form seeded with José Victor and
 Geovanna, the `PROTECT` foreign key on `Service`, and `submitter_id` added to the audit entry.
-Trace: foundation section 6, I6, I8; shape in `specs/adr/0006-submitter-identity.md`.
+Trace: foundation section 6, I6, I8; shape in `specs/adr/0006-submitter-identity.md`. Delivered
+test first with B12 through one pair of windows on branch `b12-b13-catalogue-and-submitter`;
+verified with `just gate` (ruff, `mypy --strict`, 257 tests, gitleaks) and
+`makemigrations --check` on 2026-08-28.
 
-**B14. Interface refactor.** `doing (2026-08-28)`. The whole interface rebuilt responsive and
+**B14. Interface refactor.** `done (2026-08-28)`. The whole interface rebuilt responsive and
 mobile first on a Radix inspired token system, light and dark, with all styles and scripts inline
 because the container serves no static files; plus the two reusable accessible combobox widgets in
 `core/widgets.py`, one closed and one creatable, that B12 and B13 assign to their fields. Trace:
 foundation section 1 (the audience is employees on whatever device they hold), section 12 for the
-Portuguese interface.
+Portuguese interface. Delivered on branch `b14-interface-refactor`; verified with `just lint`,
+`just typecheck` and `just test` (176 tests, the 151 existing plus 25) on 2026-08-28. It also fixed
+the pytest configuration section, which was `[tool.pytest]` and read by nothing, so
+`--strict-markers` had been inert since B1.
 
 **B15. Alert state in the interface.** `todo`. The list shows, per service, which warnings were
 sent and which failed, and it gains the submitter column that ADR 0006 promised and no other item
@@ -221,6 +227,12 @@ marked here after the merge. The engine track now waits only on the B8 adapter, 
 
 2026-08-28: B5 done by developer A on branch `b5-secret-path`, with ADR 0003 for the shape it
 introduced. The screens and safety track continues at B6, which extends the same `LOGGING` block.
+
+2026-08-28: B12, B13 and B14 done. B14 first, since B12 and B13 consume its combobox widgets;
+then B12 and B13 together through one pair of windows, because splitting them would have meant two
+conflicting migration chains over one table. Two rounds of windows were needed: Window B reported
+two defects in ADR 0006 and six tests arranged against an empty catalogue table, both repaired by
+the window that owned them rather than by the window that found them. B15 stays `todo`.
 
 2026-08-28: B12, B13, B14 and B15 opened after the owner's revision of foundation sections 3, 6
 and 10 (catalogue instead of free text, submitter identity, I8 added, I6 widened). B14 started the
