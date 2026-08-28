@@ -3,7 +3,10 @@
 {% block title %}Serviços{% endblock %}
 
 {% block content %}
-  <p><a class="button" href="{% url 'service-create' %}">Novo serviço</a></p>
+  <p>
+    <a class="button" href="{% url 'service-create' %}">Novo serviço</a>
+    <a class="button" href="{% url 'service-export' %}">Exportar planilha</a>
+  </p>
 
   {% if services %}
     <table>

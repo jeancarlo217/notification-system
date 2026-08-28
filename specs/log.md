@@ -70,3 +70,7 @@ never appended over.
 
 ## [2026-08-28] trap | B6 touched `core/engine.py` and `core/management/commands/send_alerts.py`, which belong to the engine track, because the item asks for correlation keys on the run as well as the request. The B8 adapter rebases on it. Reported rather than resolved silently, per rule 3 of the parallel plan.
 
+## [2026-08-28] decision | B10 shape, recorded here and not in an ADR: the row shaping is a pure function in `core/export.py` (header plus one tuple per record, dates in the Brazilian format and the status label in Portuguese), and `service_export` streams it with Django's documented Echo writer over `StreamingHttpResponse`, reading the queryset through `.iterator()` so the file costs one query and no buffer (foundation sections 7 and 8). The file is semicolon separated and starts with a byte order mark, which is what a spreadsheet under a pt-BR locale needs to open it in one click; not verified against a real Excel on this machine, so the owner opening it once is the check that matters.
+
+## [2026-08-28] finding | Confirmed for B10 against the Django 5.2 how-to on outputting CSV: the documented streaming shape is a pseudo buffer whose `write` returns the value, wrapped in `StreamingHttpResponse` with the `Content-Disposition` header, which is what `core/views.py` uses. Under django-stubs the test client response is typed as a buffered one, so a test that reads `streaming_content` casts.
+

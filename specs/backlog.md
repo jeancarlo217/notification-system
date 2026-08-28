@@ -84,8 +84,12 @@ branch `b9-scheduler` by developer B, shape in `specs/adr/0002-scheduler-contain
 with `just gate` (ruff, `mypy --strict`, 106 tests, gitleaks) and a one-shot `docker compose run`
 of the service on 2026-08-28; merged to `main` by pull request #8.
 
-**B10. CSV export.** `todo`. One button, one streamed query, one row per record. Trace: foundation
-section 7, the performance rule in section 8.
+**B10. CSV export.** `done (2026-08-28)`. One button, one streamed query, one row per record.
+Trace: foundation section 7, the performance rule in section 8. Delivered test first on branch
+`b10-csv-export` by developer A (12 behaviour tests), with the row shaping as a pure function in
+`core/export.py` and the streaming in the view; verified with `just gate` (ruff, `mypy --strict`,
+163 tests, gitleaks) on 2026-08-28. The file carries a byte order mark and semicolons so a
+spreadsheet under a pt-BR locale opens it in one click.
 
 **B11. Deployment.** `blocked on OQ-2`. The always-on host, Cloudflare in front, the production env
 file created on the host and never in the repository. Also needs the final message wording (OQ-3),
@@ -187,3 +191,7 @@ introduced. The screens and safety track continues at B6, which extends the same
 `core/engine.py` and the `send_alerts` command to bind the run correlation keys the item asks for,
 which is engine track territory; developer B rebases the B8 adapter on it. The screens and safety
 track continues at B10.
+
+2026-08-28: B10 done by developer A on branch `b10-csv-export`, stacked on `b6-audit-logging`. The
+screens and safety track is finished. Version 1 now waits on the B8 adapter, gated by OQ-1, and on
+B11, gated by OQ-2.
