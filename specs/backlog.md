@@ -56,8 +56,8 @@ recorded in `specs/dependencies.md`, which closes OQ-1. Then the real adapter be
 interface and the few integration tests. Trace: foundation section 4. Spike state on 2026-08-28,
 branch `b8-evolution-spike`: Evolution v2.3.7 with its Postgres and Redis are in `compose.yaml`, the
 keys are in `.env.example`, the steps are `just evolution-up`, `evolution-instance`, `evolution-qr`,
-`evolution-state`, `evolution-send`; the stack has not yet booted on the owner's machine (disk full)
-and the pairing and the real send are pending on the owner.
+`evolution-state`, `evolution-send`; the stack boots on the owner's machine, the instance `valeverde`
+exists and its QR is generated; the pairing (scan) and the real send are pending on the owner.
 
 **B9. Scheduler.** `todo`. The Compose piece that runs the daily command, with the run-twice test
 proving idempotency end to end. Trace: foundation section 5, I1, I3.

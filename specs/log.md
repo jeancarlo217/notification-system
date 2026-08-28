@@ -25,3 +25,7 @@ never appended over.
 ## [2026-08-28] finding | The Evolution documentation moved to docs.evolutionfoundation.com.br and its send-text page still documents the v1 body (`textMessage.text`); the 2.3.7 source takes top-level `text`. Git tags have no `v` prefix, Docker tags do.
 
 ## [2026-08-28] trap | The owner's machine had 0.2 GB free on C: on 2026-08-28; Docker Desktop answered `metadata.db: input/output error` and then hung, so the Evolution stack could not boot. Free disk space before `just evolution-up`; Docker Desktop's data disk grows as images are pulled.
+
+## [2026-08-28] trap | An image pulled while the disk was full stays corrupted after space is freed: evoapicloud/evolution-api:v2.3.7 had zero-byte dist/main.js and startup scripts, the container exited 0 silently and restart-looped. Remedy is `docker image rm` plus a fresh pull; Docker Desktop also needed a clean restart (kill lingering Docker Desktop.exe, `wsl --shutdown`). Recorded in specs/dependencies.md.
+
+## [2026-08-28] finding | B8 spike verified up to the QR: Evolution 2.3.7 boots with its Postgres and Redis, migrations apply, instance `valeverde` created, QR generated. Pairing and the real send remain with the owner; OQ-1 still open.

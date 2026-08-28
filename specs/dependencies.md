@@ -56,10 +56,17 @@ Docker Hub tags API, and the source at git tag `2.3.7`. The documentation site m
 | Endpoints | git tag `2.3.7` | `src/api/dto/sendMessage.dto.ts`, `src/validate/message.schema.ts`, `src/api/routes/sendMessage.router.ts`, doc pages for instance create, connect and connectionState | `POST /instance/create` body `{instanceName, integration: "WHATSAPP-BAILEYS", qrcode: true}`; `GET /instance/connect/{name}` returns `base64` (PNG data URI) and `pairingCode`; `GET /instance/connectionState/{name}` returns `instance.state` in `open`, `close`, `connecting`; `POST /message/sendText/{name}` body `{number, text}` with optional `delay`, `linkPreview`, and the response carries `key.id` and `status`. Trap: the send-text documentation page still shows the v1 body (`textMessage.text`); the 2.3.7 source is the authority and takes top-level `text`. |
 
 Exit criterion of OQ-1 (one real message delivered to the company number) is not yet met. Done on
-2026-08-28: the Compose services, the keys in `.env.example`, the `just evolution-*` recipes, and
-`docker compose config` validates. Not done: booting the stack on the owner's machine (the disk had
-0.2 GB free and Docker Desktop failed with an I/O error on its data disk), pairing the phone (a
-human scans the QR), and the send. The `just` recipes carry the remaining steps in order.
+2026-08-28, verified on the owner's machine: `just evolution-up` boots the three services, the
+Prisma migrations run at container start, `GET /` answers `version 2.3.7` and names the manager UI
+at `http://localhost:8080/manager` (login with the API key), `POST /instance/create` created
+`valeverde` in state `connecting`, and `GET /instance/connect/valeverde` returned a QR code that
+`just evolution-qr` saved as a PNG. Not done: pairing the phone (a human scans the QR, which
+rotates every few seconds up to `QRCODE_LIMIT`, so generate it right before scanning) and the send.
+
+Trap met on the way: after the disk-full incident the locally cached image had zero-byte files
+(`dist/main.js`, `Docker/scripts/*.sh`), so the container exited 0 in silence and restarted in a
+loop. `docker image rm` and a fresh `docker compose pull` fixed it; the integrity check is
+`docker run --rm --entrypoint sh evoapicloud/evolution-api:v2.3.7 -c 'ls -la dist/main.js'`.
 
 ## Log
 
