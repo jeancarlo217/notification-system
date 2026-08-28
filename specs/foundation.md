@@ -162,6 +162,20 @@ configured path, which breaks saved bookmarks. Because request paths normally ap
 secret would leak into its own audit trail; redaction of the secret segment lives on the logging
 path (I7).
 
+**Decision (owner, 2026-08-28).** Django's own administration site stays, with the framework's
+standard authentication, mounted inside the secret path segment. It is a maintenance door for the
+owner and the developers, never the employee-facing product: the form, the list and the lifecycle
+actions of section 1 ask no one who they are and never send anybody to a login screen.
+
+*What this buys:* a way to read and repair records without building a screen for it, using the
+framework's own account and permission machinery instead of a hand-written one. Two barriers guard
+that door, the link and a password, because it sits inside the segment.
+
+*What this costs:* `django.contrib.auth` and its user accounts now exist in the system, so the
+non-goal of section 10 narrows to the employee-facing application. A login form inside the secret
+path is still a login form, reachable by anyone holding the link, so its accounts belong to the
+owner and the developers and never to one employee each.
+
 **Decision.** Every form submission is audited: a structured log entry with the submitter's IP,
 their country as reported by Cloudflare, the timestamp, and the identifier of the record touched.
 The client IP and country are taken from Cloudflare's forwarding headers, which are trustworthy
@@ -253,7 +267,8 @@ app produces, and the secret would otherwise ride along.
 
 ## 10. Explicit non-goals
 
-Version 1 does not include: user accounts, roles or per-person attribution; a dashboard of
+Version 1 does not include: user accounts, roles or per-person attribution in the
+employee-facing application, whose administration site is the exception decided in section 6; a dashboard of
 expiring services (named by the owner as the version 2 goal); an inbound WhatsApp API for
 employees to query open clients (a version 3 idea in the brief); recurrence or automatic renewal
 of services; multiple destination numbers; editing history or soft deletes; multi-company
@@ -311,3 +326,8 @@ pinned only through the direct pins recorded in `specs/dependencies.md`.
 2026-08-28, revision after the review window. Section 12 ratifies four toolkit conventions (UI in
 Portuguese and English elsewhere, CLI-generated framework files, the comment rule, the prose rule)
 that a docs audit found only in `CLAUDE.md`; the owner had proposed them and promoted them.
+
+2026-08-28, revision during B4. Section 6 keeps Django's administration site, with the framework's
+standard authentication, mounted inside the secret path segment, by owner decision. Section 10's
+non-goal on accounts now reads as the employee-facing application only. The health endpoint is still
+the single route outside the segment.

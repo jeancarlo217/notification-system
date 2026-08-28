@@ -47,7 +47,8 @@ mounts them under the secret segment.
 
 **B5. Secret-path access and health endpoint.** `todo`. The whole application served under the
 configured secret segment, the health endpoint as the single route outside it touching no dependency,
-and redaction of the segment on the logging path. Trace: foundation section 6, I7.
+and redaction of the segment on the logging path. The Django administration site moves inside the
+segment in the same pass, keeping its standard authentication. Trace: foundation section 6, I7.
 
 **B6. Audit and structured logging.** `todo`. Every form submission logs IP, Cloudflare country,
 timestamp and record id, bound once on a shared path, with correlation keys on request and run.
@@ -164,3 +165,7 @@ The spike stays open on OQ-1.
 
 2026-08-28: B4 done on branch `b4-registration` by the owner's session while the two developers
 finished B2 and B3; developer A's track continues at B5.
+
+2026-08-28: owner decision, fanned out to foundation sections 6, 10 and 13: Django's administration
+site stays with the framework's standard authentication, mounted inside the secret path segment by
+B5, while the employee-facing screens keep asking no one who they are.

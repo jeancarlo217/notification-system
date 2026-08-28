@@ -24,6 +24,8 @@ An internal tool for Vale Verde Ambiental. A three-field form (client, service, 
 flat records to SQLite; a daily engine computes which warnings are owed and sends them to the
 company's WhatsApp number through a self-hosted Evolution API instance; every submission is
 audited; the dataset exports to CSV. No login: access is a secret link behind Cloudflare.
+Django's admin, with the framework's standard authentication, sits inside that secret path as a
+maintenance door and is not the employee-facing product.
 
 The one idea everything derives from: the truth lives in persisted records. Every run derives
 what is owed from the database and the injected current date, never from process memory, so a
@@ -79,6 +81,7 @@ Each cites its invariant in the foundation; the acceptance test lives there in f
 - Client IP and country come from Cloudflare's forwarding headers only; that trust is part of the
   deployment contract (OQ-2).
 - The health endpoint is the single route outside the secret path; it touches no dependency.
+  The admin is inside the segment and keeps Django's own authentication (foundation section 6).
 - The UI is in Portuguese; code, tests, commits and documents are in English.
 - Do not resolve OQ-1, OQ-2 or OQ-3 by inference. They are closed only as the foundation says.
 
