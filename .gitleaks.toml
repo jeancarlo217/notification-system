@@ -1,0 +1,11 @@
+# Secret scan configuration (foundation I5). Extends the default rules.
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "The untracked env file and virtualenvs are never scanned; the real .env holds real values by design"
+paths = [
+    '''(^|/)\.env$''',
+    '''(^|/)venv/''',
+    '''(^|/)\.venv/''',
+]
