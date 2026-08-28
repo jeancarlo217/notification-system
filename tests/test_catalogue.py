@@ -77,6 +77,12 @@ DECLARED_CATALOGUE: tuple[tuple[str, tuple[str, ...]], ...] = (
     ),
 )
 
+# Fixtures that exercise a constraint must build their own rows, and the seed migration already
+# holds every name in the table above, so these four are deliberately outside it.
+UNDECLARED_CATEGORY = "Perícia Ambiental"
+UNDECLARED_SERVICE = "Laudo de Impacto"
+ANOTHER_UNDECLARED_SERVICE = "Parecer Técnico"
+
 DECLARED_CATEGORIES = [category for category, _ in DECLARED_CATALOGUE]
 DECLARED_PAIRS = [
     (category, service) for category, services in DECLARED_CATALOGUE for service in services
@@ -106,22 +112,22 @@ def _reads(captured: Any) -> int:
 
 def test_a_category_persists_its_name_position_and_active_flag() -> None:
     """Foundation section 3.1: the catalogue is data in two tables, not code."""
-    ServiceCategory.objects.create(name="Geotecnologias", position=2)
+    ServiceCategory.objects.create(name=UNDECLARED_CATEGORY, position=99)
 
-    stored = ServiceCategory.objects.get(name="Geotecnologias")
+    stored = ServiceCategory.objects.get(name=UNDECLARED_CATEGORY)
 
-    assert stored.position == 2
+    assert stored.position == 99
     assert stored.is_active is True
 
 
 def test_a_catalogue_entry_persists_its_category_name_position_and_active_flag() -> None:
     """Foundation section 3.1 rule 1: a service record references the catalogue service, and the
     category it hangs from is navigation."""
-    category = a_category("Geotecnologias", position=2)
+    category = a_category(UNDECLARED_CATEGORY, position=99)
 
-    CatalogService.objects.create(category=category, name="Georreferenciamento", position=1)
+    CatalogService.objects.create(category=category, name=UNDECLARED_SERVICE, position=1)
 
-    stored = CatalogService.objects.get(name="Georreferenciamento")
+    stored = CatalogService.objects.get(name=UNDECLARED_SERVICE)
     assert stored.category == category
     assert stored.position == 1
     assert stored.is_active is True
@@ -137,47 +143,54 @@ def test_a_catalogue_entry_reserves_the_identifier_ecobalance_will_assign_it() -
     assert CatalogService.objects.get(pk=entry.pk).ecobalance_service_id == 42
 
 
-def test_the_reserved_identifier_is_empty_until_the_backfill_runs() -> None:
-    """ADR 0005: the column is null in every seeded row and stays null until Ecobalance owns it,
-    so two unmapped rows must not collide with each other."""
-    category = a_category("Geotecnologias", position=2)
+def test_two_unmapped_catalogue_entries_do_not_collide_with_each_other() -> None:
+    """ADR 0005: the reserved column is unique when set, so the many rows that carry no
+    Ecobalance identifier yet must coexist rather than compete for one empty value."""
+    category = a_category(UNDECLARED_CATEGORY, position=99)
 
-    CatalogService.objects.create(category=category, name="Georreferenciamento", position=1)
-    CatalogService.objects.create(category=category, name="Sensoriamento Remoto", position=2)
+    CatalogService.objects.create(category=category, name=UNDECLARED_SERVICE, position=1)
+    CatalogService.objects.create(category=category, name=ANOTHER_UNDECLARED_SERVICE, position=2)
 
-    assert CatalogService.objects.filter(ecobalance_service_id=None).count() == 2
+    unmapped = CatalogService.objects.filter(category=category, ecobalance_service_id=None)
+    assert unmapped.count() == 2
+
+
+def test_the_seeded_catalogue_carries_no_ecobalance_identifier_yet() -> None:
+    """ADR 0005: the column is null in all fifteen rows on delivery and stays null until
+    Ecobalance's catalog package exists; the backfill is a later command, not a redesign."""
+    assert CatalogService.objects.exclude(ecobalance_service_id=None).count() == 0
 
 
 def test_two_catalogue_entries_cannot_claim_one_ecobalance_identifier() -> None:
     """Foundation section 3.1 rule 4: the reserved identifier maps one row to one row, or the
     later join produces duplicates instead of a backfill."""
-    category = a_category("Geotecnologias", position=2)
+    category = a_category(UNDECLARED_CATEGORY, position=99)
     CatalogService.objects.create(
-        category=category, name="Georreferenciamento", position=1, ecobalance_service_id=7
+        category=category, name=UNDECLARED_SERVICE, position=1, ecobalance_service_id=7
     )
 
     with pytest.raises(IntegrityError):
         CatalogService.objects.create(
-            category=category, name="Sensoriamento Remoto", position=2, ecobalance_service_id=7
+            category=category, name=ANOTHER_UNDECLARED_SERVICE, position=2, ecobalance_service_id=7
         )
 
 
 def test_two_categories_cannot_share_a_name() -> None:
     """Foundation section 3.1: the catalogue is a fixed vocabulary, and two menus with one name
     are the ambiguity it exists to remove."""
-    ServiceCategory.objects.create(name="Geotecnologias", position=2)
+    ServiceCategory.objects.create(name=UNDECLARED_CATEGORY, position=99)
 
     with pytest.raises(IntegrityError):
-        ServiceCategory.objects.create(name="Geotecnologias", position=9)
+        ServiceCategory.objects.create(name=UNDECLARED_CATEGORY, position=98)
 
 
 def test_two_services_cannot_share_a_name_inside_one_category() -> None:
     """Foundation section 3.1 rule 3: a name is unique inside its category."""
-    category = a_category("Geotecnologias", position=2)
-    CatalogService.objects.create(category=category, name="Georreferenciamento", position=1)
+    category = a_category(UNDECLARED_CATEGORY, position=99)
+    CatalogService.objects.create(category=category, name=UNDECLARED_SERVICE, position=1)
 
     with pytest.raises(IntegrityError):
-        CatalogService.objects.create(category=category, name="Georreferenciamento", position=2)
+        CatalogService.objects.create(category=category, name=UNDECLARED_SERVICE, position=2)
 
 
 def test_one_service_name_is_free_to_repeat_across_two_categories() -> None:

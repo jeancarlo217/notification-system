@@ -174,6 +174,71 @@ def test_a_name_that_normalizes_to_empty_is_a_validation_error_and_not_a_row(
     assert Submitter.objects.count() == before
 
 
+def test_a_refused_registration_creates_no_record_and_no_submitter(client: Client) -> None:
+    """ADR 0006: validation answers whether the input is acceptable and writes nothing. A form
+    that mints a row while validating mints it for submissions it then refuses, and the person
+    is left in the suggestion list forever having entered nothing."""
+    before = Submitter.objects.count()
+
+    response = client.post(
+        reverse("service-create"),
+        registration_payload(submitter="Marina Nogueira", due_date="amanha"),
+    )
+
+    assert response.status_code == 200
+    assert Service.objects.count() == 0
+    assert Submitter.objects.count() == before
+
+
+def test_an_accepted_registration_creates_the_record_and_the_person_together(
+    client: Client,
+) -> None:
+    """ADR 0006: save writes, so a person and the first record they entered appear together or
+    not at all."""
+    before = Submitter.objects.count()
+
+    _register(client, "Marina Nogueira")
+
+    created = Submitter.objects.get(normalized_name=normalize_person_name("Marina Nogueira"))
+    assert Submitter.objects.count() == before + 1
+    assert Service.objects.get().submitter == created
+
+
+def test_a_submitter_saved_without_a_key_derives_it_from_the_display_name() -> None:
+    """I8 and ADR 0006: the key is a property of the table, so it cannot depend on which door
+    the row came through. An administrator adding a person by hand cannot leave it blank, and a
+    blank key would let the next such row collide with them."""
+    submitter = Submitter.objects.create(display_name="Marina  NOGUEIRA")
+
+    submitter.refresh_from_db()
+
+    assert submitter.normalized_name == normalize_person_name("Marina Nogueira")
+
+
+def test_correcting_a_display_name_recomputes_the_identity_key() -> None:
+    """ADR 0006: correcting a display name recomputes the key, so a row an administrator
+    repaired still resolves for the name it now shows."""
+    submitter = a_submitter("Marina Nogueira")
+
+    submitter.display_name = "Mariana Nogueira"
+    submitter.save()
+
+    submitter.refresh_from_db()
+    assert submitter.normalized_name == normalize_person_name("Mariana Nogueira")
+
+
+def test_renaming_one_person_onto_another_fails_visibly() -> None:
+    """ADR 0006: if a recomputed key collides with somebody who already exists the write fails
+    visibly, which is the honest outcome of saying two rows are one person."""
+    a_submitter("Marina Nogueira")
+    other = a_submitter("Beatriz Salles")
+
+    other.display_name = "marina  NOGUEIRA"
+
+    with pytest.raises(IntegrityError):
+        other.save()
+
+
 def test_deleting_a_submitter_a_record_points_at_is_refused() -> None:
     """ADR 0006: a submitter who leaves the company is deactivated, never deleted, because
     records point at them and a cascade would take the deadlines with the person."""
