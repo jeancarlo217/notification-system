@@ -10,5 +10,54 @@ services:
       - data:/data
     command: sh -c "python manage.py migrate --noinput && gunicorn deadliner.wsgi --bind 0.0.0.0:8000"
 
+  # Evolution API and its own dependencies (foundation section 4, OQ-1). Opaque to the
+  # application: web talks to it only through the provider adapter (B8).
+  evolution:
+    image: evoapicloud/evolution-api:v2.3.7
+    restart: unless-stopped
+    depends_on:
+      - evolution-postgres
+      - evolution-redis
+    ports:
+      - "127.0.0.1:8080:8080"
+    volumes:
+      - evolution_instances:/evolution/instances
+    environment:
+      SERVER_URL: ${EVOLUTION_SERVER_URL:-http://localhost:8080}
+      AUTHENTICATION_API_KEY: ${EVOLUTION_API_KEY:?set EVOLUTION_API_KEY in .env}
+      AUTHENTICATION_EXPOSE_IN_FETCH_INSTANCES: "true"
+      DATABASE_PROVIDER: postgresql
+      DATABASE_CONNECTION_URI: postgresql://evolution:${EVOLUTION_DB_PASSWORD:?set EVOLUTION_DB_PASSWORD in .env}@evolution-postgres:5432/evolution?schema=public
+      DATABASE_CONNECTION_CLIENT_NAME: evolution
+      CACHE_REDIS_ENABLED: "true"
+      CACHE_REDIS_URI: redis://evolution-redis:6379/0
+      CACHE_REDIS_PREFIX_KEY: evolution
+      CACHE_LOCAL_ENABLED: "false"
+      CONFIG_SESSION_PHONE_CLIENT: Vale Verde Ambiental
+      DEL_INSTANCE: "false"
+      TELEMETRY_ENABLED: "false"
+      LANGUAGE: pt-BR
+      LOG_LEVEL: ERROR,WARN,INFO
+
+  evolution-postgres:
+    image: postgres:15
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: evolution
+      POSTGRES_USER: evolution
+      POSTGRES_PASSWORD: ${EVOLUTION_DB_PASSWORD:?set EVOLUTION_DB_PASSWORD in .env}
+    volumes:
+      - evolution_postgres:/var/lib/postgresql/data
+
+  evolution-redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - evolution_redis:/data
+
 volumes:
   data:
+  evolution_instances:
+  evolution_postgres:
+  evolution_redis:
