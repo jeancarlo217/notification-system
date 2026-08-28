@@ -49,7 +49,7 @@ and redaction of the segment on the logging path. Trace: foundation section 6, I
 timestamp and record id, bound once on a shared path, with correlation keys on request and run.
 Trace: foundation section 6, I6, the observability rule in section 8.
 
-**B7. Alert engine.** `todo`. The pure schedule computation, the daily management command, the
+**B7. Alert engine.** `doing`. Started 2026-08-28 by developer B on branch `b7-alert-engine`. The pure schedule computation, the daily management command, the
 catch-up rule, the provider interface with its test fake, and alert states a human can see, including
 failed. This is the heart of the product and carries the bulk of the tests. Trace: foundation
 sections 2 and 5, I1, I2, I3.
