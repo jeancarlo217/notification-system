@@ -13,6 +13,8 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 import os
 from pathlib import Path
 
+from deadliner.config import load_config
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -20,13 +22,20 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
+# The single boundary between this project and its environment (backlog B2). Every value below
+# is read from here, and nothing else in the project touches os.environ.
+_config = load_config(os.environ)
+
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.environ["DJANGO_SECRET_KEY"]
+SECRET_KEY = _config.django.secret_key
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.environ.get("DJANGO_DEBUG", "0") == "1"
+DEBUG = _config.django.debug
 
-ALLOWED_HOSTS = [h for h in os.environ.get("DJANGO_ALLOWED_HOSTS", "").split(",") if h]
+ALLOWED_HOSTS = list(_config.django.allowed_hosts)
+
+# The business configuration, reached from application code through config.get_config() (I4).
+DEADLINER = _config.deadliner
 
 
 # Application definition
@@ -77,7 +86,7 @@ WSGI_APPLICATION = "deadliner.wsgi.application"
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / os.environ.get("DJANGO_DATABASE_PATH", "db.sqlite3"),
+        "NAME": BASE_DIR / _config.django.database_path,
     }
 }
 
@@ -106,7 +115,7 @@ AUTH_PASSWORD_VALIDATORS = [
 
 LANGUAGE_CODE = "en-us"
 
-TIME_ZONE = "UTC"
+TIME_ZONE = _config.deadliner.timezone.key
 
 USE_I18N = True
 
