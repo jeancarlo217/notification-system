@@ -4,25 +4,30 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}Prazos{% endblock %} | Vale Verde Ambiental</title>
-  <style>
-    body { font-family: system-ui, sans-serif; max-width: 60rem; margin: 2rem auto; padding: 0 1rem; color: #1f2933; }
-    h1 { font-size: 1.5rem; }
-    table { border-collapse: collapse; width: 100%; }
-    th, td { text-align: left; padding: 0.5rem; border-bottom: 1px solid #d9dde3; }
-    form.inline { display: inline; }
-    label { display: block; margin-top: 1rem; font-weight: 600; }
-    input { padding: 0.4rem; font-size: 1rem; }
-    button, a.button { margin-top: 1rem; padding: 0.4rem 0.9rem; font-size: 1rem; cursor: pointer; }
-    .errorlist { color: #b42318; list-style: none; padding: 0; margin: 0.25rem 0 0; }
-    .empty { color: #52606d; }
-  </style>
+  {% include "core/_styles.html" %}
 </head>
 <body>
-  <header>
-    <h1><a href="{% url 'service-list' %}">Prazos de serviços</a></h1>
+  <a class="skip-link" href="#conteudo">Ir para o conteúdo</a>
+  <header class="topbar">
+    <div class="topbar__inner">
+      <a class="brand" href="{% url 'service-list' %}">
+        <span class="brand__mark" aria-hidden="true">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+               stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 3.5c4.2 3 6.5 6.2 6.5 10.1A6.5 6.5 0 0 1 12 20.5a6.5 6.5 0 0 1-6.5-6.9C5.5 9.7 7.8 6.5 12 3.5z"/>
+            <path d="M12 20.5V8.5"/>
+          </svg>
+        </span>
+        <span class="brand__text">
+          <span class="brand__title">Prazos de serviços</span>
+          <span class="brand__org">Vale Verde Ambiental</span>
+        </span>
+      </a>
+    </div>
   </header>
-  <main>
+  <main class="shell" id="conteudo">
     {% block content %}{% endblock %}
   </main>
+  {% include "core/_scripts.html" %}
 </body>
 </html>

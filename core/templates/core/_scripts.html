@@ -1,0 +1,444 @@
+{% comment %}
+The enhancement layer, inline for the same reason as the styles: gunicorn serves no static files
+in the Compose stack, so an external script would be a 404 in production.
+
+Everything here is progressive. The combobox enhances a native select or a native input plus a
+datalist, and the value posted is the one the native control already carried, so the form works
+byte for byte the same with the script blocked. The textarea grows as it is typed into and stays a
+plain resizable textarea without it. Every string a person reads comes from a data attribute set
+in a template, never from a literal here.
+{% endcomment %}
+<script>
+{% verbatim %}
+(function () {
+  "use strict";
+
+  var TEXTAREA_MAX_HEIGHT = 480;
+  var LISTBOX_MAX_HEIGHT = 288;
+  var LISTBOX_MIN_HEIGHT = 96;
+  var LISTBOX_GAP = 6;
+  var sequence = 0;
+
+  function normalize(text) {
+    return String(text)
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .trim();
+  }
+
+  function readOptions(root, creatable) {
+    var source = creatable ? root.querySelector("datalist") : root.querySelector("select");
+    var options = [];
+    if (!source) {
+      return options;
+    }
+    for (var index = 0; index < source.options.length; index += 1) {
+      var option = source.options[index];
+      var label = creatable ? option.label || option.value : option.text;
+      // The empty choice is the placeholder of a select, not something to offer in the list.
+      if (option.value === "" && !creatable) {
+        continue;
+      }
+      var parent = option.parentNode;
+      options.push({
+        value: option.value,
+        label: label,
+        group: parent && parent.tagName === "OPTGROUP" ? parent.label : "",
+        search: normalize(label + " " + option.value)
+      });
+    }
+    return options;
+  }
+
+  function enhance(root) {
+    var creatable = root.getAttribute("data-combobox") === "creatable";
+    var native = creatable ? root.querySelector("input") : root.querySelector("select");
+    var control = root.querySelector(".combobox__control");
+    if (!native || !control || root.classList.contains("combobox--enhanced")) {
+      return;
+    }
+
+    var options = readOptions(root, creatable);
+    var matches = options.slice();
+    var activeIndex = -1;
+    var pointerHeld = false;
+
+    sequence += 1;
+    var baseId = native.id || (native.name || "combobox") + "-" + sequence;
+    var listboxId = baseId + "-listbox";
+    var input = creatable ? native : document.createElement("input");
+
+    if (creatable) {
+      input.removeAttribute("list");
+    } else {
+      input.type = "text";
+      input.className = "combobox__input";
+      input.value = selectedLabel();
+      if (root.getAttribute("data-placeholder")) {
+        input.placeholder = root.getAttribute("data-placeholder");
+      }
+      // The rendered label points at the select by id, and the select is about to be hidden, so
+      // the id moves to the control a person actually sees, clicks and types into.
+      native.id = baseId + "-native";
+      input.id = baseId;
+      if (native.required) {
+        // A required control that is display:none makes the browser refuse the submission and
+        // then fail to focus what is wrong, so the requirement moves to the visible control.
+        native.required = false;
+        input.required = true;
+      }
+      control.insertBefore(input, control.firstChild);
+    }
+
+    input.setAttribute("role", "combobox");
+    input.setAttribute("aria-expanded", "false");
+    input.setAttribute("aria-controls", listboxId);
+    input.setAttribute("aria-autocomplete", "list");
+    input.setAttribute("aria-haspopup", "listbox");
+    input.setAttribute("autocomplete", "off");
+
+    var listbox = document.createElement("ul");
+    listbox.id = listboxId;
+    listbox.className = "combobox__listbox";
+    listbox.setAttribute("role", "listbox");
+    listbox.hidden = true;
+    root.appendChild(listbox);
+    root.classList.add("combobox--enhanced");
+
+    function currentValue() {
+      return creatable ? input.value : native.value;
+    }
+
+    function selectedLabel() {
+      if (creatable) {
+        return input.value;
+      }
+      var option = native.options[native.selectedIndex];
+      return option && option.value !== "" ? option.text : "";
+    }
+
+    function hasEmptyChoice() {
+      for (var index = 0; index < native.options.length; index += 1) {
+        if (native.options[index].value === "") {
+          return true;
+        }
+      }
+      return false;
+    }
+
+    function render(query) {
+      var needle = normalize(query);
+      matches = needle
+        ? options.filter(function (option) {
+            return option.search.indexOf(needle) !== -1;
+          })
+        : options.slice();
+
+      listbox.textContent = "";
+      if (matches.length === 0) {
+        var empty = document.createElement("li");
+        empty.className = "combobox__empty";
+        empty.setAttribute("role", "presentation");
+        empty.textContent = root.getAttribute("data-empty-text") || "";
+        listbox.appendChild(empty);
+        return;
+      }
+
+      var chosen = normalize(currentValue());
+      var container = listbox;
+      var openGroup = null;
+      matches.forEach(function (option, index) {
+        if (option.group !== openGroup) {
+          openGroup = option.group;
+          container = option.group ? startGroup(option.group, index) : listbox;
+        }
+        var item = document.createElement("li");
+        item.id = listboxId + "-option-" + index;
+        item.className = "combobox__option";
+        item.setAttribute("role", "option");
+        item.setAttribute("aria-selected", normalize(option.value) === chosen ? "true" : "false");
+        item.textContent = option.label;
+        item.addEventListener("mousedown", function (event) {
+          // Selecting must not blur the input first, or close() would commit the typed text
+          // before the click on the option is ever delivered.
+          event.preventDefault();
+          choose(index);
+          close();
+        });
+        item.addEventListener("mousemove", function () {
+          setActive(index);
+        });
+        container.appendChild(item);
+      });
+    }
+
+    function startGroup(label, index) {
+      var holder = document.createElement("li");
+      holder.setAttribute("role", "presentation");
+      var heading = document.createElement("span");
+      heading.className = "combobox__group";
+      heading.id = listboxId + "-group-" + index;
+      heading.textContent = label;
+      var items = document.createElement("ul");
+      items.className = "combobox__group-items";
+      items.setAttribute("role", "group");
+      items.setAttribute("aria-labelledby", heading.id);
+      holder.appendChild(heading);
+      holder.appendChild(items);
+      listbox.appendChild(holder);
+      return items;
+    }
+
+    function reveal(item) {
+      var top = item.offsetTop;
+      var bottom = top + item.offsetHeight;
+      if (top < listbox.scrollTop) {
+        listbox.scrollTop = top;
+      } else if (bottom > listbox.scrollTop + listbox.clientHeight) {
+        listbox.scrollTop = bottom - listbox.clientHeight;
+      }
+    }
+
+    function setActive(index) {
+      var items = listbox.querySelectorAll(".combobox__option");
+      activeIndex = index >= 0 && index < items.length ? index : -1;
+      for (var position = 0; position < items.length; position += 1) {
+        items[position].setAttribute("data-active", position === activeIndex ? "true" : "false");
+      }
+      if (activeIndex === -1) {
+        input.removeAttribute("aria-activedescendant");
+        return;
+      }
+      input.setAttribute("aria-activedescendant", items[activeIndex].id);
+      reveal(items[activeIndex]);
+    }
+
+    function indexOfSelected() {
+      var chosen = normalize(currentValue());
+      if (chosen !== "") {
+        for (var index = 0; index < matches.length; index += 1) {
+          if (normalize(matches[index].value) === chosen) {
+            return index;
+          }
+        }
+      }
+      return matches.length ? 0 : -1;
+    }
+
+    function place() {
+      var rect = control.getBoundingClientRect();
+      var below = window.innerHeight - rect.bottom - LISTBOX_GAP;
+      var above = rect.top - LISTBOX_GAP;
+      var flip = below < 160 && above > below;
+      var room = Math.max(LISTBOX_MIN_HEIGHT, Math.min(LISTBOX_MAX_HEIGHT, flip ? above : below));
+
+      listbox.style.left = rect.left + "px";
+      listbox.style.width = rect.width + "px";
+      listbox.style.maxHeight = room + "px";
+      if (flip) {
+        listbox.style.top = "auto";
+        listbox.style.bottom = window.innerHeight - rect.top + LISTBOX_GAP + "px";
+      } else {
+        listbox.style.bottom = "auto";
+        listbox.style.top = rect.bottom + LISTBOX_GAP + "px";
+      }
+    }
+
+    function open(query, where) {
+      render(query);
+      if (listbox.hidden) {
+        listbox.hidden = false;
+        input.setAttribute("aria-expanded", "true");
+        window.addEventListener("scroll", place, true);
+        window.addEventListener("resize", place);
+      }
+      place();
+      if (where === "selected") {
+        setActive(indexOfSelected());
+      } else if (where === "last") {
+        setActive(matches.length - 1);
+      } else {
+        setActive(matches.length ? 0 : -1);
+      }
+    }
+
+    function close() {
+      if (listbox.hidden) {
+        return;
+      }
+      listbox.hidden = true;
+      input.setAttribute("aria-expanded", "false");
+      input.removeAttribute("aria-activedescendant");
+      activeIndex = -1;
+      window.removeEventListener("scroll", place, true);
+      window.removeEventListener("resize", place);
+      commit();
+    }
+
+    function commit() {
+      if (creatable) {
+        return;
+      }
+      var typed = normalize(input.value);
+      if (typed === "") {
+        if (hasEmptyChoice()) {
+          native.value = "";
+        } else {
+          input.value = selectedLabel();
+        }
+        return;
+      }
+      var found = null;
+      for (var index = 0; index < options.length; index += 1) {
+        if (normalize(options[index].label) === typed) {
+          found = options[index];
+          break;
+        }
+      }
+      if (found) {
+        native.value = found.value;
+        input.value = found.label;
+      } else {
+        input.value = selectedLabel();
+      }
+    }
+
+    function choose(index) {
+      var option = matches[index];
+      if (!option) {
+        return;
+      }
+      if (creatable) {
+        input.value = option.value;
+      } else {
+        native.value = option.value;
+        input.value = option.label;
+      }
+      native.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+
+    function move(step) {
+      if (matches.length === 0) {
+        return;
+      }
+      var next = activeIndex + step;
+      if (next < 0) {
+        next = 0;
+      }
+      if (next > matches.length - 1) {
+        next = matches.length - 1;
+      }
+      setActive(next);
+    }
+
+    input.addEventListener("input", function () {
+      open(input.value, "first");
+    });
+
+    input.addEventListener("keydown", function (event) {
+      var key = event.key;
+      if (key === "ArrowDown" || key === "ArrowUp") {
+        event.preventDefault();
+        if (listbox.hidden) {
+          open("", key === "ArrowDown" ? "selected" : "last");
+        } else {
+          move(key === "ArrowDown" ? 1 : -1);
+        }
+      } else if (key === "Home" || key === "End") {
+        if (!listbox.hidden) {
+          event.preventDefault();
+          setActive(key === "Home" ? 0 : matches.length - 1);
+        }
+      } else if (key === "Enter") {
+        if (!listbox.hidden) {
+          event.preventDefault();
+          if (activeIndex >= 0) {
+            choose(activeIndex);
+          }
+          close();
+        }
+      } else if (key === "Escape") {
+        if (!listbox.hidden) {
+          event.preventDefault();
+          event.stopPropagation();
+          close();
+        }
+      } else if (key === "Tab") {
+        close();
+      }
+    });
+
+    control.addEventListener("mousedown", function () {
+      pointerHeld = true;
+    });
+
+    control.addEventListener("click", function () {
+      if (listbox.hidden) {
+        open("", "selected");
+      } else {
+        close();
+      }
+      pointerHeld = false;
+      input.focus();
+    });
+
+    input.addEventListener("focus", function () {
+      if (!pointerHeld) {
+        open("", "selected");
+      }
+    });
+
+    input.addEventListener("blur", function () {
+      pointerHeld = false;
+      close();
+    });
+  }
+
+  function autoGrow(textarea) {
+    var manual = false;
+    var applied = 0;
+
+    function grow() {
+      if (manual) {
+        return;
+      }
+      // Measured from zero, not from auto: at auto the height is whatever the rows attribute
+      // asks for, so scrollHeight would report the empty box rather than the text in it.
+      var borders = textarea.offsetHeight - textarea.clientHeight;
+      textarea.style.height = "0px";
+      var wanted = Math.min(textarea.scrollHeight + borders, TEXTAREA_MAX_HEIGHT);
+      textarea.style.height = wanted + "px";
+      applied = textarea.offsetHeight;
+    }
+
+    textarea.addEventListener("input", grow);
+    textarea.addEventListener("mouseup", function () {
+      // A drag on the resize handle ends here with a height grow() did not set: the person asked
+      // for a size, so the script stops arguing with them.
+      if (applied && Math.abs(textarea.offsetHeight - applied) > 1) {
+        manual = true;
+      }
+    });
+    grow();
+  }
+
+  function init() {
+    var comboboxes = document.querySelectorAll("[data-combobox]");
+    for (var index = 0; index < comboboxes.length; index += 1) {
+      enhance(comboboxes[index]);
+    }
+    var textareas = document.querySelectorAll("textarea");
+    for (var position = 0; position < textareas.length; position += 1) {
+      autoGrow(textareas[position]);
+    }
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", init);
+  } else {
+    init();
+  }
+})();
+{% endverbatim %}
+</script>
