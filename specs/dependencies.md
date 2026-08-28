@@ -103,7 +103,22 @@ package was added.
 | `logging.Filter` placement | A filter on a logger runs only for records created by that exact logger, never for records propagated from a child, so redaction lives on the handler where every record passes. Mutating `record.msg` requires clearing `record.args`, or the handler interpolates a second time against a string that no longer carries the placeholders. |
 | Compose healthcheck | `python:3.13-slim` carries no curl or wget, so the healthcheck probes the endpoint with `python -c` and `urllib.request`. It requests the loopback address, which `DJANGO_ALLOWED_HOSTS` must therefore list or Django answers 400 and the container reads as unhealthy. |
 
+## Runtime environment, confirmed during B6 (2026-08-28)
+
+Confirmed against Cloudflare's own documentation and the pinned Django source, never from memory.
+No new package was added: the structured formatter is the standard library.
+
+| Piece | Finding |
+| --- | --- |
+| Cloudflare forwarding headers | `CF-Connecting-IP` carries the visitor address (`True-Client-IP` is the Enterprise alias). `CF-IPCountry` carries a two letter ISO 3166-1 code, plus `XX` for a client with no country data and `T1` for the Tor network, and it is added only when the "Add visitor location headers" Managed Transform is enabled on the zone. I6 is therefore untestable in production until that transform is on, which belongs to OQ-2. Source: Cloudflare fundamentals, HTTP request headers. |
+| Django logs a 4xx outside the middleware chain | `BaseHandler.get_response` in 5.2.17 calls `log_response` after `self._middleware_chain(request)` returns, so a middleware that binds a correlation key and resets it on the way out has already reset it when the framework writes `Not Found`. The correlated line about a request is the one the application writes itself, before the reset. |
+| `django.request` records carry the request object | `log_response` passes `extra={"status_code": ..., "request": request}`. A structured formatter renders that object through `str()`, which prints the full path, so redaction has to check values in the form they will be written and not only strings (I7). |
+| `contextvars` under the sync stack | The binding survives across the middleware chain and the view in the same thread, and a reset in `finally` keeps a line written after the response from carrying a stale address. Gunicorn sync workers handle one request at a time per worker, so no cross request bleed exists to defend against beyond that reset. |
+
 ## Log
+
+2026-08-28: B6 added the runtime environment section above; no pin changed and no package was
+added.
 
 2026-08-28: B5 added the runtime environment section above; no pin changed and no package was
 added.

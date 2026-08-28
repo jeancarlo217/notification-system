@@ -141,6 +141,18 @@ def test_the_segment_is_redacted_whichever_logger_carries_it(
     assert "/servicos/novo/" in stream.getvalue()
 
 
+def test_a_structured_field_carrying_the_segment_is_redacted_too(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """I7: a request path in a structured key leaks exactly what the message would have."""
+    stream = _capture_every_configured_stream(monkeypatch)
+
+    logging.getLogger("core").warning("requisicao", extra={"path": f"/{_segment()}/servicos/"})
+
+    assert _segment() not in stream.getvalue()
+    assert "/servicos/" in stream.getvalue()
+
+
 def test_a_line_carrying_no_segment_is_written_unchanged(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

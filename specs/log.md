@@ -62,3 +62,11 @@ never appended over.
 
 ## [2026-08-28] finding | The owner named the production host as a VPS running the stack with gunicorn (2026-08-28). That is half of OQ-2: the Cloudflare mechanism, Tunnel or proxied DNS, is still unanswered, so OQ-2 stays open and B11 stays blocked.
 
+## [2026-08-28] decision | B6 delivered test first on branch b6-audit-logging by developer A, shape in adr 0004: one JSON object per line from `deadliner/log_format.py`; `RequestContextMiddleware` first in the chain binds a request id plus the Cloudflare address and country into a `ContextVar`, `LogContextFilter` copies whatever is bound onto every record at the handler, and `send_alerts` binds a run id the same way; `core/audit.py` writes one `service_submission` entry per accepted write from the three writing views (I6); a refused form and a page view write none. 11 new tests, 151 total.
+
+## [2026-08-28] decision | The redaction filter of adr 0003 now checks every value a record carries in the form the formatter will write it, not only the message, because structured logging renders non strings through `str()` and Django's `django.request` records carry the request object with the full path on it. The B5 test that reads the real log stream caught the regression before it was committed (I7).
+
+## [2026-08-28] finding | Confirmed for B6 and recorded in specs/dependencies.md: Cloudflare sends `CF-Connecting-IP` and `CF-IPCountry`, the latter only when the "Add visitor location headers" Managed Transform is enabled, with `XX` for unknown and `T1` for Tor; Django 5.2.17 calls `log_response` for a 4xx after the middleware chain has exited, so the framework's own `Not Found` line cannot carry a correlation key and the application writes its own request line instead.
+
+## [2026-08-28] trap | B6 touched `core/engine.py` and `core/management/commands/send_alerts.py`, which belong to the engine track, because the item asks for correlation keys on the run as well as the request. The B8 adapter rebases on it. Reported rather than resolved silently, per rule 3 of the parallel plan.
+

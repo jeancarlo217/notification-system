@@ -11,6 +11,7 @@ fan-out and drifts. A new ADR, or a change to one, gets a line in `specs/log.md`
 pass.
 
 `0001-configuration-boundary.md` records the shape B2 delivered, `0002-scheduler-container.md` the
-shape B9 delivered, and `0003-secret-path-and-log-redaction.md` the shape B5 delivered. Likely next
-candidate, to be written only when the work forces it: the notification provider interface and its
-Evolution adapter, after the OQ-1 spike.
+shape B9 delivered, `0003-secret-path-and-log-redaction.md` the shape B5 delivered, and
+`0004-audit-and-structured-logging.md` the shape B6 delivered. Likely next candidate, to be written
+only when the work forces it: the notification provider interface and its Evolution adapter, after
+the OQ-1 spike.
