@@ -78,14 +78,18 @@ place where truth lives), sending at registration time for future delivery (same
 
 ## 3. Data model and its frontier
 
-**Decision.** One flat record per service: client name (text), service description (text), due
-date, status (active or completed), created timestamp. No separate client table, no foreign keys
-between business entities in version 1. Alongside it, one alert record per warning attempt,
-carrying the service it belongs to, which threshold it implements, its state and its timestamps.
+**Decision.** One flat record per service: client name (text), the service chosen from the
+catalogue of section 3.1, an optional free text observation, due date, status (active or
+completed), created timestamp, and the submitter of section 6. The client is still a bare string,
+so there is still no client table. The only foreign keys a service record carries point at the two
+reference entities, the catalogue entry and the submitter; no service record points at another.
+Alongside it, one alert record per warning attempt, carrying the service it belongs to, which
+threshold it implements, its state and its timestamps.
 
 *What this buys:* the brief demands a structure simple enough to export to a spreadsheet, and a
-flat record is a spreadsheet row by construction. The form stays three fields. Migration to a
-normalized client table later is a mechanical data migration, not a redesign.
+flat record is a spreadsheet row by construction. A reference to a catalogue entry resolves to one
+column on the way out, so the promise survives the reference. Migration to a normalized client
+table later is a mechanical data migration, not a redesign.
 
 *What this costs:* the same client typed twice is two strings, with no deduplication. The future
 employee-facing WhatsApp query feature will likely want a real client entity; that is version 2
@@ -94,6 +98,70 @@ paying for version 1's simplicity, and it is the right direction to defer.
 Status is the whole lifecycle in version 1. A renewed or delivered service is marked completed by
 a human, or its due date is edited by a human. Warnings are computed only for active services.
 Recurrence and automatic renewal are non-goals (see section 10).
+
+### 3.1. The service catalogue
+
+**Decision (owner, 2026-08-28).** What a service is stops being free text and becomes a choice from
+a catalogue held in the database: a category, and a service inside it. The catalogue is the one the
+company declares in July 2026, three categories and fifteen services, reproduced in section 3.2.
+The employee picks one, and the free text that used to name the service becomes an optional
+observation beside it, for the detail the catalogue cannot express.
+
+The catalogue is data, not code. It is two tables, seeded once with the declaration below and
+edited afterwards through the administration site of section 6. It is never an enumeration of
+choices compiled into a field, because the company renames and reorders its services and each
+rename would otherwise be a schema migration. The catalogue changing often is a property of the
+business, not an accident to be designed against.
+
+Four rules the catalogue obeys, taken from the sister project Ecobalance so that the two lists can
+be joined later without a redesign:
+
+1. A service record references the catalogue service, never its category. Category is navigation,
+   and reorganising a menu must never touch a tracked deadline.
+2. Subcategory does not exist as an entity. A service that needs a contractable subdivision is born
+   as more services.
+3. A name is unique inside its category, and a service the company stops offering is deactivated,
+   never deleted, because deadlines already point at it.
+4. Each catalogue row reserves a column for the identifier Ecobalance will one day assign it, so
+   the switch from a local copy to a consumed list is a backfill rather than a rewrite.
+
+*What this buys:* a fixed vocabulary. Fifteen service names typed by two people in twelve different
+spellings are fifteen unqueryable strings, and the version 2 dashboard is impossible on top of
+them. It also makes the field a select, which is faster to fill than a text box and cannot be
+misspelled.
+
+*What this costs:* a service the catalogue does not carry cannot be registered until somebody adds
+it, which is friction on purpose. The two tables are also a copy of a list Ecobalance will
+eventually own; the reserved column of rule 4 is what keeps that copy cheap to retire.
+
+The names in the catalogue are Portuguese because they are data shown to the user, not identifiers.
+Code, keys and column names stay English, per section 12.
+
+### 3.2. The catalogue as the company declares it, July 2026
+
+| Category | Service |
+| --- | --- |
+| Regularização e Licenciamento | Licenciamentos Ambientais |
+| Regularização e Licenciamento | Cadastro Ambiental Rural (CAR) |
+| Regularização e Licenciamento | Corte de Árvores Nativas (CANI) |
+| Regularização e Licenciamento | Regularização Fundiária |
+| Regularização e Licenciamento | Ratificação: Faixa de Fronteira |
+| Regularização e Licenciamento | Outorga de Recursos Hídricos |
+| Geotecnologias | Georreferenciamento |
+| Geotecnologias | Sensoriamento Remoto |
+| Geotecnologias | Agricultura de Precisão |
+| Geotecnologias | Projetos de Drenagem |
+| Sustentabilidade e ESG | Diagnóstico Global ESG |
+| Sustentabilidade e ESG | Inventário de GEE |
+| Sustentabilidade e ESG | Levantamento de Estoque de Carbono |
+| Sustentabilidade e ESG | Planos de Descarbonização |
+| Sustentabilidade e ESG | Geração de Créditos de Carbono |
+
+This table is the business declaration of July 2026, not a production table: Ecobalance's own
+`catalog/` package does not exist yet and its 1.0 list lives only in a production database that by
+rule is not on any development disk. Its question SRV-1, asking the business to confirm the current
+categories and services, is still open there. So this table is what to build against, and a later
+correction from the business is an edit through the administration site, never a code change.
 
 ## 4. The WhatsApp integration
 
@@ -176,8 +244,23 @@ non-goal of section 10 narrows to the employee-facing application. A login form 
 path is still a login form, reachable by anyone holding the link, so its accounts belong to the
 owner and the developers and never to one employee each.
 
+**Decision (owner, 2026-08-28).** The registration form asks who is entering the record. The field
+offers the people who already registered something, starting with José Victor and Geovanna who
+enter most of them, and it also accepts a name nobody anticipated, typed as plain text and saved as
+typed. One person is one row however their name is spelled: differences of case, accent and spacing
+resolve to the same submitter, so the audit trail counts them once (I8).
+
+*What this buys:* the audit trail finally answers "who entered this" with a name. Attribution by
+network address alone told the owner which router the record came through, which is not an answer.
+
+*What this costs:* the name is a claim, not a credential. Anyone holding the link can type any
+name, including somebody else's, and two employees who genuinely share a name are one row. This is
+useful attribution, never evidential attribution, and section 10 is revised in the same pass so
+that nobody reads it as the start of user accounts.
+
 **Decision.** Every form submission is audited: a structured log entry with the submitter's IP,
-their country as reported by Cloudflare, the timestamp, and the identifier of the record touched.
+their country as reported by Cloudflare, the timestamp, the identifier of the record touched and
+the submitter it belongs to.
 The client IP and country are taken from Cloudflare's forwarding headers, which are trustworthy
 only because all traffic arrives through Cloudflare; that arrangement is part of the deployment
 contract (OQ-2).
@@ -185,8 +268,8 @@ contract (OQ-2).
 *What this buys:* the minimum observability the owner asked for, who sent what and when, without
 accounts.
 
-*What this costs:* attribution is to a network address, never to a person. The owner accepted
-that.
+*What this costs:* the address is observed and the name is asserted, and the entry carries both
+because they fail in different directions. The owner accepted that.
 
 ## 7. Export
 
@@ -254,10 +337,10 @@ credentials is untracked by construction. Scar (prior art): a committed credenti
 attempt to delete it from history.
 
 **I6. Every write is attributed.** Each form submission produces a structured audit entry with
-IP, Cloudflare-reported country, timestamp and the record identifier. Acceptance test: a POST
-carrying Cloudflare forwarding headers yields a log entry containing those four fields.
-Scar (owner decision, 2026-08-28): with no login, the audit trail is the only answer to "who
-entered this".
+IP, Cloudflare-reported country, timestamp, the record identifier and the submitter identifier.
+Acceptance test: a POST carrying Cloudflare forwarding headers yields a log entry containing those
+five fields. Scar (owner decision, 2026-08-28): with no login, the audit trail is the only answer
+to "who entered this".
 
 **I7. The link never leaks into its own logs.** The secret path segment is redacted on the
 logging path before any log line is written. Acceptance test: make a request to a secret-path
@@ -265,10 +348,21 @@ route, capture the emitted logs, assert the configured segment is absent. Scar (
 reasoning): access logs are the most copied, pasted and shipped-to-third-parties artifact a web
 app produces, and the secret would otherwise ride along.
 
+**I8. One name, one person.** Two submissions naming the same person resolve to one submitter
+record, however that name is spelled in case, accent or spacing, by construction of a uniqueness
+rule on a normalized form of the name. Acceptance test: submit once as `José Victor` and once as
+`jose  victor`; exactly one submitter row exists and both audit entries carry its identifier.
+Scar (owner decision, 2026-08-28): a free text name field with no identity behind it produces four
+spellings of one employee within a month, and an audit trail that cannot count people is not an
+audit trail.
+
 ## 10. Explicit non-goals
 
-Version 1 does not include: user accounts, roles or per-person attribution in the
-employee-facing application, whose administration site is the exception decided in section 6; a dashboard of
+Version 1 does not include: user accounts or roles in the employee-facing application, whose
+administration site is the exception decided in section 6; authenticated attribution of any kind,
+the self declared submitter name of section 6 being a claim by an anonymous visitor and never a
+login; per action attribution, since the submitter belongs to the record and an edit does not ask
+again; a dashboard of
 expiring services (named by the owner as the version 2 goal); an inbound WhatsApp API for
 employees to query open clients (a version 3 idea in the brief); recurrence or automatic renewal
 of services; multiple destination numbers; editing history or soft deletes; multi-company
@@ -331,3 +425,16 @@ that a docs audit found only in `CLAUDE.md`; the owner had proposed them and pro
 standard authentication, mounted inside the secret path segment, by owner decision. Section 10's
 non-goal on accounts now reads as the employee-facing application only. The health endpoint is still
 the single route outside the segment.
+
+2026-08-28, revision after B6, owner decision. Two changes taken together, both of which move the
+frontier section 3 drew. First, the service stops being free text and becomes a choice from the
+catalogue of section 3.1, seeded from the company's July 2026 declaration in section 3.2, with an
+optional observation beside it; the record therefore carries its first foreign key to a reference
+entity, which the original section 3 forbade, while the client stays a bare string exactly as
+decided. Second, the form asks who is entering the record, and one person is one row however their
+name is spelled, which adds I8 and widens I6 by one field. Section 10 narrows in the same pass:
+what stays out is accounts, roles and authenticated attribution, and a self declared name is none
+of those. What this buys: a queryable vocabulary and an audit trail that can count people. What
+this costs: two reference tables to maintain, a catalogue the interface must be able to edit, and a
+name that identifies without authenticating. Shapes in `specs/adr/0005-service-catalogue.md` and
+`specs/adr/0006-submitter-identity.md`; delivery is backlog B12 and B13.

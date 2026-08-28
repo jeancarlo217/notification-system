@@ -85,14 +85,52 @@ with `just gate` (ruff, `mypy --strict`, 106 tests, gitleaks) and a one-shot `do
 of the service on 2026-08-28; merged to `main` by pull request #8.
 
 **B10. CSV export.** `todo`. One button, one streamed query, one row per record. Trace: foundation
-section 7, the performance rule in section 8.
+section 7, the performance rule in section 8. The row grew on 2026-08-28: it now carries the
+category, the catalogue service, the observation and the submitter display name, reached through
+`select_related` so the constant-query promise holds (B12, B13).
 
 **B11. Deployment.** `blocked on OQ-2`. The always-on host, Cloudflare in front, the production env
 file created on the host and never in the repository. Also needs the final message wording (OQ-3),
 which can land as a config change at any point before go-live. Trace: foundation section 8, I5, I6.
+It stays the last item to run whatever else enters version 1, and B12's deleting data migration
+assumes it has not run yet.
 
-The delivery runs on the parallel plan below, decided by the owner on 2026-08-28 for two
-developers.
+**B12. Service catalogue.** `todo`. The two reference tables, `ServiceCategory` and
+`CatalogService`, seeded from the July 2026 declaration by a data migration and registered in the
+administration site; `Service.description` renamed to `notes` and made optional as a textarea; a
+required `catalog_service` foreign key with `PROTECT`; the engine, the form, the list and the admin
+reading it in a constant number of queries. Trace: foundation sections 3.1 and 3.2, I4, the
+performance rule in section 8; shape in `specs/adr/0005-service-catalogue.md`. Note the migration
+precondition recorded there: step 4 deletes rows it cannot map and is only safe while B11 has not
+shipped.
+
+**B13. Submitter identity.** `todo`. The `Submitter` model with its unique normalized name, the
+pure `normalize_person_name` in `core/identity.py`, get or create on the normalized key with first
+spelling wins, the required creatable field on the registration form seeded with José Victor and
+Geovanna, the `PROTECT` foreign key on `Service`, and `submitter_id` added to the audit entry.
+Trace: foundation section 6, I6, I8; shape in `specs/adr/0006-submitter-identity.md`.
+
+**B14. Interface refactor.** `doing (2026-08-28)`. The whole interface rebuilt responsive and
+mobile first on a Radix inspired token system, light and dark, with all styles and scripts inline
+because the container serves no static files; plus the two reusable accessible combobox widgets in
+`core/widgets.py`, one closed and one creatable, that B12 and B13 assign to their fields. Trace:
+foundation section 1 (the audience is employees on whatever device they hold), section 12 for the
+Portuguese interface.
+
+**B15. Alert state in the interface.** `todo`. The list shows, per service, which warnings were
+sent and which failed. Trace: I2, whose acceptance test in the foundation reads "the interface
+lists the alert as failed" and which B7 satisfied only at the persisted-state layer, as
+`tests/test_engine_run.py` shows; no screen displays an alert today. Opened on 2026-08-28 as a
+found gap in delivered work, not as new scope.
+
+Delivery order for the four items above, decided on 2026-08-28: B14 runs first because B12 and B13
+consume its widgets; then B12 and B13 together through one pair of windows, because they touch the
+same model, the same form and the same migration sequence, and splitting them would mean two
+conflicting migration chains over one table; B15 after them, since the list template it edits is
+settled by then.
+
+The version 1 items B1 to B11 ran on the parallel plan below, decided by the owner on 2026-08-28
+for two developers.
 
 ## Parallel plan, two developers
 
@@ -182,6 +220,11 @@ marked here after the merge. The engine track now waits only on the B8 adapter, 
 
 2026-08-28: B5 done by developer A on branch `b5-secret-path`, with ADR 0003 for the shape it
 introduced. The screens and safety track continues at B6, which extends the same `LOGGING` block.
+
+2026-08-28: B12, B13, B14 and B15 opened after the owner's revision of foundation sections 3, 6
+and 10 (catalogue instead of free text, submitter identity, I8 added, I6 widened). B14 started the
+same day. B15 records a gap found while reading delivered code, that I2's acceptance test names an
+interface that does not exist yet.
 
 2026-08-28: B6 done by developer A on branch `b6-audit-logging`, with ADR 0004. It touched
 `core/engine.py` and the `send_alerts` command to bind the run correlation keys the item asks for,
