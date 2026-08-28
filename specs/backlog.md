@@ -65,9 +65,54 @@ section 7, the performance rule in section 8.
 file created on the host and never in the repository. Also needs the final message wording (OQ-3),
 which can land as a config change at any point before go-live. Trace: foundation section 8, I5, I6.
 
-Suggested order: B1 to B7 and B10 are unblocked today and are sequenced so each leaves the suite
-green. B8's spike can run in parallel as soon as the owner wants; B11 waits on the owner naming the
-host.
+The delivery runs on the parallel plan below, decided by the owner on 2026-08-28 for two
+developers.
+
+## Parallel plan, two developers
+
+The dependency shape: after B1 everything forks from B2 (configuration) and B3 (data model), and
+from there the work splits into a **screens and safety track** (forms, secret path, audit, export)
+and an **engine track** (the daily engine, the scheduler, the WhatsApp adapter), which touch
+disjoint files. The Evolution spike depends on nothing but Docker and carries the project's biggest
+uncertainty, so it runs as early as possible.
+
+**Wave 0, immediately and in parallel with everything: the B8 spike.** A separate Compose sandbox
+delivering one real message to the company number, closing OQ-1. Either developer can run it; it
+touches no application file. The owner's answers to OQ-2 (host) and OQ-3 (wording) also belong to
+this wave, since they gate B11 and cost no code.
+
+**Wave 1, one item per developer:** developer A takes **B2**, developer B takes **B3**. Different
+files (the settings boundary versus models and migrations), no conflict.
+
+**Wave 2, one track per developer, items in order inside each track:**
+
+| Track | Developer | Items in order | Files it lives in |
+| --- | --- | --- | --- |
+| Screens and safety | A | B4, then B5, then B6, then B10 | forms, templates, views, middleware, logging config |
+| Engine | B | B7, then B9, then B8's adapter | the engine module, the management command, the provider interface and adapter |
+
+Three conflict rules that make the parallelism safe:
+
+1. **B5 and B6 stay with the same developer on purpose**: both edit the logging configuration and
+   the request middleware, and in parallel one would overwrite the other. B6 also comes after B4
+   because the audit logs form submissions.
+2. **The url configuration and the settings module are the only files both tracks touch.** Each
+   track adds its lines in its own block, and a conflict there is resolved at merge, never by
+   editing the other track's block.
+3. **The provider interface belongs to B7 and its Evolution implementation to B8.** Developer B
+   defines the interface first (it is the size of what the product needs, one operation), and the
+   adapter is written against it after the spike closes OQ-1. If the spike reveals the interface
+   needs a different shape, that is a finding reported before the adapter is written, not an edit
+   made silently.
+
+**Wave 3, together: B11.** Deployment integrates both tracks and needs OQ-2 answered; one developer
+drives the host and Cloudflare setup, the other verifies the end-to-end run against the checklist
+in the foundation's invariants.
+
+Standing rules of the plan: every item is still delivered test-first through the two windows, on
+its own branch, merged to `main` by pull request with the gate green; the critical path is
+B3, B7, B9, B11, so when in doubt the engine track has priority; and a wave does not start until
+the items it depends on are merged, not merely written.
 
 ## After version 1
 
@@ -88,3 +133,6 @@ renewal; per-person accounts and attribution; editing history.
 2026-08-28: file created, B1 to B11 and F1 to F3 opened, nothing started.
 
 2026-08-28: B1 done; uv replaced by venv and pip in its text, following the owner's revision.
+
+2026-08-28: parallel plan for two developers recorded (waves 0 to 3, two tracks, three conflict
+rules), decided by the owner.
