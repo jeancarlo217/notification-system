@@ -36,7 +36,7 @@ same values through the Compose stack on 2026-08-28.
 created at) and the alert record (service, threshold, state, timestamps) with its uniqueness rule,
 migrations generated. Trace: foundation section 3, I1. Delivered test first on branch `b3-data-model`;
 verified with `ruff check`, `ruff format --check`, `mypy` and `pytest` (13 passed) plus the gitleaks
-scan on 2026-08-28; merges to `main` by pull request.
+scan on 2026-08-28; merged to `main` by pull request #3.
 
 **B4. Registration and lifecycle.** `todo`. The three-field form, the list of records, editing a due
 date and marking a service completed. UI text in Portuguese. Trace: foundation sections 1 and 3.
@@ -84,8 +84,9 @@ and an **engine track** (the daily engine, the scheduler, the WhatsApp adapter),
 disjoint files. The Evolution spike depends on nothing but Docker and carries the project's biggest
 uncertainty, so it runs as early as possible.
 
-**Wave 0, immediately and in parallel with everything: the B8 spike.** A separate Compose sandbox
-delivering one real message to the company number, closing OQ-1. Either developer can run it; it
+**Wave 0, immediately and in parallel with everything: the B8 spike.** The Evolution services in the
+project's own `compose.yaml` (foundation section 8, one stack) delivering one real message to the
+company number, closing OQ-1. Either developer can run it; it
 touches no application file. The owner's answers to OQ-2 (host) and OQ-3 (wording) also belong to
 this wave, since they gate B11 and cost no code.
 
@@ -150,3 +151,7 @@ recipes in place; boot, pairing and the real send pending on the owner, OQ-1 sti
 
 2026-08-28: B2 done by developer A, with ADR 0001 written for the boundary it introduced. B4 to B11
 now read their configuration from `get_config()` rather than deciding a name or a format again.
+
+2026-08-28: review window over B1, B2, B3 and the B8 spike after their merge: gate green on the
+merged tree (86 tests), stale claims in CLAUDE.md and here corrected, `just setup` pinned to 3.13.
+The spike stays open on OQ-1.
