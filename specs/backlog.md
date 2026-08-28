@@ -26,9 +26,11 @@ architecture section 8, I5, the method's gates-before-code rule. Verified with `
 `just typecheck`, `just test`, `just secret-scan` and `docker compose up --build` on 2026-08-28; the
 CI workflow itself runs on the first push.
 
-**B2. Configuration surface.** `todo`. Thresholds (30, 7, 0), destination number, message template,
-secret path segment and timezone read from the environment at one boundary, with no default that is a
-real credential. Trace: I4, I5.
+**B2. Configuration surface.** `done (2026-08-28)`. Thresholds (30, 7, 0), destination number, message
+template, secret path segment and timezone read from the environment at one boundary, with no default
+in code at all, not merely no credential. Shape recorded in `specs/adr/0001-configuration-boundary.md`.
+Trace: I4, I5. Verified with `just gate` (ruff, `mypy --strict`, 74 tests, gitleaks) and by loading the
+same values through the Compose stack on 2026-08-28.
 
 **B3. Data model.** `done (2026-08-28)`. The flat service record (client, service, due date, status,
 created at) and the alert record (service, threshold, state, timestamps) with its uniqueness rule,
@@ -145,3 +147,6 @@ rules), decided by the owner.
 
 2026-08-28: B8 spike started on branch `b8-evolution-spike` (wave 0): Compose services, keys and
 recipes in place; boot, pairing and the real send pending on the owner, OQ-1 still open.
+
+2026-08-28: B2 done by developer A, with ADR 0001 written for the boundary it introduced. B4 to B11
+now read their configuration from `get_config()` rather than deciding a name or a format again.
