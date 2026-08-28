@@ -113,7 +113,8 @@ AUTH_PASSWORD_VALIDATORS = [
 # Internationalization
 # https://docs.djangoproject.com/en/5.2/topics/i18n/
 
-LANGUAGE_CODE = "en-us"
+# The interface is in Portuguese (foundation section 12); Django's own messages follow.
+LANGUAGE_CODE = "pt-br"
 
 TIME_ZONE = _config.deadliner.timezone.key
 

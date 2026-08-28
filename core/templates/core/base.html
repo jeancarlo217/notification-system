@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Prazos{% endblock %} | Vale Verde Ambiental</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 60rem; margin: 2rem auto; padding: 0 1rem; color: #1f2933; }
+    h1 { font-size: 1.5rem; }
+    table { border-collapse: collapse; width: 100%; }
+    th, td { text-align: left; padding: 0.5rem; border-bottom: 1px solid #d9dde3; }
+    form.inline { display: inline; }
+    label { display: block; margin-top: 1rem; font-weight: 600; }
+    input { padding: 0.4rem; font-size: 1rem; }
+    button, a.button { margin-top: 1rem; padding: 0.4rem 0.9rem; font-size: 1rem; cursor: pointer; }
+    .errorlist { color: #b42318; list-style: none; padding: 0; margin: 0.25rem 0 0; }
+    .empty { color: #52606d; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1><a href="{% url 'service-list' %}">Prazos de serviços</a></h1>
+  </header>
+  <main>
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>

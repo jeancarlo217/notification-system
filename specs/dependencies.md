@@ -82,7 +82,18 @@ added; every finding here is about behaviour that shaped `deadliner/config.py`.
 | gitleaks `generic-api-key` | Fires on an alphanumeric string of sixteen or more characters near the word secret, which any test of the secret path segment trips by nature. Fixtures use obviously fake low entropy values; an allowlist over the test tree would blind the C5 gate exactly where a real credential could be pasted. |
 | `just setup` on Linux | The recipe builds the virtualenv from whatever `python` is on PATH. On Fedora 44 that is 3.14, while the canon, the Dockerfile and CI are all 3.13, so the local venv was created with `python3.13` by hand. Fixed in the review window of 2026-08-28: the recipe now calls `py -3.13` on Windows and `python3.13` elsewhere. |
 
+## Runtime environment, confirmed during B4 (2026-08-28)
+
+| Piece | Finding |
+| --- | --- |
+| `forms.ModelForm[Service]` | Generic only in django-stubs; the runtime class is not subscriptable (`TypeError`). `core/forms.py` aliases it under `TYPE_CHECKING`, which keeps `mypy --strict` satisfied without `django_stubs_ext.monkeypatch()`, a development-only package that must not be imported by production code. |
+| Date input under `pt-br` | `django.utils.formats.get_format` appends the ISO formats to the locale list, so a `DateField` accepts `2026-12-25` (what an HTML date input posts) as well as `25/12/2026`. Verified in the pinned 5.2.17 source. |
+| Django's own messages in Portuguese | With `LANGUAGE_CODE = "pt-br"` the required-field error is `Este campo é obrigatório.` and the bad-date error `Informe uma data válida.`, from the pinned `pt_BR` catalogue. |
+| Choice labels and migrations | Changing a `TextChoices` label alters the field's `choices`, so the CLI generates a migration (`0002_alter_service_status`); labels are therefore a schema-level change in this project, not a template one. |
+
 ## Log
+
+2026-08-28: B4 added the runtime environment section above; no pin changed.
 
 2026-08-28: Evolution API section added by the B8 spike; OQ-1 stays open until a real message lands.
 
