@@ -1,0 +1,6 @@
+# Development and CI dependencies, pinned. Versions and findings: specs/dependencies.md
+-r requirements.txt
+django-stubs[compatible-mypy]==6.1.0
+pytest==9.1.1
+pytest-django==4.14.0
+ruff==0.16.5
