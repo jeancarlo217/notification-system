@@ -1,4 +1,4 @@
-"""B4, registration and lifecycle: the three-field form, the list, a due date edit, completion.
+"""B4, registration and lifecycle: the registration form, the list, a due date edit, completion.
 
 Traces: foundation section 1 (a form with three fields writes flat records and the audience is
 employees of one company), section 3 (status is the whole lifecycle; completing a service or
@@ -16,46 +16,50 @@ import pytest
 from django.test import Client
 from django.urls import reverse
 
+from core.forms import ServiceRegistrationForm
 from core.models import Service
+from tests.builders import DEFAULT_CATALOG_SERVICE, a_service, registration_payload
 
 pytestmark = pytest.mark.django_db
 
-REGISTRATION = {
-    "client": "Fazenda Boa Vista",
-    "description": "Renovacao de licenca ambiental",
-    "due_date": "2026-12-25",
-}
-
 
 def _registered(client_name: str = "Fazenda Boa Vista") -> Service:
-    return Service.objects.create(
-        client=client_name,
-        description="Renovacao de licenca ambiental",
-        due_date=datetime.date(2026, 12, 25),
-    )
+    return a_service(client=client_name)
 
 
 def _page(client: Client, name: str, *args: int) -> str:
     return client.get(reverse(name, args=args)).content.decode()
 
 
-def test_registering_a_service_persists_the_three_fields_as_an_active_record(
+def test_registering_a_service_persists_the_submitted_fields_as_an_active_record(
     client: Client,
 ) -> None:
-    """Foundation section 1: three fields in, one flat active record persisted."""
-    client.post(reverse("service-create"), REGISTRATION)
+    """Foundation section 1: a form in, one flat active record persisted."""
+    client.post(reverse("service-create"), registration_payload())
 
     stored = Service.objects.get()
 
     assert stored.client == "Fazenda Boa Vista"
-    assert stored.description == "Renovacao de licenca ambiental"
+    assert stored.catalog_service.name == DEFAULT_CATALOG_SERVICE
     assert stored.due_date == datetime.date(2026, 12, 25)
     assert stored.status == "active"
 
 
+def test_the_registration_form_asks_for_the_business_fields_and_the_submitter() -> None:
+    """Foundation section 3 with ADR 0005 and ADR 0006: the record is the client, the catalogue
+    entry, the observation, the due date and who entered it, and nothing else is an input."""
+    assert set(ServiceRegistrationForm().fields) == {
+        "client",
+        "catalog_service",
+        "notes",
+        "due_date",
+        "submitter",
+    }
+
+
 def test_a_successful_registration_returns_to_the_list(client: Client) -> None:
     """B4: after registering, the employee sees the list the new record now belongs to."""
-    response = client.post(reverse("service-create"), REGISTRATION)
+    response = client.post(reverse("service-create"), registration_payload())
 
     assert response.status_code == 302
     assert response.headers["Location"] == reverse("service-list")
@@ -65,7 +69,7 @@ def test_a_registration_missing_a_field_creates_nothing_and_shows_the_form_again
     client: Client,
 ) -> None:
     """B4: an incomplete submission is not a record; the form comes back for correction."""
-    response = client.post(reverse("service-create"), {**REGISTRATION, "description": ""})
+    response = client.post(reverse("service-create"), registration_payload(catalog_service=""))
 
     assert response.status_code == 200
     assert Service.objects.count() == 0
@@ -73,7 +77,7 @@ def test_a_registration_missing_a_field_creates_nothing_and_shows_the_form_again
 
 def test_a_registration_with_an_unreadable_date_creates_nothing(client: Client) -> None:
     """B4: a due date that is not a date cannot be warned about, so it is refused."""
-    response = client.post(reverse("service-create"), {**REGISTRATION, "due_date": "amanha"})
+    response = client.post(reverse("service-create"), registration_payload(due_date="amanha"))
 
     assert response.status_code == 200
     assert Service.objects.count() == 0
@@ -81,26 +85,28 @@ def test_a_registration_with_an_unreadable_date_creates_nothing(client: Client) 
 
 def test_a_field_error_is_reported_in_portuguese(client: Client) -> None:
     """Foundation section 12: the interface, errors included, speaks Portuguese."""
-    response = client.post(reverse("service-create"), {**REGISTRATION, "client": ""})
+    response = client.post(reverse("service-create"), registration_payload(client=""))
 
     assert "Este campo é obrigatório." in response.content.decode()
 
 
-def test_registration_cannot_set_the_status_because_the_form_has_three_fields(
+def test_registration_cannot_set_the_status_because_the_form_does_not_ask_for_it(
     client: Client,
 ) -> None:
     """Foundation section 3: completion is a later human action, never a registration input."""
-    client.post(reverse("service-create"), {**REGISTRATION, "status": "completed"})
+    client.post(reverse("service-create"), registration_payload(status="completed"))
 
     assert Service.objects.get().status == "active"
 
 
-def test_the_registration_form_labels_its_three_fields_in_portuguese(client: Client) -> None:
-    """Foundation section 12: the employee reads Cliente, Servico and Data de vencimento."""
+def test_the_registration_form_labels_its_fields_in_portuguese(client: Client) -> None:
+    """Foundation section 12: the employee reads Cliente, Servico, Observacao and Data de
+    vencimento."""
     page = _page(client, "service-create")
 
     assert "Cliente" in page
     assert "Serviço" in page
+    assert "Observação" in page
     assert "Data de vencimento" in page
 
 
@@ -113,7 +119,7 @@ def test_the_list_shows_every_registered_service(client: Client) -> None:
 
     assert "Fazenda Boa Vista" in page
     assert "Sitio Santa Fe" in page
-    assert "Renovacao de licenca ambiental" in page
+    assert DEFAULT_CATALOG_SERVICE in page
 
 
 def test_the_list_shows_due_dates_in_the_brazilian_format(client: Client) -> None:
@@ -218,14 +224,14 @@ def test_the_due_date_form_changes_the_date_and_nothing_else(client: Client) -> 
         {
             "due_date": "2027-01-10",
             "client": "Outro",
-            "description": "Outro",
+            "notes": "Outro",
             "status": "completed",
         },
     )
 
     service.refresh_from_db()
     assert service.client == "Fazenda Boa Vista"
-    assert service.description == "Renovacao de licenca ambiental"
+    assert service.notes == ""
     assert service.status == "active"
 
 

@@ -9,8 +9,6 @@ The widgets are exercised through the throwaway forms defined here, never by edi
 ``core/forms.py``: B14 delivers the widget, the next task assigns it to a field.
 """
 
-import datetime
-
 import pytest
 from django import forms
 from django.template.loader import render_to_string
@@ -19,6 +17,7 @@ from django.urls import reverse
 
 from core.models import Service
 from core.widgets import ComboboxWidget, CreatableComboboxWidget
+from tests.builders import a_service
 
 CATALOG = [
     ("licenca", "Licença ambiental"),
@@ -46,11 +45,7 @@ class ObservationForm(forms.Form):
 
 
 def _registered(client_name: str = "Fazenda Boa Vista") -> Service:
-    return Service.objects.create(
-        client=client_name,
-        description="Renovacao de licenca ambiental",
-        due_date=datetime.date(2026, 12, 25),
-    )
+    return a_service(client=client_name)
 
 
 def _page(client: Client, name: str, *args: int) -> str:
