@@ -1,0 +1,335 @@
+"""B2, the configuration surface: the single boundary between the environment and the app.
+
+Derives from I4 (business values are data, never literals in code), I5 (no credential has a
+default and the real environment file is untracked) and I7 (a secret never reaches the logs).
+"""
+
+import os
+from pathlib import Path
+
+import pytest
+from django.conf import settings
+from django.test import override_settings
+
+from deadliner.config import (
+    MESSAGE_TEMPLATE_FIELDS,
+    Config,
+    ConfigError,
+    DeadlinerConfig,
+    get_config,
+    load_config,
+)
+
+REPOSITORY_ROOT = Path(__file__).resolve().parent.parent
+
+VALID_ENV = {
+    "DJANGO_SECRET_KEY": "placeholder-value-for-tests-only",
+    "DJANGO_DEBUG": "0",
+    "DJANGO_ALLOWED_HOSTS": "prazos.example.com",
+    "DJANGO_DATABASE_PATH": "db.sqlite3",
+    "DEADLINER_ALERT_THRESHOLDS": "30,7,0",
+    "DEADLINER_WHATSAPP_NUMBER": "5567999998888",
+    "DEADLINER_MESSAGE_TEMPLATE": "{client}: {service} vence em {days_remaining} dias.",
+    "DEADLINER_SECRET_PATH_SEGMENT": "abcdefghijklmnop",
+    "DEADLINER_TIMEZONE": "America/Campo_Grande",
+}
+
+BUSINESS_VARIABLES = [
+    "DEADLINER_ALERT_THRESHOLDS",
+    "DEADLINER_WHATSAPP_NUMBER",
+    "DEADLINER_MESSAGE_TEMPLATE",
+    "DEADLINER_SECRET_PATH_SEGMENT",
+    "DEADLINER_TIMEZONE",
+]
+
+
+def env_with(**overrides: str) -> dict[str, str]:
+    """A valid environment with the named variables replaced."""
+    return {**VALID_ENV, **overrides}
+
+
+def env_without(name: str) -> dict[str, str]:
+    """A valid environment with one variable removed."""
+    return {key: value for key, value in VALID_ENV.items() if key != name}
+
+
+def parse_env_file(path: Path) -> dict[str, str]:
+    """The key-value pairs of a dotenv file, ignoring comments and blank lines."""
+    values: dict[str, str] = {}
+    for line in path.read_text(encoding="utf-8").splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#"):
+            continue
+        name, _, value = stripped.partition("=")
+        values[name.strip()] = value.strip()
+    return values
+
+
+def test_alert_thresholds_are_read_from_the_environment() -> None:
+    """I4: the warning schedule is configuration, never a literal in code."""
+    config = load_config(env_with(DEADLINER_ALERT_THRESHOLDS="30,7,0"))
+
+    assert config.deadliner.alert_thresholds == (30, 7, 0)
+
+
+def test_two_threshold_configurations_differ_with_no_code_change() -> None:
+    """I4: its acceptance test at this layer; B7 carries the schedule half of it."""
+    company_schedule = load_config(env_with(DEADLINER_ALERT_THRESHOLDS="30,7,0"))
+    other_schedule = load_config(env_with(DEADLINER_ALERT_THRESHOLDS="45,10"))
+
+    assert company_schedule.deadliner.alert_thresholds == (30, 7, 0)
+    assert other_schedule.deadliner.alert_thresholds == (45, 10)
+
+
+def test_thresholds_are_ordered_from_the_earliest_warning_to_the_due_date() -> None:
+    """B2: the loader owns the order, so no caller has to sort them again."""
+    config = load_config(env_with(DEADLINER_ALERT_THRESHOLDS=" 0,30 , 7 "))
+
+    assert config.deadliner.alert_thresholds == (30, 7, 0)
+
+
+@pytest.mark.parametrize("value", ["", "   ", "30,x,0", "30,-7,0", "30,7,7", "30,,0", "30.5"])
+def test_an_unusable_threshold_list_is_rejected(value: str) -> None:
+    """B2: a threshold is a distinct whole number of days before the due date, or it is an error."""
+    with pytest.raises(ConfigError, match="DEADLINER_ALERT_THRESHOLDS"):
+        load_config(env_with(DEADLINER_ALERT_THRESHOLDS=value))
+
+
+@pytest.mark.parametrize(
+    "value",
+    ["+55 67 99999-8888", "55 (67) 99999.8888", "+5567999998888", "5567999998888"],
+)
+def test_the_destination_number_is_stored_as_digits_only(value: str) -> None:
+    """I4: the company number is configuration, kept in the form every vendor format adds to."""
+    config = load_config(env_with(DEADLINER_WHATSAPP_NUMBER=value))
+
+    assert config.deadliner.whatsapp_number == "5567999998888"
+
+
+@pytest.mark.parametrize("value", ["", "1234567", "1234567890123456", "55679999a8888", "abc"])
+def test_a_number_that_is_not_an_international_subscriber_number_is_rejected(value: str) -> None:
+    """B2: E.164 allows 8 to 15 digits and nothing else."""
+    with pytest.raises(ConfigError, match="DEADLINER_WHATSAPP_NUMBER"):
+        load_config(env_with(DEADLINER_WHATSAPP_NUMBER=value))
+
+
+def test_the_message_template_is_read_from_the_environment() -> None:
+    """I4: the wording is configuration, and OQ-3 leaves the final text to the owner."""
+    template = "Ola! {client} tem {service} vencendo em {days_remaining} dias ({due_date})."
+    config = load_config(env_with(DEADLINER_MESSAGE_TEMPLATE=template))
+
+    assert config.deadliner.message_template == template
+
+
+def test_a_template_may_use_only_some_of_the_allowed_fields() -> None:
+    """B2: validation stays quiet when the owner's wording is simply shorter."""
+    config = load_config(env_with(DEADLINER_MESSAGE_TEMPLATE="{service} vence em {due_date}."))
+
+    assert config.deadliner.message_template == "{service} vence em {due_date}."
+
+
+def test_a_template_may_carry_escaped_braces_as_literal_text() -> None:
+    """B2: an escaped brace is text, not a field, and must not be read as one."""
+    config = load_config(env_with(DEADLINER_MESSAGE_TEMPLATE="{{aviso}} para {client}"))
+
+    assert config.deadliner.message_template == "{{aviso}} para {client}"
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        "",
+        "   ",
+        "{cliente} vence",
+        "{client",
+        "cliente}",
+        "{cli{ent}",
+        "{} vence",
+        "{0} vence",
+        "{client.upper} vence",
+        "{client[0]} vence",
+    ],
+)
+def test_a_template_the_engine_could_not_render_is_rejected(value: str) -> None:
+    """B2: a wording defect is caught at startup, never at send time in the daily run."""
+    with pytest.raises(ConfigError, match="DEADLINER_MESSAGE_TEMPLATE"):
+        load_config(env_with(DEADLINER_MESSAGE_TEMPLATE=value))
+
+
+def test_the_template_contract_is_the_four_fields_the_foundation_names() -> None:
+    """I4: foundation section 4 fixes the fields, and B7 renders against this same set."""
+    assert {"client", "service", "due_date", "days_remaining"} == MESSAGE_TEMPLATE_FIELDS
+
+
+def test_the_secret_path_segment_is_read_from_the_environment() -> None:
+    """I4, I5: the link is a credential, so it is configuration and never a literal."""
+    config = load_config(env_with(DEADLINER_SECRET_PATH_SEGMENT="qazwsxedcrfvtgby"))
+
+    assert config.deadliner.secret_path_segment == "qazwsxedcrfvtgby"
+
+
+def test_a_segment_of_the_minimum_length_is_accepted() -> None:
+    """B2: sixteen characters is the floor itself, not a value above it."""
+    config = load_config(env_with(DEADLINER_SECRET_PATH_SEGMENT="sixteencharacter"))
+
+    assert config.deadliner.secret_path_segment == "sixteencharacter"
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        "",
+        "fifteencharacte",
+        "with/a/slash/xyz",
+        "with a space xyz",
+        "with%percent%xyz",
+        "segment-with-café-x",
+    ],
+)
+def test_a_segment_that_is_not_a_url_safe_credential_is_rejected(value: str) -> None:
+    """I5: a short or unsafe segment is not the credential foundation section 6 assumes."""
+    with pytest.raises(ConfigError, match="DEADLINER_SECRET_PATH_SEGMENT"):
+        load_config(env_with(DEADLINER_SECRET_PATH_SEGMENT=value))
+
+
+def test_the_timezone_is_read_from_the_environment() -> None:
+    """I4: the zone that decides what today is, is configuration (foundation section 5)."""
+    config = load_config(env_with(DEADLINER_TIMEZONE="America/Campo_Grande"))
+
+    assert config.deadliner.timezone.key == "America/Campo_Grande"
+
+
+@pytest.mark.parametrize("value", ["", "Mars/Olympus_Mons", "../../etc/passwd", "BRT"])
+def test_a_timezone_the_standard_library_cannot_resolve_is_rejected(value: str) -> None:
+    """B2: an unknown key raises KeyError and an escaping key raises ValueError, both are errors."""
+    with pytest.raises(ConfigError, match="DEADLINER_TIMEZONE"):
+        load_config(env_with(DEADLINER_TIMEZONE=value))
+
+
+@pytest.mark.parametrize("name", BUSINESS_VARIABLES)
+def test_no_business_value_has_a_default_in_code(name: str) -> None:
+    """I4: a default in code is a literal in code, which is what the invariant forbids."""
+    with pytest.raises(ConfigError, match=name):
+        load_config(env_without(name))
+
+
+def test_the_django_secret_key_is_read_from_the_environment() -> None:
+    """I5: the key reaches Django from the environment and from nowhere else."""
+    config = load_config(env_with(DJANGO_SECRET_KEY="placeholder-value-for-tests-only"))
+
+    assert config.django.secret_key == "placeholder-value-for-tests-only"
+
+
+def test_the_django_secret_key_is_required() -> None:
+    """I5: no credential has a default, so none can be shipped by accident."""
+    with pytest.raises(ConfigError, match="DJANGO_SECRET_KEY"):
+        load_config(env_without("DJANGO_SECRET_KEY"))
+
+
+def test_a_blank_django_secret_key_is_rejected() -> None:
+    """I5: an empty value is an unset value wearing a disguise."""
+    with pytest.raises(ConfigError, match="DJANGO_SECRET_KEY"):
+        load_config(env_with(DJANGO_SECRET_KEY="   "))
+
+
+def test_debug_is_off_when_the_environment_does_not_ask_for_it() -> None:
+    """B2: the safe direction is the default."""
+    config = load_config(env_without("DJANGO_DEBUG"))
+
+    assert config.django.debug is False
+
+
+def test_debug_is_on_when_the_environment_asks_for_it() -> None:
+    """B2: one value turns it on, and it is spelled out in .env.example."""
+    config = load_config(env_with(DJANGO_DEBUG="1"))
+
+    assert config.django.debug is True
+
+
+@pytest.mark.parametrize("value", ["true", "True", "yes", "on", "2", ""])
+def test_an_ambiguous_debug_flag_is_rejected_rather_than_read_as_off(value: str) -> None:
+    """B2: reading 'true' as off hides a misconfiguration instead of reporting it."""
+    with pytest.raises(ConfigError, match="DJANGO_DEBUG"):
+        load_config(env_with(DJANGO_DEBUG=value))
+
+
+def test_allowed_hosts_are_split_and_stripped() -> None:
+    """B2: the environment carries one comma-separated string, the settings need a sequence."""
+    config = load_config(env_with(DJANGO_ALLOWED_HOSTS=" prazos.example.com , localhost ,"))
+
+    assert config.django.allowed_hosts == ("prazos.example.com", "localhost")
+
+
+def test_a_deployment_with_debug_off_must_name_its_hosts() -> None:
+    """B2: an empty list with debug off refuses every request, so it is caught at startup."""
+    with pytest.raises(ConfigError, match="DJANGO_ALLOWED_HOSTS"):
+        load_config(env_with(DJANGO_DEBUG="0", DJANGO_ALLOWED_HOSTS=""))
+
+
+def test_development_may_leave_the_hosts_empty() -> None:
+    """B2: with debug on Django serves localhost by itself, so the check stays quiet."""
+    config = load_config(env_with(DJANGO_DEBUG="1", DJANGO_ALLOWED_HOSTS=""))
+
+    assert config.django.allowed_hosts == ()
+
+
+def test_the_database_path_falls_back_to_the_project_default() -> None:
+    """B2: the database file is infrastructure, not a business value, so a default is honest."""
+    config = load_config(env_without("DJANGO_DATABASE_PATH"))
+
+    assert config.django.database_path == Path("db.sqlite3")
+
+
+def test_the_database_path_is_read_from_the_environment() -> None:
+    """B2: Compose points it at the mounted volume (foundation section 8)."""
+    config = load_config(env_with(DJANGO_DATABASE_PATH="/data/db.sqlite3"))
+
+    assert config.django.database_path == Path("/data/db.sqlite3")
+
+
+def test_every_problem_in_an_environment_is_reported_at_once() -> None:
+    """B2: filling in a .env is not a game of whack-a-mole."""
+    broken = env_with(
+        DEADLINER_ALERT_THRESHOLDS="thirty",
+        DEADLINER_WHATSAPP_NUMBER="not-a-number",
+        DEADLINER_TIMEZONE="Mars/Olympus_Mons",
+    )
+
+    with pytest.raises(ConfigError) as raised:
+        load_config(broken)
+
+    assert "DEADLINER_ALERT_THRESHOLDS" in str(raised.value)
+    assert "DEADLINER_WHATSAPP_NUMBER" in str(raised.value)
+    assert "DEADLINER_TIMEZONE" in str(raised.value)
+
+
+def test_a_rejected_secret_is_named_but_never_repeated_in_the_error() -> None:
+    """I7: the error text reaches the logs, and the secret must not ride along."""
+    with pytest.raises(ConfigError) as raised:
+        load_config(env_with(DEADLINER_SECRET_PATH_SEGMENT="leaked/with/slashes"))
+
+    assert "DEADLINER_SECRET_PATH_SEGMENT" in str(raised.value)
+    assert "leaked/with/slashes" not in str(raised.value)
+
+
+def test_the_business_configuration_is_reachable_through_django_settings() -> None:
+    """I4: one boundary loads it, and every caller reads it from there."""
+    assert isinstance(get_config(), DeadlinerConfig)
+
+
+def test_a_missing_business_configuration_is_an_error_and_never_a_none() -> None:
+    """B2: a caller never receives a half-configured application."""
+    with override_settings(DEADLINER=None), pytest.raises(ConfigError):
+        get_config()
+
+
+def test_django_renders_dates_in_the_configured_timezone() -> None:
+    """B2: one timezone value, not a second literal in the settings module."""
+    assert os.environ["DEADLINER_TIMEZONE"] == settings.TIME_ZONE
+
+
+def test_the_tracked_example_environment_is_a_working_configuration() -> None:
+    """I5: the real .env is untracked, so .env.example is what a new machine copies."""
+    example = parse_env_file(REPOSITORY_ROOT / ".env.example")
+
+    assert isinstance(load_config(example), Config)

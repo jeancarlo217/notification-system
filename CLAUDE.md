@@ -5,7 +5,8 @@ the foundation wins and this file is the one that is wrong. Fix this file, never
 
 ## Project status
 
-B1 (scaffold) is done as of 2026-08-28; no application code exists yet and no ADR is written.
+B1 (scaffold) and B2 (configuration surface) are done as of 2026-08-28. The only application code
+is the configuration boundary, whose shape is `specs/adr/0001-configuration-boundary.md`.
 Stack, decided in the foundation: Python 3.13, Django 5.2 LTS with server-rendered templates and
 Django Forms, SQLite on a Docker volume, a plain virtualenv with pip and pinned requirements files,
 `mypy --strict` with django-stubs, ruff, pytest with pytest-django, Docker Compose from the first
@@ -31,7 +32,7 @@ crash or a missed day costs lateness at most, never a lost or duplicated warning
   execution state, items B1 onward), `specs/dependencies.md`, `specs/log.md`, `specs/adr/README.md`,
   this file.
 - Toolkit: `.claude/` (skills, hooks, settings; its index is `.claude/skills/README.md`).
-- Code: `deadliner/` is the Django project (settings, urls, wsgi, asgi), `core/` is the single app,
+- Code: `deadliner/` is the Django project (settings, config, urls, wsgi, asgi), `core/` is the app,
   `manage.py` at the root. `tests/` holds every test; each names the identifier it implements.
 - Tooling: `pyproject.toml` (tool configuration only), `requirements.txt` and
   `requirements-dev.txt` (pins), `justfile`, `Dockerfile`, `compose.yaml`, `.gitleaks.toml`,
@@ -106,9 +107,12 @@ Every test names the constraint or requirement it implements. Full method: `spec
   direct push touching `main` (`block-main-push.sh`), and no env file or SQLite database staged
   (`block-secrets.sh`, C5). The hooks need `jq` on the machine. The CI gates (ruff, mypy, pytest,
   secret scan) exist since B1 and must exist before the code they govern.
-- Settings read their values from the environment (`DJANGO_SECRET_KEY`, `DJANGO_DEBUG`,
-  `DJANGO_ALLOWED_HOSTS`, `DJANGO_DATABASE_PATH`); `just` loads `.env`, Compose passes it as
-  `env_file`, CI sets non-secret values. B2 turns this into the single configuration boundary.
+- Configuration has one boundary: `load_config` in `deadliner/config.py` parses and validates the
+  whole environment, the settings module calls it once, nothing else reads `os.environ`, and
+  application code takes the business values from `get_config()`. No business value has a default
+  in code (I4), so `.env.example` carries all nine variables; `just` loads `.env`, Compose passes
+  it as `env_file`, CI sets non-secret values. Names, canonical forms and validation rules live in
+  `specs/adr/0001-configuration-boundary.md`.
 
 ## Commands
 
