@@ -6,7 +6,7 @@
   <div class="page-head">
     <h1 class="page-head__title">{{ title }}</h1>
     {% if service %}
-      <p class="page-head__meta">{{ service.client }}: {{ service.description }}</p>
+      <p class="page-head__meta">{{ service.client }}: {{ service.catalog_service.name }}</p>
     {% endif %}
   </div>
 

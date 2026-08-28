@@ -29,7 +29,7 @@
           {% for service in services %}
             <tr role="row">
               <td role="cell" class="table__client" data-label="Cliente">{{ service.client }}</td>
-              <td role="cell" data-label="Serviço">{{ service.description }}</td>
+              <td role="cell" data-label="Serviço">{{ service.catalog_service.name }}</td>
               <td role="cell" class="table__date" data-label="Vencimento">
                 <time datetime="{{ service.due_date|date:'Y-m-d' }}">{{ service.due_date|date:"d/m/Y" }}</time>
               </td>
