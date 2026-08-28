@@ -10,6 +10,7 @@ Cite canon identifiers (I3, OQ-1) instead of copying their reasoning; a copy is 
 fan-out and drifts. A new ADR, or a change to one, gets a line in `specs/log.md` in the same
 pass.
 
-No ADR exists yet. Likely first candidates, to be written only when the work forces them: the
-notification provider interface and its Evolution adapter (after the OQ-1 spike), the secret-path
-middleware and log redaction shape, and the scheduler container.
+`0001-configuration-boundary.md` records the shape B2 delivered. Likely next candidates, to be
+written only when the work forces them: the notification provider interface and its Evolution
+adapter (after the OQ-1 spike), the secret-path middleware and log redaction shape, and the
+scheduler container.

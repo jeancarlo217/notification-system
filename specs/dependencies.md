@@ -40,7 +40,23 @@ which source, on which date, and what was learned while confirming it. The stand
 | gitleaks-action | v3 | gitleaks/gitleaks-action README | Needs only `GITHUB_TOKEN` on a personal account; an organisation repository needs a `GITLEAKS_LICENSE` secret (free at gitleaks.io). Reads `.gitleaks.toml` at the repository root. |
 | gitleaks (local) | v8.30.1 | GitHub releases API, gitleaks README | `just secret-scan` runs `ghcr.io/gitleaks/gitleaks` in `dir` mode over the working tree, so uncommitted files are scanned before they are staged; `.gitleaks.toml` extends the default rules and allowlists the untracked `.env` and the virtualenv folders. |
 
+## Runtime environment, confirmed during B2 (2026-08-28)
+
+Confirmed by running each check against the pinned versions, never from memory. No new package was
+added; every finding here is about behaviour that shaped `deadliner/config.py`.
+
+| Piece | Finding |
+| --- | --- |
+| `zoneinfo` in `python:3.13-slim` | The image already carries the IANA database, 486 zones, and `America/Campo_Grande` resolves inside it. No `tzdata` package is needed in `requirements.txt`. |
+| `zoneinfo.ZoneInfo` failures | An unknown name raises `ZoneInfoNotFoundError`, a subclass of `KeyError`, but a name that is not a normalized relative path raises `ValueError`. Validation catches both; catching only `KeyError` lets `../../etc/passwd` reach a different failure. |
+| `string.Formatter().parse` | Malformed braces raise `ValueError` while the result is iterated. `{}` yields the field name `''`, `{0}` yields `'0'`, `{a.b}` and `{a[0]}` yield the whole expression, and a format spec or conversion is stripped. Membership against an allowed set therefore rejects positional and attribute access for free. |
+| dotenv parsing | The parser behind `just` rejects an unquoted value containing spaces, so the message template is quoted in `.env.example`. Both `just` and Docker Compose `env_file` strip the surrounding quotes, checked by printing the loaded value through each. |
+| gitleaks `generic-api-key` | Fires on an alphanumeric string of sixteen or more characters near the word secret, which any test of the secret path segment trips by nature. Fixtures use obviously fake low entropy values; an allowlist over the test tree would blind the C5 gate exactly where a real credential could be pasted. |
+| `just setup` on Linux | The recipe builds the virtualenv from whatever `python` is on PATH. On Fedora 44 that is 3.14, while the canon, the Dockerfile and CI are all 3.13, so the local venv was created with `python3.13` by hand. The recipe is still unfixed. |
+
 ## Log
 
 2026-08-28: file created with the B1 pins. Owner replaced uv with venv and pip during B1; the earlier
 uv lock was deleted, nothing had been committed with it.
+
+2026-08-28: B2 added the runtime environment section above. No pin changed and no package was added.

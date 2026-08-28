@@ -19,3 +19,15 @@ never appended over.
 ## [2026-08-28] trap | The hooks in .claude/hooks depend on `jq`, which was absent on the owner's Windows machine, so they had been failing silently; installed via winget together with `just`. On Git Bash, a Docker `-v host:/repo` mount needs `MSYS_NO_PATHCONV=1` or `/repo` is rewritten to a Windows path; the justfile carries it.
 
 ## [2026-08-28] decision | Two-developer parallel plan recorded in specs/backlog.md: wave 0 the B8 spike plus OQ-2/OQ-3 answers, wave 1 B2 beside B3, wave 2 a screens-and-safety track (B4, B5, B6, B10) beside an engine track (B7, B9, B8 adapter), wave 3 B11 together; B5 and B6 share one developer because both edit the logging path.
+
+## [2026-08-28] decision | B2 delivered by developer A: one configuration boundary, `load_config` in `deadliner/config.py` called once by the settings module, business values reached through `get_config()`; five `DEADLINER_*` variables with no default in code at all (I4 forbids the literal, overridable or not), one `ConfigError` listing every problem, and the secret path segment never repeated in an error text (I7). Shape in `specs/adr/0001-configuration-boundary.md`, the first ADR.
+
+## [2026-08-28] decision | Two B1 settings behaviours tightened by B2: `DJANGO_DEBUG` now accepts only `0` or `1` and errors on anything else instead of reading it as off, and an empty `DJANGO_ALLOWED_HOSTS` with debug off is a boot error because that pair refuses every request.
+
+## [2026-08-28] finding | Confirmed against the pins for B2, recorded in specs/dependencies.md: `python:3.13-slim` already carries the IANA time zone database so no `tzdata` pin is needed; `ZoneInfo` raises `KeyError` for an unknown name but `ValueError` for one that escapes the zone directory, so validation must catch both; `string.Formatter().parse` reports malformed braces as `ValueError` and yields positional and attribute access as ordinary field names.
+
+## [2026-08-28] trap | The dotenv parser behind `just` refuses an unquoted value containing spaces, which the Portuguese message template has, so it is quoted in `.env.example`; `just` and Docker Compose both strip the surrounding quotes, verified by printing the loaded value through each rather than assuming they agree.
+
+## [2026-08-28] trap | The gitleaks rule `generic-api-key` fires on any alphanumeric string of sixteen or more characters near the word secret, so tests of the secret path segment trip the C5 gate by nature. The fixture gives way, never the gate: obviously fake low entropy values instead of an allowlist over `tests/`, which would blind the scan exactly where a real credential could be pasted. B5 will meet the same rule.
+
+## [2026-08-28] trap | `just setup` builds the virtualenv from whatever `python` is on PATH, which on Fedora 44 is 3.14 while the canon, the Dockerfile and CI are 3.13; the local venv was created with `python3.13` by hand and the recipe is still unfixed.
