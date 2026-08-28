@@ -6,6 +6,7 @@ and writes every outcome back before anything depends on it (foundation section 
 """
 
 import datetime
+import logging
 from collections.abc import Sequence
 from collections.abc import Set as AbstractSet
 from dataclasses import dataclass
@@ -13,6 +14,8 @@ from dataclasses import dataclass
 from core.models import Alert, Service
 from core.provider import NotificationProvider
 from deadliner.config import get_config
+
+_logger = logging.getLogger("core.engine")
 
 
 @dataclass(frozen=True, slots=True)
@@ -102,3 +105,13 @@ def run_daily_engine(*, provider: NotificationProvider, today: datetime.date) ->
         accepted = provider.deliver(text)
         alert.state = Alert.State.SENT if accepted else Alert.State.FAILED
         alert.save(update_fields=["state", "updated_at"])
+        _logger.info(
+            "alert send",
+            extra={
+                "event": "alert_send",
+                "service_id": service.id,
+                "alert_id": alert.pk,
+                "threshold": warning.threshold,
+                "state": alert.state,
+            },
+        )

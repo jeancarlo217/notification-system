@@ -51,6 +51,9 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    # First, so every record written while a request is alive carries its correlation keys
+    # (foundation section 8).
+    "deadliner.log_context.RequestContextMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -142,15 +145,16 @@ LOGGING = {
     "disable_existing_loggers": False,
     "filters": {
         "redact_secret_path": {"()": "deadliner.log_redaction.SecretPathRedactionFilter"},
+        "log_context": {"()": "deadliner.log_context.LogContextFilter"},
     },
     "formatters": {
-        "plain": {"format": "{asctime} {levelname} {name} {message}", "style": "{"},
+        "json": {"()": "deadliner.log_format.JsonFormatter"},
     },
     "handlers": {
         "console": {
             "class": "logging.StreamHandler",
-            "filters": ["redact_secret_path"],
-            "formatter": "plain",
+            "filters": ["log_context", "redact_secret_path"],
+            "formatter": "json",
         },
     },
     "root": {"handlers": ["console"], "level": "INFO"},

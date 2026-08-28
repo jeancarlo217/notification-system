@@ -53,9 +53,13 @@ I7. Delivered test first on branch `b5-secret-path` by developer A (13 behaviour
 `specs/adr/0003-secret-path-and-log-redaction.md`; verified with `just gate` (ruff, `mypy --strict`,
 138 tests, gitleaks) on 2026-08-28.
 
-**B6. Audit and structured logging.** `todo`. Every form submission logs IP, Cloudflare country,
-timestamp and record id, bound once on a shared path, with correlation keys on request and run.
-Trace: foundation section 6, I6, the observability rule in section 8.
+**B6. Audit and structured logging.** `done (2026-08-28)`. Every form submission logs IP,
+Cloudflare country, timestamp and record id, bound once on a shared path, with correlation keys on
+request and run. Trace: foundation section 6, I6, the observability rule in section 8. Delivered
+test first on branch `b6-audit-logging` by developer A (11 behaviour tests, plus one added to the
+B5 file when structured fields widened I7), shape in
+`specs/adr/0004-audit-and-structured-logging.md`; verified with `just gate` (ruff, `mypy --strict`,
+151 tests, gitleaks) on 2026-08-28.
 
 **B7. Alert engine.** `done (2026-08-28)`. The pure schedule computation, the daily management
 command, the catch-up rule, the provider interface with its test fake, and alert states a human can
@@ -178,3 +182,8 @@ marked here after the merge. The engine track now waits only on the B8 adapter, 
 
 2026-08-28: B5 done by developer A on branch `b5-secret-path`, with ADR 0003 for the shape it
 introduced. The screens and safety track continues at B6, which extends the same `LOGGING` block.
+
+2026-08-28: B6 done by developer A on branch `b6-audit-logging`, with ADR 0004. It touched
+`core/engine.py` and the `send_alerts` command to bind the run correlation keys the item asks for,
+which is engine track territory; developer B rebases the B8 adapter on it. The screens and safety
+track continues at B10.

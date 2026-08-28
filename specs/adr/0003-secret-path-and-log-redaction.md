@@ -62,3 +62,10 @@ would write the full path past this filter. That trap belongs to B11 and is reco
 The interface is not structured yet and carries no correlation keys. That is backlog B6, which
 owns the same `LOGGING` block by the conflict rule of the parallel plan and will extend it in
 place.
+
+Changed 2026-08-28 by B6: the filter no longer looks only at the message. It checks every value
+the record carries, in the form the formatter will write it, because structured logging renders
+anything that is not a string through `str()` and Django's own `django.request` records carry the
+request object with the full path on it. The `plain` formatter named above is now the JSON
+formatter of `0004-audit-and-structured-logging.md`, and the console handler carries a second
+filter that binds the correlation keys.
