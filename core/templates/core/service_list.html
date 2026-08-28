@@ -1,0 +1,42 @@
+{% extends "core/base.html" %}
+
+{% block title %}Serviços{% endblock %}
+
+{% block content %}
+  <p><a class="button" href="{% url 'service-create' %}">Novo serviço</a></p>
+
+  {% if services %}
+    <table>
+      <thead>
+        <tr>
+          <th>Cliente</th>
+          <th>Serviço</th>
+          <th>Vencimento</th>
+          <th>Status</th>
+          <th>Ações</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for service in services %}
+          <tr>
+            <td>{{ service.client }}</td>
+            <td>{{ service.description }}</td>
+            <td>{{ service.due_date|date:"d/m/Y" }}</td>
+            <td>{{ service.get_status_display }}</td>
+            <td>
+              <a href="{% url 'service-due-date' service.pk %}">Editar vencimento</a>
+              {% if service.status == "active" %}
+                <form class="inline" method="post" action="{% url 'service-complete' service.pk %}">
+                  {% csrf_token %}
+                  <button type="submit">Concluir</button>
+                </form>
+              {% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p class="empty">Nenhum serviço cadastrado.</p>
+  {% endif %}
+{% endblock %}

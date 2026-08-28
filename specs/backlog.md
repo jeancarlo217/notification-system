@@ -38,8 +38,12 @@ migrations generated. Trace: foundation section 3, I1. Delivered test first on b
 verified with `ruff check`, `ruff format --check`, `mypy` and `pytest` (13 passed) plus the gitleaks
 scan on 2026-08-28; merged to `main` by pull request #3.
 
-**B4. Registration and lifecycle.** `todo`. The three-field form, the list of records, editing a due
-date and marking a service completed. UI text in Portuguese. Trace: foundation sections 1 and 3.
+**B4. Registration and lifecycle.** `done (2026-08-28)`. The three-field form, the list of records,
+editing a due date and marking a service completed. UI text in Portuguese. Trace: foundation sections
+1 and 3, section 12 for the language, section 8 for the constant-query list. Delivered test first on
+branch `b4-registration` (19 behaviour tests); verified with `just gate` (ruff, `mypy --strict`, 105
+tests, gitleaks) and `makemigrations --check` on 2026-08-28. Routes sit at the site root until B5
+mounts them under the secret segment.
 
 **B5. Secret-path access and health endpoint.** `todo`. The whole application served under the
 configured secret segment, the health endpoint as the single route outside it touching no dependency,
@@ -157,3 +161,6 @@ now read their configuration from `get_config()` rather than deciding a name or 
 2026-08-28: review window over B1, B2, B3 and the B8 spike after their merge: gate green on the
 merged tree (86 tests), stale claims in CLAUDE.md and here corrected, `just setup` pinned to 3.13.
 The spike stays open on OQ-1.
+
+2026-08-28: B4 done on branch `b4-registration` by the owner's session while the two developers
+finished B2 and B3; developer A's track continues at B5.
