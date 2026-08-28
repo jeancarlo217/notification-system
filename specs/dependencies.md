@@ -91,7 +91,22 @@ added; every finding here is about behaviour that shaped `deadliner/config.py`.
 | Django's own messages in Portuguese | With `LANGUAGE_CODE = "pt-br"` the required-field error is `Este campo é obrigatório.` and the bad-date error `Informe uma data válida.`, from the pinned `pt_BR` catalogue. |
 | Choice labels and migrations | Changing a `TextChoices` label alters the field's `choices`, so the CLI generates a migration (`0002_alter_service_status`); labels are therefore a schema-level change in this project, not a template one. |
 
+## Runtime environment, confirmed during B5 (2026-08-28)
+
+Confirmed by reading the pinned sources and the installed package, never from memory. No new
+package was added.
+
+| Piece | Finding |
+| --- | --- |
+| gunicorn access log | `accesslog` defaults to `None` in the pinned 26.2.0, so the container writes no access line and the secret path segment cannot leak that way today. The error log defaults to stderr. Gunicorn does not read Django's `LOGGING`, so passing `--access-logfile` would write the full request path past the redaction filter of I7. B11 owns that trap on the production host. |
+| Django logging configuration | `django.utils.log.configure_logging` in 5.2.17 runs `dictConfig(DEFAULT_LOGGING)` first and the project's `LOGGING` second. `DEFAULT_LOGGING` gives the `django` logger a console handler that this project does not filter, so `LOGGING` redefines that logger. Its `django.server` logger is a child of `django`, and `logging.config` resets the children of a reconfigured logger, so the runserver request line propagates into the filtered handler with no entry of its own. |
+| `logging.Filter` placement | A filter on a logger runs only for records created by that exact logger, never for records propagated from a child, so redaction lives on the handler where every record passes. Mutating `record.msg` requires clearing `record.args`, or the handler interpolates a second time against a string that no longer carries the placeholders. |
+| Compose healthcheck | `python:3.13-slim` carries no curl or wget, so the healthcheck probes the endpoint with `python -c` and `urllib.request`. It requests the loopback address, which `DJANGO_ALLOWED_HOSTS` must therefore list or Django answers 400 and the container reads as unhealthy. |
+
 ## Log
+
+2026-08-28: B5 added the runtime environment section above; no pin changed and no package was
+added.
 
 2026-08-28: B4 added the runtime environment section above; no pin changed.
 

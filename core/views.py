@@ -36,3 +36,12 @@ def service_complete(request: HttpRequest, pk: int) -> HttpResponse:
     service.status = Service.Status.COMPLETED
     service.save(update_fields=["status"])
     return redirect("service-list")
+
+
+def health(request: HttpRequest) -> HttpResponse:
+    """Liveness for the container runtime: the process answered, and nothing else is claimed.
+
+    It is the single route outside the secret path segment, so it touches no dependency and
+    reveals no data (foundation section 6).
+    """
+    return HttpResponse("ok", content_type="text/plain; charset=utf-8")
