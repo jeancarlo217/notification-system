@@ -7,8 +7,8 @@ class Service(models.Model):
     """The flat service record of foundation section 3: one spreadsheet row per service."""
 
     class Status(models.TextChoices):
-        ACTIVE = "active"
-        COMPLETED = "completed"
+        ACTIVE = "active", "Ativo"
+        COMPLETED = "completed", "Concluído"
 
     client = models.TextField()
     description = models.TextField()
