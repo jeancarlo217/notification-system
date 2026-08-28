@@ -1,16 +1,21 @@
-"""B14, interface refactor: the three screens, and the combobox widgets the next task will assign.
+"""The interface: the three screens, the combobox widgets, and B16 brand, theme and assets.
 
 Traces: foundation section 1 (the audience is the employees of one company, reaching a form and a
 list through a private link), section 6 (there is no login, so every screen is reached by its own
-route), section 8 (server-rendered Django templates, and a listing that reads in a constant number
-of queries) and section 12 (the interface is in Portuguese).
+route, and the health endpoint is the single route outside the secret path segment), section 8
+(server-rendered Django templates, and a listing that reads in a constant number of queries) and
+section 12 (the interface is in Portuguese).
 
 The widgets are exercised through the throwaway forms defined here, never by editing
 ``core/forms.py``: B14 delivers the widget, the next task assigns it to a field.
 """
 
+import re
+
 import pytest
 from django import forms
+from django.conf import settings
+from django.contrib.staticfiles import finders
 from django.template.loader import render_to_string
 from django.test import Client
 from django.urls import reverse
@@ -50,6 +55,31 @@ def _registered(client_name: str = "Fazenda Boa Vista") -> Service:
 
 def _page(client: Client, name: str, *args: int) -> str:
     return client.get(reverse(name, args=args)).content.decode()
+
+
+def _rule_body(css: str, selector: str, holding: str) -> str:
+    """The declarations of the rule opened by ``selector`` whose body mentions ``holding``."""
+    start = 0
+    while True:
+        opening = css.index("{", css.index(selector, start))
+        depth, cursor = 1, opening + 1
+        while depth:
+            depth += {"{": 1, "}": -1}.get(css[cursor], 0)
+            cursor += 1
+        body = css[opening + 1 : cursor - 1]
+        if holding in body:
+            return body
+        start = opening + 1
+
+
+def _declarations(body: str) -> dict[str, str]:
+    return {name: value.strip() for name, value in re.findall(r"(--[\w-]+)\s*:([^;{}]+);", body)}
+
+
+def _static_references(page: str) -> list[str]:
+    """Every path the page asks the static pipeline for, relative to ``STATIC_URL``."""
+    prefix = re.escape(str(settings.STATIC_URL))
+    return re.findall(rf'["\']{prefix}([^"\']+)["\']', page)
 
 
 def test_the_closed_combobox_renders_every_option_of_its_field() -> None:
@@ -253,14 +283,13 @@ def test_every_screen_asks_a_phone_to_render_it_at_its_own_width(client: Client)
 
 
 def test_every_screen_carries_its_styles_and_its_script_inline(client: Client) -> None:
-    """B14: gunicorn serves no static file in the stack, so a linked asset would be a 404."""
+    """B16: the pipeline exists now, and the design system stays inline anyway (B14 shape kept)."""
     page = _page(client, "service-create")
 
     assert "<style" in page
     assert "<script" in page
-    assert "/static/" not in page
     assert "<script src=" not in page
-    assert "<link rel=" not in page
+    assert 'rel="stylesheet"' not in page
 
 
 def test_the_interface_answers_to_the_reader_system_colour_setting(client: Client) -> None:
@@ -287,3 +316,184 @@ def test_a_textarea_can_only_be_resized_vertically(client: Client) -> None:
     page = _page(client, "service-create")
 
     assert "resize: vertical" in page
+
+
+def test_the_header_shows_the_company_lockup_for_each_theme(client: Client) -> None:
+    """B16: the owner asked for the real logo, and it has to exist in both inks to swap."""
+    page = _page(client, "service-list")
+
+    assert "logo/vale-verde-light.svg" in page
+    assert "logo/vale-verde-dark.svg" in page
+    assert page.count('alt="Vale Verde Ambiental"') == 2
+
+
+def test_the_header_names_the_product_and_never_repeats_the_company_beside_the_lockup(
+    client: Client,
+) -> None:
+    """B16: the lockup already reads Vale Verde, so the words beside it are the product name."""
+    page = _page(client, "service-list")
+
+    assert "Controle de Serviços" in page
+    assert "Prazos de serviços" not in page
+    assert '<span class="brand__product">Vale Verde' not in page
+
+
+def test_the_placeholder_leaf_mark_is_gone(client: Client) -> None:
+    """B16: the header carried a drawn leaf standing in for an identity the company already has."""
+    page = _page(client, "service-list")
+
+    assert "brand__mark" not in page
+
+
+def test_every_static_file_the_page_asks_for_is_one_the_pipeline_can_find(client: Client) -> None:
+    """B16: a referenced asset that no finder resolves is a 404 on the page and nothing else."""
+    references = _static_references(_page(client, "service-list"))
+
+    assert references
+    for reference in references:
+        assert finders.find(reference) is not None, reference
+
+
+def test_the_administration_site_assets_are_collectable(client: Client) -> None:
+    """B16: the administration site is the maintenance door of foundation section 6, unstyled
+
+    until its own bundle is served. The pipeline that finds this file is the one that serves it.
+    """
+    assert finders.find("admin/css/base.css") is not None
+    assert finders.find("admin/css/dark_mode.css") is not None
+
+
+def test_static_files_are_served_inside_the_secret_path_segment(client: Client) -> None:
+    """Foundation section 6: the health endpoint is the single route outside the segment."""
+    page = _page(client, "service-list")
+    segment = settings.DEADLINER.secret_path_segment
+
+    assert str(settings.STATIC_URL) == f"/{segment}/static/"
+    for reference in _static_references(page):
+        assert f"/{segment}/static/{reference}" in page
+
+
+def test_every_screen_asks_the_browser_for_its_icon(client: Client) -> None:
+    """B16: a tab with no icon is the tab an employee loses among fifteen others."""
+    page = _page(client, "service-list")
+
+    assert 'rel="icon"' in page
+    assert "favicon.ico" in page
+
+
+def test_the_theme_control_offers_the_three_states_in_portuguese(client: Client) -> None:
+    """B16: follow the system, force light, force dark, named in the language of the interface."""
+    page = _page(client, "service-list")
+
+    assert 'role="radiogroup"' in page
+    assert ">Tema<" in page
+    for label in ("Sistema", "Claro", "Escuro"):
+        assert f">{label}<" in page
+    for value in ("system", "light", "dark"):
+        assert f'type="radio" name="theme" value="{value}"' in page
+
+
+def test_the_theme_control_is_a_real_keyboard_operable_control(client: Client) -> None:
+    """B16: three radios in one group give arrow keys and a name for free; a div gives neither."""
+    page = _page(client, "service-list")
+
+    assert page.count('class="theme__input" type="radio"') == 3
+    assert 'aria-labelledby="tema-titulo"' in page
+    assert 'id="tema-titulo"' in page
+
+
+def test_the_theme_defaults_to_the_operating_system_setting(client: Client) -> None:
+    """B16: the owner asked for the device to decide until somebody says otherwise."""
+    page = _page(client, "service-list")
+
+    assert 'value="system" checked' in page
+    assert '<html lang="pt-BR">' in page
+    assert "prefers-color-scheme: dark" in page
+
+
+def test_the_stored_theme_is_applied_before_the_page_is_painted(client: Client) -> None:
+    """B16: a choice applied by the deferred bundle is a flash of the theme nobody asked for."""
+    page = _page(client, "service-list")
+    head = page[: page.index("</head>")]
+
+    assert "vv-theme" in head
+    assert "data-theme" in head
+    assert "<script defer" not in head
+    assert "<script async" not in head
+
+
+def test_the_theme_is_remembered_under_a_single_storage_key(client: Client) -> None:
+    """B16: two scripts reading two keys is a control that forgets what it just stored."""
+    page = _page(client, "service-list")
+
+    arguments = set(re.findall(r"localStorage\.\w+\(([^,)]*)", page))
+
+    assert arguments == {"STORAGE_KEY"}
+    assert page.count('STORAGE_KEY = "vv-theme"') == 1
+
+
+def test_a_browser_refusing_storage_still_renders(client: Client) -> None:
+    """B16: private windows and blocked site data throw on the first read, before any paint."""
+    page = _page(client, "service-list")
+
+    assert "try {" in page
+    assert "catch (error)" in page
+
+
+def test_the_tokens_resolve_in_each_of_the_three_theme_states(client: Client) -> None:
+    """B16: a manual override has to beat the media query in both directions, not just one."""
+    page = _page(client, "service-list")
+
+    assert ':root:not([data-theme="light"])' in page
+    assert ':root[data-theme="dark"]' in page
+    assert ':root[data-theme="light"]' in page
+    assert "color-scheme: light dark" in page
+
+
+def test_the_two_dark_theme_blocks_declare_the_same_tokens(client: Client) -> None:
+    """B16: the system default and the manual override read two rules that must not drift."""
+    page = _page(client, "service-list")
+
+    by_system = _declarations(_rule_body(page, ':root:not([data-theme="light"])', "--sage-1"))
+    by_choice = _declarations(_rule_body(page, ':root[data-theme="dark"]', "--sage-1"))
+
+    assert by_system == by_choice
+    assert by_system["--canvas"] == "var(--sage-1)"
+
+
+def test_the_lockup_swaps_with_the_theme_in_every_state(client: Client) -> None:
+    """B16: a picture element follows the system and ignores a manual choice, so CSS does it."""
+    page = _page(client, "service-list")
+
+    assert ':root:not([data-theme="light"]) .brand__logo--dark' in page
+    assert ':root[data-theme="dark"] .brand__logo--dark' in page
+    assert ':root[data-theme="dark"] .brand__logo--light' in page
+
+
+def test_the_registration_column_is_centred(client: Client) -> None:
+    """B16: the owner reported the form pinned to the left of a wide page."""
+    page = _page(client, "service-create")
+
+    assert 'class="shell shell--narrow"' in page
+    assert "margin: 0 auto" in _rule_body(page, "\n  .shell {", "max-width")
+    assert "max-width" in _rule_body(page, ".shell--narrow", "max-width")
+
+
+def test_the_list_screen_keeps_the_full_width_the_form_gives_up(client: Client) -> None:
+    """B16: five columns and a narrow column of fields want different widths."""
+    page = _page(client, "service-list")
+
+    assert 'class="shell"' in page
+    assert 'class="shell shell--narrow"' not in page
+
+
+def test_the_focus_ring_is_drawn_in_a_step_that_carries_against_both_pages(
+    client: Client,
+) -> None:
+    """B16: the ring B14 chose measures 2.27:1 in the light theme, under the 3:1 a ring needs.
+
+    Measured ratios for every pair are in specs/dependencies.md, B16 section.
+    """
+    page = _page(client, "service-list")
+
+    assert "--focus-ring: var(--green-11)" in page

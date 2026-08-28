@@ -55,6 +55,9 @@ MIDDLEWARE = [
     # (foundation section 8).
     "deadliner.log_context.RequestContextMiddleware",
     "django.middleware.security.SecurityMiddleware",
+    # Directly after SecurityMiddleware and before everything else, as WhiteNoise's Django
+    # integration guide requires; findings in specs/dependencies.md.
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -129,7 +132,20 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
-STATIC_URL = "static/"
+# Inside the secret path segment, because the health endpoint is the single route outside it
+# (foundation section 6). Django prefixes a leading slash at settings load, and WhiteNoise takes
+# its serving prefix from this value.
+STATIC_URL = f"{_config.deadliner.secret_path_segment}/static/"
+
+STATIC_ROOT = BASE_DIR / "staticfiles"
+
+# Compression without the hashed filenames of a manifest: the whole asset set is four brand files
+# plus the administration site's own bundle, and a manifest would make every template render
+# depend on a collectstatic having run. Reasoning and measurements: specs/dependencies.md.
+STORAGES = {
+    "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+    "staticfiles": {"BACKEND": "whitenoise.storage.CompressedStaticFilesStorage"},
+}
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field

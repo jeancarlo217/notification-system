@@ -1,0 +1,77 @@
+{% comment %}
+The theme, in the head and synchronous, because a stored choice applied after first paint is a
+flash of the wrong theme. Everything about the theme lives in this one file, control included, so
+the storage key exists once; the enhancement layer in core/_scripts.html stays at the end of the
+body where it belongs.
+
+Three states: follow the operating system (nothing stored, no attribute, the media query in
+core/_styles.html decides), force light, force dark.
+{% endcomment %}
+<script>
+{% verbatim %}
+(function () {
+  "use strict";
+
+  var STORAGE_KEY = "vv-theme";
+  var THEME_ATTRIBUTE = "data-theme";
+  var SYSTEM = "system";
+  var root = document.documentElement;
+
+  // The control is useless without this script, so it is hidden until this line runs.
+  root.classList.add("js");
+
+  function storedChoice() {
+    try {
+      var stored = localStorage.getItem(STORAGE_KEY);
+      return stored === "light" || stored === "dark" ? stored : SYSTEM;
+    } catch (error) {
+      // A browser refusing storage still renders, following the operating system.
+      return SYSTEM;
+    }
+  }
+
+  function store(choice) {
+    try {
+      if (choice === SYSTEM) {
+        localStorage.removeItem(STORAGE_KEY);
+      } else {
+        localStorage.setItem(STORAGE_KEY, choice);
+      }
+    } catch (error) {
+      // The choice still applies to this page; it just will not outlive it.
+    }
+  }
+
+  function apply(choice) {
+    if (choice === SYSTEM) {
+      root.removeAttribute(THEME_ATTRIBUTE);
+    } else {
+      root.setAttribute(THEME_ATTRIBUTE, choice);
+    }
+  }
+
+  apply(storedChoice());
+
+  function connect() {
+    var inputs = document.querySelectorAll(".theme__input");
+    var current = storedChoice();
+    for (var index = 0; index < inputs.length; index += 1) {
+      inputs[index].checked = inputs[index].value === current;
+      inputs[index].addEventListener("change", function () {
+        if (!this.checked) {
+          return;
+        }
+        apply(this.value);
+        store(this.value);
+      });
+    }
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", connect);
+  } else {
+    connect();
+  }
+})();
+{% endverbatim %}
+</script>

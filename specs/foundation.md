@@ -224,6 +224,9 @@ the single route outside the secret path, and it touches no dependency and revea
 
 *What this buys:* zero-friction use by a small trusted team, exactly as the owner decided.
 
+Static assets are served under the segment too, for the same reason: putting them at the site root
+would create a second route outside it. The health endpoint stays the only one.
+
 *What this costs:* anyone holding the link can read and write everything. The link is a
 credential: it must never enter the repository, and if it leaks the remedy is rotating the
 configured path, which breaks saved bookmarks. Because request paths normally appear in logs, the

@@ -21,6 +21,7 @@ which source, on which date, and what was learned while confirming it. The stand
 | --- | --- | --- | --- |
 | django | 5.2.17 | djangoproject.com/download, PyPI JSON | 5.2 is the current LTS: mainstream support ended 2025-12-03, extended support to April 2028. 6.1 is the latest non-LTS. The pre-existing scaffold on disk had been generated with 6.0.7 and was regenerated with the 5.2 CLI on 2026-08-28. Upper bound `<5.3` is intentional: the LTS line is the decision. |
 | gunicorn | 26.2.0 | PyPI JSON, Django 5.2 gunicorn how-to | Django's how-to gives `gunicorn myproject.wsgi`, run from the directory holding `manage.py`; the Dockerfile uses `gunicorn deadliner.wsgi --bind 0.0.0.0:8000`. Chosen as the WSGI server because `runserver` is development-only; not a foundation decision, so it is recorded here and can be swapped without a revision. |
+| whitenoise | 6.12.0 | PyPI JSON, whitenoise.readthedocs.io Django integration page and changelog | Latest release (2026-02-27), zero required dependencies. Django 5.2 has been supported since 6.9.0 and Python 3.13 since 6.10.0; the 6.12.0 classifiers name Django 4.2 to 6.0 and Python 3.10 to 3.14, `requires_python >=3.10`. Added because nothing under a static directory was served in the Compose stack before B16, which left the administration site of foundation section 6 unstyled in the deployment target. 6.12.0 also fixes an unauthorised file access issue in autorefresh mode; autorefresh follows `DEBUG`, so it is off in the deployment configuration. |
 
 ## Development pins (`requirements-dev.txt`)
 
@@ -115,7 +116,65 @@ No new package was added: the structured formatter is the standard library.
 | `django.request` records carry the request object | `log_response` passes `extra={"status_code": ..., "request": request}`. A structured formatter renders that object through `str()`, which prints the full path, so redaction has to check values in the form they will be written and not only strings (I7). |
 | `contextvars` under the sync stack | The binding survives across the middleware chain and the view in the same thread, and a reset in `finally` keeps a line written after the response from carrying a stale address. Gunicorn sync workers handle one request at a time per worker, so no cross request bleed exists to defend against beyond that reset. |
 
+## Static files, confirmed during B16 (2026-08-28)
+
+Confirmed against the WhiteNoise documentation, the installed 6.12.0 source, the pinned Django
+5.2.17 source and the running container, never from memory. One package was added.
+
+| Piece | Finding |
+| --- | --- |
+| Middleware position | The Django integration page requires `WhiteNoiseMiddleware` directly after `SecurityMiddleware` and before every other middleware. This project keeps `RequestContextMiddleware` first so a static response still carries its correlation keys (foundation section 8), and WhiteNoise sits second, ahead of session, common, CSRF and authentication. |
+| Serving prefix | `WhiteNoiseMiddleware.__init__` in 6.12.0 takes `static_prefix` from `urlparse(settings.STATIC_URL).path`, so `STATIC_URL` alone decides what it answers on. Django's `Settings._add_script_prefix` turns a value with no leading slash into an absolute one at settings load, which is why the old `"static/"` worked. |
+| Static lives inside the secret path segment | Foundation section 6 says the health endpoint is the single route outside the segment, so `STATIC_URL` is built from `secret_path_segment` and every asset answers at `/<segment>/static/...`. Verified in the container: that prefix returns 200 and a bare `/static/admin/css/base.css` returns 404. The administration site follows automatically, because its templates use the `static` tag. |
+| Storage backend | `whitenoise.storage.CompressedStaticFilesStorage`, not the manifest variant. `CompressedManifestStaticFilesStorage` inherits Django's `ManifestFilesMixin`, whose `manifest_strict` defaults to `True`, and whose `stored_name` raises `ValueError: Missing staticfiles manifest entry` whenever the manifest is absent. With no manifest on disk every `{% static %}` in the suite would raise, so manifest storage makes `just test` depend on a `collectstatic` having run. The loud-build-failure argument does not survive the mechanism either: a bad reference in a template fails at render time as a 500, not at build time, because `collectstatic` only rewrites references found inside collected CSS and JS. The asset set is four brand files plus the administration bundle, served to a handful of employees on one hostname, so hashed names and far future caching buy nothing here. Compression is kept: `collectstatic` wrote 131 files and a `.gz` beside each compressible one. |
+| `STORAGES` is replaced, never merged | `django.core.files.storage.handler` copies `settings.STORAGES` as given and raises `InvalidStorageError` for a missing alias, so the settings module declares `default` as well as `staticfiles`. |
+| `collectstatic` at image build | The configuration boundary validates the whole environment on import, and a `docker build` has no `.env`, so the `collectstatic` line in the Dockerfile passes obviously fake values for the seven required variables. Nothing it writes carries a URL, so the placeholder segment never reaches the collected tree; the runtime environment is what `STATIC_URL` is built from. |
+| Defaults keyed on `DEBUG` | In 6.12.0 `autorefresh`, `use_finders` and `max_age` all fall back to `settings.DEBUG`: with `DEBUG=1` the container answered `Cache-Control: max-age=0, public` and served no compressed variant, because it was reading through the finders. With `DEBUG=0`, the deployment configuration, it answered `max-age=60, public`, `Vary: Accept-Encoding` and `Content-Encoding: gzip`, and `admin/css/base.css` went from 22120 to 4950 bytes. Any acceptance check of the static pipeline has to run with `DEBUG=0` or it measures the wrong code path. |
+| Missing `STATIC_ROOT` warns per request | WhiteNoise emits `UserWarning: No directory at: .../staticfiles/` when `STATIC_ROOT` does not exist, once per middleware construction, so the suite prints one per test client. The directory is a build artifact that only `collectstatic` creates, and the warning is accurate rather than noise to suppress. It disappears once `collectstatic` runs; see the open follow-ups below. |
+
+### Contrast measured for B16 (WCAG 2.1 relative luminance, computed, not estimated)
+
+The brand hexes are `#72BF00` and `#00312D`. They are anchored on the solid accent and nowhere
+that carries reading text, because `#72BF00` is too light to carry text or a hairline on a light
+page. Text needs 4.5:1, and a focus ring or a control boundary needs 3:1.
+
+| Pair | Light | Dark |
+| --- | --- | --- |
+| Primary button text, `--brand-ink` on `--brand-green` | 6.21:1 | 6.21:1 |
+| Primary button text on hover, `--brand-ink` on `#66ab00` | 5.00:1 | 5.00:1 |
+| Primary button fill against the page | 2.17:1 | 7.71:1 |
+| Focus ring, green 11, against canvas and panel | 4.46:1 and 4.62:1 | 10.03:1 and 9.42:1 |
+| Focus ring B14 used, green 8, against canvas and panel | 2.27:1 and 2.35:1 | 3.71:1 and 3.48:1 |
+| Control boundary, sage 9, against panel and canvas | 3.29:1 and 3.17:1 | 3.42:1 and 3.64:1 |
+| Control boundary B14 used, sage 7, against panel | 1.54:1 | 1.93:1 |
+| Badge text, green 12 on green 3 | 11.00:1 | 11.45:1 |
+| Badge text B14 used, green 11 on green 3 | 4.21:1 | 7.86:1 |
+| Link and accent text, green 11, on canvas | 4.46:1 | 10.03:1 |
+| Error text, red 11, on the error panel red 3 | 4.54:1 | 7.75:1 |
+| Placeholder, sage 10, on panel | 3.76:1 | 4.13:1 |
+| Body text, sage 12, on canvas | 15.51:1 | 16.14:1 |
+
+Three of these were failures B14 shipped and B16 repairs: the focus ring at 2.27:1 where a ring
+needs 3:1, the form control boundary at 1.54:1 where a control boundary needs 3:1, and the badge
+text at 4.21:1 where text needs 4.5:1. White on the brand green measures 2.29:1 and was rejected;
+the brand ink on it measures 6.21:1 and is what the primary button uses. The button fill itself
+carries only 2.17:1 against a light page, so the boundary that identifies the button is an ink
+border rather than the green.
+
+### Browser findings
+
+| Piece | Finding |
+| --- | --- |
+| Theme in three states | A media query cannot be reopened by an attribute rule, so the dark palette is declared twice, once under `@media (prefers-color-scheme: dark)` scoped to `:root:not([data-theme="light"])` and once under `:root[data-theme="dark"]`. `test_the_two_dark_theme_blocks_declare_the_same_tokens` compares the two, because a value edited in one of them is a defect visible in exactly one of the three states. `color-scheme: light dark` on `:root` makes the browser resolve scrollbars, the date picker and form controls from the operating system with no script, and the two attribute rules force one value when a person overrides it. |
+| `light-dark()` was rejected | It would remove the duplication, but a custom property carries no parse time fallback: an unsupported browser leaves every token invalid at computed value time and the page loses its colours. Baseline since 2024 is too recent to bet an internal tool on. |
+| The lockup swap | A `picture` element with a `prefers-color-scheme` source follows the operating system and ignores a manual override, so the two lockups are two `img` elements swapped by the same selectors that swap the tokens. Both carry `alt="Vale Verde Ambiental"`: the word mark is the only place the company is named on screen, and the hidden one is `display: none`, so it leaves the accessibility tree and never announces twice. |
+| `display: flex` on a `td` | B14 gave `.table__actions` `display: flex`. That takes the cell out of the table box tree, the browser wraps it in an anonymous table cell, and the result paints a lighter band with a visible vertical seam down the whole actions column at every width above the phone layout. Confirmed by removing the declaration and re-screenshotting the same page. The buttons are laid out inline instead, and the phone layout keeps flex because there the cells are already blocks. |
+| Headless verification | Google Chrome 152.0.7977.64, `--headless=new`, at 360, 768 and 1280 CSS pixels. It reads the desktop colour scheme: `matchMedia("(prefers-color-scheme: dark)")` reported true on this machine, so the light theme could only be reached through the manual override, which is the case worth checking. The stored choice was seeded through a page served from the same origin so the real script and the real `localStorage` ran, rather than by editing the attribute by hand. |
+| Date input format | Chrome renders `input type="date"` in the browser UI locale, not the document `lang`, so the headless screenshots show `mm/dd/yyyy` on a Portuguese page. That is the test environment's locale and not something the page can set. |
+
 ## Log
+
+2026-08-28: B16 added whitenoise 6.12.0, the first runtime pin since B1, and the static files section above. Static is served inside the secret path segment.
 
 2026-08-28: B6 added the runtime environment section above; no pin changed and no package was
 added.

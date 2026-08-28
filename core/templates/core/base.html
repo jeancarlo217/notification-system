@@ -1,31 +1,52 @@
-<!doctype html>
+{% load static %}<!doctype html>
 <html lang="pt-BR">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% block title %}Prazos{% endblock %} | Vale Verde Ambiental</title>
+  <title>{% block title %}Controle de Serviços{% endblock %} | Vale Verde Ambiental</title>
+  <link rel="icon" href="{% static 'favicon.ico' %}" sizes="any">
   {% include "core/_styles.html" %}
+  {% include "core/_theme.html" %}
 </head>
 <body>
   <a class="skip-link" href="#conteudo">Ir para o conteúdo</a>
   <header class="topbar">
     <div class="topbar__inner">
       <a class="brand" href="{% url 'service-list' %}">
-        <span class="brand__mark" aria-hidden="true">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-               stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M12 3.5c4.2 3 6.5 6.2 6.5 10.1A6.5 6.5 0 0 1 12 20.5a6.5 6.5 0 0 1-6.5-6.9C5.5 9.7 7.8 6.5 12 3.5z"/>
-            <path d="M12 20.5V8.5"/>
-          </svg>
-        </span>
-        <span class="brand__text">
-          <span class="brand__title">Prazos de serviços</span>
-          <span class="brand__org">Vale Verde Ambiental</span>
-        </span>
+        {% comment %}
+        One lockup per theme, swapped by the same selectors that swap the tokens, because a
+        picture element with a prefers-color-scheme source follows the operating system and
+        ignores a manual override. The word mark is the only place the company is named on
+        screen, so it is content and carries the name; the pair never announces twice because
+        the hidden one is display:none and leaves the accessibility tree.
+        {% endcomment %}
+        <img class="brand__logo brand__logo--light" src="{% static 'logo/vale-verde-light.svg' %}"
+             alt="Vale Verde Ambiental" width="412" height="68">
+        <img class="brand__logo brand__logo--dark" src="{% static 'logo/vale-verde-dark.svg' %}"
+             alt="Vale Verde Ambiental" width="412" height="68">
+        <span class="brand__divider" aria-hidden="true"></span>
+        <span class="brand__product">Controle de Serviços</span>
       </a>
+      <div class="theme" role="radiogroup" aria-labelledby="tema-titulo">
+        <span class="theme__label" id="tema-titulo">Tema</span>
+        <div class="theme__options">
+          <label class="theme__option">
+            <input class="theme__input" type="radio" name="theme" value="system" checked>
+            <span class="theme__text">Sistema</span>
+          </label>
+          <label class="theme__option">
+            <input class="theme__input" type="radio" name="theme" value="light">
+            <span class="theme__text">Claro</span>
+          </label>
+          <label class="theme__option">
+            <input class="theme__input" type="radio" name="theme" value="dark">
+            <span class="theme__text">Escuro</span>
+          </label>
+        </div>
+      </div>
     </div>
   </header>
-  <main class="shell" id="conteudo">
+  <main class="{% block shell_class %}shell{% endblock %}" id="conteudo">
     {% block content %}{% endblock %}
   </main>
   {% include "core/_scripts.html" %}

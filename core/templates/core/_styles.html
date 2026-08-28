@@ -1,16 +1,22 @@
 {% comment %}
-The whole design system, inline. Compose runs gunicorn with no whitenoise and no collectstatic,
-so nothing under a static directory is served in the real stack; a stylesheet link would be a 404
-in production and a working page in development.
+The whole design system, inline. B14 inlined it because nothing under a static directory was
+served; B16 added the static pipeline (whitenoise) and kept the stylesheet inline anyway, because
+splitting it would turn a design change into a restructuring and costs nothing at this size.
+Static files carry the brand assets and the administration site's own bundle.
 
 Colour scales are Radix Colors 3.0.0 (sage, green, red), copied from the published package
 (@radix-ui/colors 3.0.0, src/light.ts and src/dark.ts). Steps carry their documented roles:
 1 and 2 backgrounds, 3 to 5 component backgrounds by state, 6 to 8 borders by state, 9 and 10
-solid fills, 11 low contrast text, 12 high contrast text.
+solid fills, 11 low contrast text, 12 high contrast text. The brand hexes are anchored on the
+solid accent and its text, where they measure 6.21:1; the scale keeps the reading steps.
+Measured ratios: specs/dependencies.md, B16 section.
 {% endcomment %}
 <style>
   :root {
-    color-scheme: light;
+    /* Two values, so the browser resolves the theme from the operating system with no script,
+       and so form controls, scrollbars and the date picker follow it too. The two rules below
+       force one of them when a person overrides the setting. */
+    color-scheme: light dark;
 
     --sage-1: #fbfdfc;
     --sage-2: #f7f9f8;
@@ -51,7 +57,11 @@ solid fills, 11 low contrast text, 12 high contrast text.
     --red-11: #ce2c31;
     --red-12: #641723;
 
-    --white: #ffffff;
+    /* The identity, exact. The lockup carries these in its own fills; the interface carries them
+       on the solid accent only, because #72BF00 as text or as a hairline measures 2.2:1. */
+    --brand-green: #72bf00;
+    --brand-green-strong: #66ab00;
+    --brand-ink: #00312d;
 
     /* Theme flipped tokens: a panel is lighter than the page in both themes, which needs
        opposite steps, so the value moves and every rule below stays written once. */
@@ -64,23 +74,29 @@ solid fills, 11 low contrast text, 12 high contrast text.
 
     --text-high: var(--sage-12);
     --text-low: var(--sage-11);
+    --text-placeholder: var(--sage-10);
     --border-subtle: var(--sage-6);
     --border: var(--sage-7);
-    --border-strong: var(--sage-8);
+    /* A control is identified by its boundary, so it takes a step that measures over 3:1 against
+       the surface behind it; steps 7 and 8 are drawn for separation, not for that. */
+    --control-border: var(--sage-9);
+    --control-border-hover: var(--sage-10);
     --component: var(--sage-3);
     --component-hover: var(--sage-4);
 
     --accent-bg: var(--green-3);
     --accent-bg-hover: var(--green-4);
     --accent-border: var(--green-7);
-    --accent-solid: var(--green-9);
-    --accent-solid-hover: var(--green-10);
+    --accent-solid: var(--brand-green);
+    --accent-solid-hover: var(--brand-green-strong);
+    --accent-solid-border: var(--brand-ink);
     --accent-text: var(--green-11);
     --accent-text-high: var(--green-12);
-    --accent-contrast: var(--white);
-    --focus-ring: var(--green-8);
+    --accent-contrast: var(--brand-ink);
+    --focus-ring: var(--green-11);
 
     --danger-border: var(--red-7);
+    --danger-bg: var(--red-3);
     --danger-text: var(--red-11);
 
     --radius-2: 4px;
@@ -94,6 +110,7 @@ solid fills, 11 low contrast text, 12 high contrast text.
     --space-3: 0.75rem;
     --space-4: 1rem;
     --space-5: 1.5rem;
+    --space-6: 2rem;
     --space-7: 2.5rem;
     --space-8: 3rem;
 
@@ -103,15 +120,31 @@ solid fills, 11 low contrast text, 12 high contrast text.
     --text-4: 1rem;
     --text-5: 1.125rem;
     --text-6: 1.375rem;
+    --text-7: 1.625rem;
 
     --font: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     --touch: 44px;
+    --shell-width: 66rem;
+    --shell-width-narrow: 40rem;
   }
 
-  @media (prefers-color-scheme: dark) {
-    :root {
-      color-scheme: dark;
+  /* A manual choice beats the operating system in both directions, which the media query alone
+     cannot do. It carries color-scheme only; the tokens are in the two rules below. */
+  :root[data-theme="light"] {
+    color-scheme: light;
+  }
 
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+  }
+
+  /* The dark palette is written twice on purpose: once for the system default, once for a manual
+     override that disagrees with it, and a media query cannot be reused by an attribute rule.
+     The two blocks must stay identical, which
+     test_the_two_dark_theme_blocks_declare_the_same_tokens asserts, because a value edited in one
+     of them is a defect visible in exactly one of the three theme states. */
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
       --sage-1: #101211;
       --sage-2: #171918;
       --sage-3: #202221;
@@ -124,7 +157,6 @@ solid fills, 11 low contrast text, 12 high contrast text.
       --sage-10: #717d79;
       --sage-11: #adb5b2;
       --sage-12: #eceeed;
-
       --green-1: #0e1512;
       --green-2: #121b17;
       --green-3: #132d21;
@@ -137,7 +169,6 @@ solid fills, 11 low contrast text, 12 high contrast text.
       --green-10: #33b074;
       --green-11: #3dd68c;
       --green-12: #b1f1cb;
-
       --red-1: #191111;
       --red-2: #201314;
       --red-3: #3b1219;
@@ -150,7 +181,6 @@ solid fills, 11 low contrast text, 12 high contrast text.
       --red-10: #ec5d5e;
       --red-11: #ff9592;
       --red-12: #ffd1d9;
-
       --canvas: var(--sage-1);
       --panel: var(--sage-2);
       --surface-subtle: var(--sage-3);
@@ -158,6 +188,51 @@ solid fills, 11 low contrast text, 12 high contrast text.
       --shadow-hard: rgba(0, 0, 0, 0.45);
       --shadow-popup: rgba(0, 0, 0, 0.6);
     }
+  }
+
+  :root[data-theme="dark"] {
+    --sage-1: #101211;
+    --sage-2: #171918;
+    --sage-3: #202221;
+    --sage-4: #272a29;
+    --sage-5: #2e3130;
+    --sage-6: #373b39;
+    --sage-7: #444947;
+    --sage-8: #5b625f;
+    --sage-9: #63706b;
+    --sage-10: #717d79;
+    --sage-11: #adb5b2;
+    --sage-12: #eceeed;
+    --green-1: #0e1512;
+    --green-2: #121b17;
+    --green-3: #132d21;
+    --green-4: #113b29;
+    --green-5: #174933;
+    --green-6: #20573e;
+    --green-7: #28684a;
+    --green-8: #2f7c57;
+    --green-9: #30a46c;
+    --green-10: #33b074;
+    --green-11: #3dd68c;
+    --green-12: #b1f1cb;
+    --red-1: #191111;
+    --red-2: #201314;
+    --red-3: #3b1219;
+    --red-4: #500f1c;
+    --red-5: #611623;
+    --red-6: #72232d;
+    --red-7: #8c333a;
+    --red-8: #b54548;
+    --red-9: #e5484d;
+    --red-10: #ec5d5e;
+    --red-11: #ff9592;
+    --red-12: #ffd1d9;
+    --canvas: var(--sage-1);
+    --panel: var(--sage-2);
+    --surface-subtle: var(--sage-3);
+    --shadow-soft: rgba(0, 0, 0, 0.3);
+    --shadow-hard: rgba(0, 0, 0, 0.45);
+    --shadow-popup: rgba(0, 0, 0, 0.6);
   }
 
   *,
@@ -216,7 +291,12 @@ solid fills, 11 low contrast text, 12 high contrast text.
   }
 
   .topbar__inner {
-    max-width: 64rem;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+    max-width: var(--shell-width);
     margin: 0 auto;
     padding: var(--space-3) var(--space-4);
   }
@@ -225,38 +305,150 @@ solid fills, 11 low contrast text, 12 high contrast text.
     display: inline-flex;
     align-items: center;
     gap: var(--space-3);
+    min-width: 0;
     color: var(--text-high);
     text-decoration: none;
   }
 
-  .brand__mark {
-    display: grid;
-    place-items: center;
-    width: 2rem;
-    height: 2rem;
-    border-radius: var(--radius-4);
-    background: var(--accent-solid);
-    color: var(--accent-contrast);
+  .brand__logo {
+    display: block;
+    width: auto;
+    height: 1.75rem;
     flex: none;
   }
 
-  .brand__title {
+  /* The lockup that matches the resolved theme is the one shown, in all three states. The pair
+     of rules for a manual light choice is missing on purpose: the media query below already
+     excludes it, so the base rule here is what applies. */
+  .brand__logo--dark {
+    display: none;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) .brand__logo--light {
+      display: none;
+    }
+
+    :root:not([data-theme="light"]) .brand__logo--dark {
+      display: block;
+    }
+  }
+
+  :root[data-theme="dark"] .brand__logo--light {
+    display: none;
+  }
+
+  :root[data-theme="dark"] .brand__logo--dark {
     display: block;
+  }
+
+  .brand__divider {
+    width: 1px;
+    height: 1.5rem;
+    background: var(--border);
+    flex: none;
+  }
+
+  .brand__product {
     font-size: var(--text-4);
     font-weight: 600;
     letter-spacing: -0.01em;
+    white-space: nowrap;
   }
 
-  .brand__org {
-    display: block;
-    font-size: var(--text-2);
+  .theme {
+    display: none;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    min-width: 0;
+  }
+
+  /* The control does nothing without the script that reads and writes the stored choice, so it
+     appears only once that script has run. */
+  :root.js .theme {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+  }
+
+  .theme__label {
+    float: none;
+    padding: 0;
     color: var(--text-low);
+    font-size: var(--text-2);
+    font-weight: 600;
+  }
+
+  .theme__options {
+    display: flex;
+    gap: var(--space-1);
+    padding: 3px;
+    background: var(--component);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-full);
+  }
+
+  .theme__option {
+    display: flex;
+    min-width: 0;
+  }
+
+  .theme__input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    border: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .theme__text {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 1;
+    min-height: 2.25rem;
+    padding: 0 var(--space-3);
+    border-radius: var(--radius-full);
+    color: var(--text-low);
+    font-size: var(--text-2);
+    font-weight: 500;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background-color 120ms ease, color 120ms ease;
+  }
+
+  .theme__text:hover {
+    color: var(--text-high);
+  }
+
+  .theme__input:checked + .theme__text {
+    background: var(--panel);
+    border-color: var(--border);
+    box-shadow: 0 1px 2px var(--shadow-soft);
+    color: var(--text-high);
+  }
+
+  /* The input is off screen but still focusable, so the ring has to be drawn on what is seen. */
+  .theme__input:focus-visible + .theme__text {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 2px;
   }
 
   .shell {
-    max-width: 64rem;
+    max-width: var(--shell-width);
     margin: 0 auto;
-    padding: var(--space-5) var(--space-4) var(--space-8);
+    padding: var(--space-6) var(--space-4) var(--space-8);
+  }
+
+  /* The registration and the due date edit are one column of controls, so the column is what is
+     centred, heading included, instead of a narrow card pinned to the left of a wide page. */
+  .shell--narrow {
+    max-width: var(--shell-width-narrow);
   }
 
   .page-head {
@@ -270,7 +462,7 @@ solid fills, 11 low contrast text, 12 high contrast text.
 
   .page-head__title {
     margin: 0;
-    font-size: var(--text-6);
+    font-size: var(--text-7);
     font-weight: 600;
     letter-spacing: -0.02em;
   }
@@ -297,7 +489,6 @@ solid fills, 11 low contrast text, 12 high contrast text.
   }
 
   .card--form {
-    max-width: 36rem;
     padding: var(--space-5);
   }
 
@@ -320,9 +511,13 @@ solid fills, 11 low contrast text, 12 high contrast text.
     transition: background-color 120ms ease, border-color 120ms ease;
   }
 
+  /* The fill measures 2.2:1 against the page in the light theme, so the boundary that identifies
+     the button is the ink border, not the green. */
   .btn--solid {
     background: var(--accent-solid);
+    border-color: var(--accent-solid-border);
     color: var(--accent-contrast);
+    font-weight: 600;
   }
 
   .btn--solid:hover {
@@ -331,13 +526,13 @@ solid fills, 11 low contrast text, 12 high contrast text.
 
   .btn--soft {
     background: var(--component);
-    border-color: var(--border-subtle);
+    border-color: var(--control-border);
     color: var(--text-high);
   }
 
   .btn--soft:hover {
     background: var(--component-hover);
-    border-color: var(--border);
+    border-color: var(--control-border-hover);
   }
 
   .btn--ghost {
@@ -357,10 +552,6 @@ solid fills, 11 low contrast text, 12 high contrast text.
 
   .inline {
     display: inline;
-  }
-
-  .table-wrap {
-    overflow-x: auto;
   }
 
   .table {
@@ -406,11 +597,15 @@ solid fills, 11 low contrast text, 12 high contrast text.
     white-space: nowrap;
   }
 
+  /* A table cell, not a flex container: display:flex on a td drops it out of the table's own
+     box tree and the browser wraps it in an anonymous cell, which paints its own band across
+     the row. The buttons are laid out inline instead. */
   .table__actions {
-    display: flex;
-    flex-wrap: nowrap;
-    align-items: center;
-    gap: var(--space-2);
+    white-space: nowrap;
+  }
+
+  .table__actions > * + * {
+    margin-left: var(--space-2);
   }
 
   .badge {
@@ -436,12 +631,12 @@ solid fills, 11 low contrast text, 12 high contrast text.
   .badge--active {
     background: var(--accent-bg);
     border-color: var(--accent-border);
-    color: var(--accent-text);
+    color: var(--accent-text-high);
   }
 
   .badge--completed {
     background: var(--component);
-    border-color: var(--border-subtle);
+    border-color: var(--border);
     color: var(--text-low);
   }
 
@@ -458,7 +653,7 @@ solid fills, 11 low contrast text, 12 high contrast text.
   }
 
   .empty__icon {
-    color: var(--sage-9);
+    color: var(--text-placeholder);
   }
 
   .empty__text {
@@ -503,7 +698,7 @@ solid fills, 11 low contrast text, 12 high contrast text.
     min-height: var(--touch);
     padding: var(--space-2) var(--space-3);
     background: var(--panel);
-    border: 1px solid var(--border);
+    border: 1px solid var(--control-border);
     border-radius: var(--radius-3);
     color: var(--text-high);
     font-family: inherit;
@@ -513,11 +708,11 @@ solid fills, 11 low contrast text, 12 high contrast text.
   }
 
   :where(.field input, .field select, .field textarea, .combobox__input):hover {
-    border-color: var(--border-strong);
+    border-color: var(--control-border-hover);
   }
 
   :where(.field input, .field textarea, .combobox__input)::placeholder {
-    color: var(--sage-9);
+    color: var(--text-placeholder);
   }
 
   /* Four rows whatever the rows attribute says, because the height is what the layout was drawn
@@ -533,13 +728,18 @@ solid fills, 11 low contrast text, 12 high contrast text.
   .field--invalid select,
   .field--invalid textarea,
   .field--invalid .combobox__input {
-    border-color: var(--danger-border);
+    border-color: var(--danger-text);
   }
 
   .errorlist {
+    display: grid;
+    gap: var(--space-1);
     margin: 0;
-    padding: 0;
+    padding: var(--space-2) var(--space-3);
     list-style: none;
+    background: var(--danger-bg);
+    border: 1px solid var(--danger-border);
+    border-radius: var(--radius-3);
     color: var(--danger-text);
     font-size: var(--text-3);
   }
@@ -633,7 +833,7 @@ solid fills, 11 low contrast text, 12 high contrast text.
   .combobox__option[aria-selected="true"]::after {
     content: "\2713";
     margin-left: auto;
-    color: var(--accent-solid);
+    color: var(--accent-text);
   }
 
   .combobox__empty {
@@ -645,11 +845,64 @@ solid fills, 11 low contrast text, 12 high contrast text.
     font-size: var(--text-3);
   }
 
+  /* Between the phone layout and a full desktop the five columns no longer fit beside two action
+     buttons, so the actions stack inside their own cell and the table keeps its columns. */
+  @media (max-width: 62rem) {
+    .table__actions {
+      white-space: normal;
+    }
+
+    .table__actions .inline {
+      display: block;
+    }
+
+    .table__actions .btn {
+      display: flex;
+      width: 100%;
+    }
+
+    .table__actions > * + * {
+      margin-left: 0;
+      margin-top: var(--space-2);
+    }
+  }
+
   @media (max-width: 40rem) {
     .topbar__inner,
     .shell {
       padding-left: var(--space-3);
       padding-right: var(--space-3);
+    }
+
+    .topbar__inner {
+      row-gap: var(--space-2);
+    }
+
+    .brand__logo {
+      height: 1.5rem;
+    }
+
+    .brand__product {
+      font-size: var(--text-3);
+    }
+
+    :root.js .theme {
+      flex-basis: 100%;
+      justify-content: space-between;
+    }
+
+    .theme__options {
+      flex: 1;
+      max-width: 20rem;
+    }
+
+    .theme__text {
+      min-height: var(--touch);
+      padding: 0 var(--space-2);
+    }
+
+    .shell {
+      padding-top: var(--space-5);
     }
 
     .page-head__title {
@@ -703,7 +956,7 @@ solid fills, 11 low contrast text, 12 high contrast text.
 
     .table td {
       display: grid;
-      grid-template-columns: 7rem minmax(0, 1fr);
+      grid-template-columns: 6.5rem minmax(0, 1fr);
       align-items: baseline;
       justify-items: start;
       gap: var(--space-3);
@@ -729,6 +982,7 @@ solid fills, 11 low contrast text, 12 high contrast text.
     .table td.table__actions {
       display: flex;
       flex-wrap: wrap;
+      gap: var(--space-2);
       padding-top: var(--space-3);
     }
 
@@ -736,8 +990,9 @@ solid fills, 11 low contrast text, 12 high contrast text.
       content: none;
     }
 
-    .table td.table__actions .btn {
+    .table td.table__actions > * {
       flex: 1 1 8rem;
+      margin: 0;
     }
   }
 

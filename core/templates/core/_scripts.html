@@ -1,6 +1,7 @@
 {% comment %}
-The enhancement layer, inline for the same reason as the styles: gunicorn serves no static files
-in the Compose stack, so an external script would be a 404 in production.
+The enhancement layer, inline for the same reason as the styles: at this size a separate file
+buys nothing, and the static pipeline B16 added carries the brand assets, not the behaviour.
+The theme control is not here; it lives in core/_theme.html, in the head, where it has to be.
 
 Everything here is progressive. The combobox enhances a native select or a native input plus a
 datalist, and the value posted is the one the native control already carried, so the form works

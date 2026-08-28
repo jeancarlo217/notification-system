@@ -18,6 +18,9 @@ build/
 dist/
 *.egg-info/
 
+# Build artifact of collectstatic, rebuilt by the image and by just setup
+staticfiles/
+
 # Editors and per-machine files
 .vscode/
 .idea/

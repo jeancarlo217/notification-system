@@ -130,6 +130,22 @@ lists the alert as failed" and which B7 satisfied only at the persisted-state la
 `tests/test_engine_run.py` shows; no screen displays an alert today. Opened on 2026-08-28 as a
 found gap in delivered work, not as new scope.
 
+**B16. Brand, theme control and the static pipeline.** `done (2026-08-28)`. The company's own
+logo replacing B14's placeholder mark, the header reading `Controle de Serviços`, a light and dark
+control whose default follows the operating system, the registration form centred, and another pass
+over the responsive behaviour. It carries the enabling fix the other half needs: nothing under
+`static/` is served in the real stack, because Compose runs gunicorn with no whitenoise and no
+`collectstatic`, so the administration site of foundation section 6 is served unstyled in the
+deployment target and any vendored asset returns 404. Verified against the running container on
+2026-08-28: `/static/admin/css/base.css` answered 404. Delivered on branch
+`b16-brand-and-static-pipeline`: whitenoise 6.12.0 with `CompressedStaticFilesStorage`, assets
+served under the segment, `collectstatic` in the image build, the real lockup swapping with the
+theme, a three state theme control defaulting to the system, and the three contrast failures B14
+had shipped. Verified with `just gate` (ruff, `mypy --strict`, 276 tests, gitleaks) and by curling
+the admin stylesheet and the logo through gunicorn in the Compose stack with debug off. Trace: foundation section 6 (the maintenance
+door has to be usable), section 8, section 12 for the Portuguese interface. Opened by owner request
+on 2026-08-28; the static defect was found while opening it.
+
 Delivery order for the four items above, decided on 2026-08-28: B14 runs first because B12 and B13
 consume its widgets; then B12 and B13 together through one pair of windows, because they touch the
 same model, the same form and the same migration sequence, and splitting them would mean two
@@ -227,6 +243,10 @@ marked here after the merge. The engine track now waits only on the B8 adapter, 
 
 2026-08-28: B5 done by developer A on branch `b5-secret-path`, with ADR 0003 for the shape it
 introduced. The screens and safety track continues at B6, which extends the same `LOGGING` block.
+
+2026-08-28: B16 opened by owner request, carrying a defect found while opening it: no static file
+is served in the Compose stack, so the administration site has been unstyled in the deployment
+target since B1 and the logo had nowhere to live. B15 still `todo`.
 
 2026-08-28: B12, B13 and B14 done. B14 first, since B12 and B13 consume its combobox widgets;
 then B12 and B13 together through one pair of windows, because splitting them would have meant two
