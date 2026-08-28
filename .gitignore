@@ -4,6 +4,7 @@
 !.env.example
 *.sqlite3
 *.sqlite
+.evolution-qr.png
 
 # Python
 __pycache__/

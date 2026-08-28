@@ -19,3 +19,9 @@ never appended over.
 ## [2026-08-28] trap | The hooks in .claude/hooks depend on `jq`, which was absent on the owner's Windows machine, so they had been failing silently; installed via winget together with `just`. On Git Bash, a Docker `-v host:/repo` mount needs `MSYS_NO_PATHCONV=1` or `/repo` is rewritten to a Windows path; the justfile carries it.
 
 ## [2026-08-28] decision | Two-developer parallel plan recorded in specs/backlog.md: wave 0 the B8 spike plus OQ-2/OQ-3 answers, wave 1 B2 beside B3, wave 2 a screens-and-safety track (B4, B5, B6, B10) beside an engine track (B7, B9, B8 adapter), wave 3 B11 together; B5 and B6 share one developer because both edit the logging path.
+
+## [2026-08-28] decision | B8 spike shape, on branch b8-evolution-spike: Evolution API pinned to evoapicloud/evolution-api:v2.3.7 (latest stable; the `latest` tag is a 2.4.0 rc) with its own postgres:15 and redis:7-alpine as neighbouring Compose services and volumes, opaque to web; only EVOLUTION_API_KEY and EVOLUTION_DB_PASSWORD come from .env; the spike steps are `just evolution-*` recipes; findings in specs/dependencies.md. OQ-1 stays open until one real message is delivered.
+
+## [2026-08-28] finding | The Evolution documentation moved to docs.evolutionfoundation.com.br and its send-text page still documents the v1 body (`textMessage.text`); the 2.3.7 source takes top-level `text`. Git tags have no `v` prefix, Docker tags do.
+
+## [2026-08-28] trap | The owner's machine had 0.2 GB free on C: on 2026-08-28; Docker Desktop answered `metadata.db: input/output error` and then hung, so the Evolution stack could not boot. Free disk space before `just evolution-up`; Docker Desktop's data disk grows as images are pulled.
