@@ -47,7 +47,7 @@ because that text reaches the logs (I7).
 | Value | Form | Reason |
 | --- | --- | --- |
 | Thresholds | `tuple[int, ...]`, distinct, ordered from the earliest warning to the due date | the loader owns the order, so no caller sorts again |
-| Number | digits only, country code first, no plus sign | every vendor format is reached by adding characters to this one, and OQ-1 has not said what Evolution API wants |
+| Number | digits only, country code first, no plus sign | every vendor format is reached by adding characters to this one, and OQ-1 is still open on the exact form Evolution API accepts |
 | Template | a `str.format` string over `MESSAGE_TEMPLATE_FIELDS` | those four fields are the ones foundation section 4 names |
 | Secret segment | at least 16 characters of `A-Za-z0-9_-` | foundation section 6 calls the link a credential, and a short segment is not one |
 | Time zone | a `zoneinfo.ZoneInfo`, resolved at startup | an invalid name is caught on boot rather than during a run |
@@ -59,8 +59,10 @@ because that pair refuses every request.
 ## Consequences
 
 B7 renders warnings against `MESSAGE_TEMPLATE_FIELDS` imported from this module rather than
-retyping the names, and B8's adapter maps the digits-only number into whatever shape the spike
-settles on. B11 provisions the nine variables above on the host.
+retyping the names. B8's adapter maps the digits-only number into the `number` field of Evolution's
+send body, whose shape the spike recorded in `specs/dependencies.md` while OQ-1 stays open. B11
+provisions the nine variables of this project on the host, alongside the Evolution keys that the
+spike added and that this boundary does not read.
 
 A missing or malformed variable stops the process at startup instead of failing later. That is the
 intended trade: the daily run must not discover a broken template at send time.

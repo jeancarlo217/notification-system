@@ -20,6 +20,12 @@ never appended over.
 
 ## [2026-08-28] decision | Two-developer parallel plan recorded in specs/backlog.md: wave 0 the B8 spike plus OQ-2/OQ-3 answers, wave 1 B2 beside B3, wave 2 a screens-and-safety track (B4, B5, B6, B10) beside an engine track (B7, B9, B8 adapter), wave 3 B11 together; B5 and B6 share one developer because both edit the logging path.
 
+## [2026-08-28] decision | B8 spike shape, on branch b8-evolution-spike: Evolution API pinned to evoapicloud/evolution-api:v2.3.7 (latest stable; the `latest` tag is a 2.4.0 rc) with its own postgres:15 and redis:7-alpine as neighbouring Compose services and volumes, opaque to web; only EVOLUTION_API_KEY and EVOLUTION_DB_PASSWORD come from .env; the spike steps are `just evolution-*` recipes; findings in specs/dependencies.md. OQ-1 stays open until one real message is delivered.
+
+## [2026-08-28] finding | The Evolution documentation moved to docs.evolutionfoundation.com.br and its send-text page still documents the v1 body (`textMessage.text`); the 2.3.7 source takes top-level `text`. Git tags have no `v` prefix, Docker tags do.
+
+## [2026-08-28] trap | The owner's machine had 0.2 GB free on C: on 2026-08-28; Docker Desktop answered `metadata.db: input/output error` and then hung, so the Evolution stack could not boot. Free disk space before `just evolution-up`; Docker Desktop's data disk grows as images are pulled.
+
 ## [2026-08-28] decision | B2 delivered by developer A: one configuration boundary, `load_config` in `deadliner/config.py` called once by the settings module, business values reached through `get_config()`; five `DEADLINER_*` variables with no default in code at all (I4 forbids the literal, overridable or not), one `ConfigError` listing every problem, and the secret path segment never repeated in an error text (I7). Shape in `specs/adr/0001-configuration-boundary.md`, the first ADR.
 
 ## [2026-08-28] decision | Two B1 settings behaviours tightened by B2: `DJANGO_DEBUG` now accepts only `0` or `1` and errors on anything else instead of reading it as off, and an empty `DJANGO_ALLOWED_HOSTS` with debug off is a boot error because that pair refuses every request.

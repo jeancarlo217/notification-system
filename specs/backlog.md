@@ -52,10 +52,14 @@ catch-up rule, the provider interface with its test fake, and alert states a hum
 failed. This is the heart of the product and carries the bulk of the tests. Trace: foundation
 sections 2 and 5, I1, I2, I3.
 
-**B8. Evolution API spike, then adapter.** `blocked on OQ-1`. First the spike: a running Evolution
-instance in Compose delivering one real message to the company number, findings recorded in
-`specs/dependencies.md`, which closes OQ-1. Then the real adapter behind the provider interface and
-the few integration tests. Trace: foundation section 4.
+**B8. Evolution API spike, then adapter.** `spike doing, adapter blocked on OQ-1`. First the spike:
+a running Evolution instance in Compose delivering one real message to the company number, findings
+recorded in `specs/dependencies.md`, which closes OQ-1. Then the real adapter behind the provider
+interface and the few integration tests. Trace: foundation section 4. Spike state on 2026-08-28,
+branch `b8-evolution-spike`: Evolution v2.3.7 with its Postgres and Redis are in `compose.yaml`, the
+keys are in `.env.example`, the steps are `just evolution-up`, `evolution-instance`, `evolution-qr`,
+`evolution-state`, `evolution-send`; the stack has not yet booted on the owner's machine (disk full)
+and the pairing and the real send are pending on the owner.
 
 **B9. Scheduler.** `todo`. The Compose piece that runs the daily command, with the run-twice test
 proving idempotency end to end. Trace: foundation section 5, I1, I3.
@@ -138,6 +142,9 @@ renewal; per-person accounts and attribution; editing history.
 
 2026-08-28: parallel plan for two developers recorded (waves 0 to 3, two tracks, three conflict
 rules), decided by the owner.
+
+2026-08-28: B8 spike started on branch `b8-evolution-spike` (wave 0): Compose services, keys and
+recipes in place; boot, pairing and the real send pending on the owner, OQ-1 still open.
 
 2026-08-28: B2 done by developer A, with ADR 0001 written for the boundary it introduced. B4 to B11
 now read their configuration from `get_config()` rather than deciding a name or a format again.

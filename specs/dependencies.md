@@ -40,6 +40,27 @@ which source, on which date, and what was learned while confirming it. The stand
 | gitleaks-action | v3 | gitleaks/gitleaks-action README | Needs only `GITHUB_TOKEN` on a personal account; an organisation repository needs a `GITLEAKS_LICENSE` secret (free at gitleaks.io). Reads `.gitleaks.toml` at the repository root. |
 | gitleaks (local) | v8.30.1 | GitHub releases API, gitleaks README | `just secret-scan` runs `ghcr.io/gitleaks/gitleaks` in `dir` mode over the working tree, so uncommitted files are scanned before they are staged; `.gitleaks.toml` extends the default rules and allowlists the untracked `.env` and the virtualenv folders. |
 
+## Evolution API (B8 spike, OQ-1 still open)
+
+Confirmed 2026-08-28 from the official repository (`EvolutionAPI/evolution-api`, now under the
+Evolution Foundation), its `docker-compose.yaml` and `.env.example`, the GitHub releases API, the
+Docker Hub tags API, and the source at git tag `2.3.7`. The documentation site moved from
+`doc.evolution-api.com` to `docs.evolutionfoundation.com.br`.
+
+| Piece | Pin | Source consulted | Finding |
+| --- | --- | --- | --- |
+| evolution-api image | `evoapicloud/evolution-api:v2.3.7` | Docker Hub tags, GitHub releases | 2.3.7 (2025-12-05) is the latest stable release; 2.4.0 exists only as release candidates (rc1 2026-05-06, rc2 2026-05-17) and the `latest` tag points at an rc, so `latest` is never used. The old `atendai/evolution-api` image stopped at v2.2.3 (2025-02). Git tags carry no `v` prefix (`2.3.7`), Docker tags do (`v2.3.7`). The image is Node 24 on Alpine, port 8080. |
+| PostgreSQL | `postgres:15` | official `docker-compose.yaml` | The vendor's own compose uses 15. Owned by the Evolution service: database `evolution`, user `evolution`, password `EVOLUTION_DB_PASSWORD`, volume `evolution_postgres`. |
+| Redis | `redis:7-alpine` | official `docker-compose.yaml` (uses `redis:latest`) | Pinned to a major instead of `latest`; `appendonly yes` as in the vendor file, volume `evolution_redis`. |
+| Environment | see `compose.yaml` | official `.env.example`, env reference page | Set in `compose.yaml` under the `evolution` service, only the secrets come from `.env`: `EVOLUTION_API_KEY` (becomes `AUTHENTICATION_API_KEY`, the `apikey` header of every call) and `EVOLUTION_DB_PASSWORD`. `EVOLUTION_SERVER_URL` defaults to `http://localhost:8080`. Telemetry off, `DEL_INSTANCE=false` so a disconnected instance is kept, `LANGUAGE=pt-BR`, `CONFIG_SESSION_PHONE_CLIENT` is the name shown on the phone. Sessions persist in the `evolution_instances` volume. |
+| Endpoints | git tag `2.3.7` | `src/api/dto/sendMessage.dto.ts`, `src/validate/message.schema.ts`, `src/api/routes/sendMessage.router.ts`, doc pages for instance create, connect and connectionState | `POST /instance/create` body `{instanceName, integration: "WHATSAPP-BAILEYS", qrcode: true}`; `GET /instance/connect/{name}` returns `base64` (PNG data URI) and `pairingCode`; `GET /instance/connectionState/{name}` returns `instance.state` in `open`, `close`, `connecting`; `POST /message/sendText/{name}` body `{number, text}` with optional `delay`, `linkPreview`, and the response carries `key.id` and `status`. Trap: the send-text documentation page still shows the v1 body (`textMessage.text`); the 2.3.7 source is the authority and takes top-level `text`. |
+
+Exit criterion of OQ-1 (one real message delivered to the company number) is not yet met. Done on
+2026-08-28: the Compose services, the keys in `.env.example`, the `just evolution-*` recipes, and
+`docker compose config` validates. Not done: booting the stack on the owner's machine (the disk had
+0.2 GB free and Docker Desktop failed with an I/O error on its data disk), pairing the phone (a
+human scans the QR), and the send. The `just` recipes carry the remaining steps in order.
+
 ## Runtime environment, confirmed during B2 (2026-08-28)
 
 Confirmed by running each check against the pinned versions, never from memory. No new package was
@@ -55,6 +76,8 @@ added; every finding here is about behaviour that shaped `deadliner/config.py`.
 | `just setup` on Linux | The recipe builds the virtualenv from whatever `python` is on PATH. On Fedora 44 that is 3.14, while the canon, the Dockerfile and CI are all 3.13, so the local venv was created with `python3.13` by hand. The recipe is still unfixed. |
 
 ## Log
+
+2026-08-28: Evolution API section added by the B8 spike; OQ-1 stays open until a real message lands.
 
 2026-08-28: file created with the B1 pins. Owner replaced uv with venv and pip during B1; the earlier
 uv lock was deleted, nothing had been committed with it.

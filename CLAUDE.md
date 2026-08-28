@@ -125,4 +125,8 @@ All through `just` (it loads `.env` first). `just` with no argument lists them.
   `just test [args]` (pytest), `just secret-scan` (gitleaks over the working tree, needs Docker).
 - `just gate`: lint, typecheck, test, secret-scan, in CI order. Green here is the precondition for
   a commit.
-- `just up` / `just down`: the Compose stack (web on port 8000, SQLite on the `data` volume).
+- `just up` / `just down`: the Compose stack (web on port 8000, SQLite on the `data` volume,
+  Evolution API on 127.0.0.1:8080 with its own Postgres and Redis).
+- `just evolution-up`, `evolution-status`, `evolution-instance`, `evolution-qr`, `evolution-state`,
+  `evolution-send <number> <text>`: the B8 spike steps, in that order. Findings and pins:
+  `specs/dependencies.md`, Evolution section.
