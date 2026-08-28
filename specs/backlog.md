@@ -47,7 +47,8 @@ mounts them under the secret segment.
 
 **B5. Secret-path access and health endpoint.** `todo`. The whole application served under the
 configured secret segment, the health endpoint as the single route outside it touching no dependency,
-and redaction of the segment on the logging path. Trace: foundation section 6, I7.
+and redaction of the segment on the logging path. The Django administration site moves inside the
+segment in the same pass, keeping its standard authentication. Trace: foundation section 6, I7.
 
 **B6. Audit and structured logging.** `todo`. Every form submission logs IP, Cloudflare country,
 timestamp and record id, bound once on a shared path, with correlation keys on request and run.

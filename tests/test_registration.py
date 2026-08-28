@@ -229,6 +229,15 @@ def test_the_due_date_form_changes_the_date_and_nothing_else(client: Client) -> 
     assert service.status == "active"
 
 
+def test_the_due_date_form_offers_the_stored_date_the_way_a_date_input_reads_it(
+    client: Client,
+) -> None:
+    """Foundation section 12: under pt-BR a bound date renders in a form the picker shows empty."""
+    service = _registered()
+
+    assert 'value="2026-12-25"' in _page(client, "service-due-date", service.pk)
+
+
 def test_an_unreadable_due_date_edit_changes_nothing(client: Client) -> None:
     """B4: a refused edit leaves the record as it was and shows the form again."""
     service = _registered()
