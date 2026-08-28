@@ -43,6 +43,14 @@ share a first name, which is a worse failure than an occasional stray row an adm
 merge by hand. The boundary is stated here so that nobody widens it in a later window believing it
 was an oversight.
 
+**The normalized name is derived by the model, never by a caller.** `Submitter.save` computes it
+from `display_name` on every write. I8 is a property of the table, so it cannot depend on which
+door the row came through: the form, a data migration, the administration site and a future import
+all reach the same key without knowing the rule. An administrator adding a person by hand cannot
+leave the identity blank, and cannot invent a second key for somebody who already exists. Correcting
+a display name recomputes the key, and if that collides with a person who already exists the write
+fails visibly, which is the honest outcome of saying two rows are one person.
+
 **Resolution is get or create on the normalized key**, with `defaults={"display_name": raw.strip()}`.
 The database constraint is the enforcement, not the lookup: two concurrent creates raise
 `IntegrityError` and the caller re-reads. SQLite and two typists make that race theoretical, and
@@ -67,8 +75,11 @@ creatable field allows by construction.
 
 **The form field is the creatable combobox** delivered by B14: a required field over the active
 submitters, ordered by display name, that posts whatever the employee typed. The form's `clean`
-normalizes it, rejects a value that normalizes to empty, and resolves it to the `Submitter`
-instance. The two seeded names, `José Victor` and `Geovanna`, arrive in a data migration for the
+normalizes the value and rejects one that normalizes to empty. **It does not resolve it.** Creating
+the person is done in `save`, alongside the record, because a form that mints a row while validating
+mints it for submissions it then refuses: mistype the due date and the person exists forever in the
+suggestion list, having entered nothing. Validation answers whether the input is acceptable and
+writes nothing; `save` writes. The two seeded names, `José Victor` and `Geovanna`, arrive in a data migration for the
 reason ADR 0005 gives about the catalogue: they are data, not code, and the list grows through the
 interface.
 
@@ -103,3 +114,16 @@ B10's CSV export gains a submitter column carrying the display name.
 
 Every existing test that creates a `Service` needs a submitter, the same churn ADR 0005 causes for
 the catalogue, and for the same reason.
+
+A record that predates the submitter column cannot be attributed, and the migration that makes the
+column required deletes those rows rather than backfilling a seeded person onto them. Guessing who
+entered a record is worse than an empty development table, because the whole value of the column is
+that it is not a guess. This rests on the same single condition ADR 0005 attaches to its own
+deleting step, that B11 has not shipped, and it is wrong the moment that stops being true.
+
+Amended 2026-08-28, during B13's Window B, which reported two consequences this document had not
+followed through. Resolution in `clean` created a person for a submission the form then refused, so
+resolution moved to `save`. And nothing computed the normalized name outside the form, so the
+administration site could write a row with a blank identity key; the model now derives it. The
+unattributed-record decision above was made in the same window and is recorded here rather than
+left in a migration docstring.
