@@ -1,24 +1,20 @@
-"""
-URL configuration for deadliner project.
+"""Root URL configuration.
 
-The `urlpatterns` list routes URLs to views. For more information please see:
-    https://docs.djangoproject.com/en/5.2/topics/http/urls/
-Examples:
-Function views
-    1. Add an import:  from my_app import views
-    2. Add a URL to urlpatterns:  path('', views.home, name='home')
-Class-based views
-    1. Add an import:  from other_app.views import Home
-    2. Add a URL to urlpatterns:  path('', Home.as_view(), name='home')
-Including another URLconf
-    1. Import the include() function: from django.urls import include, path
-    2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
+The whole application is served under the configured secret path segment, and the health endpoint
+is the single route outside it (foundation section 6). The segment comes from the configuration
+boundary, never from a literal (I4).
 """
 
 from django.contrib import admin
 from django.urls import include, path
 
+from core import views
+from deadliner.config import get_config
+
+_secret_path_segment = get_config().secret_path_segment
+
 urlpatterns = [
-    path("admin/", admin.site.urls),
-    path("", include("core.urls")),
+    path("health/", views.health, name="health"),
+    path(f"{_secret_path_segment}/admin/", admin.site.urls),
+    path(f"{_secret_path_segment}/", include("core.urls")),
 ]

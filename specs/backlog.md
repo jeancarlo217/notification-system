@@ -42,13 +42,16 @@ scan on 2026-08-28; merged to `main` by pull request #3.
 editing a due date and marking a service completed. UI text in Portuguese. Trace: foundation sections
 1 and 3, section 12 for the language, section 8 for the constant-query list. Delivered test first on
 branch `b4-registration` (19 behaviour tests); verified with `just gate` (ruff, `mypy --strict`, 105
-tests, gitleaks) and `makemigrations --check` on 2026-08-28. Routes sit at the site root until B5
-mounts them under the secret segment.
+tests, gitleaks) and `makemigrations --check` on 2026-08-28. B5 moved those routes under the secret
+segment; the route names they are reached by did not change.
 
-**B5. Secret-path access and health endpoint.** `todo`. The whole application served under the
-configured secret segment, the health endpoint as the single route outside it touching no dependency,
-and redaction of the segment on the logging path. The Django administration site moves inside the
-segment in the same pass, keeping its standard authentication. Trace: foundation section 6, I7.
+**B5. Secret-path access and health endpoint.** `done (2026-08-28)`. The whole application served
+under the configured secret segment, the health endpoint as the single route outside it touching no
+dependency, and redaction of the segment on the logging path. The Django administration site moved
+inside the segment in the same pass, keeping its standard authentication. Trace: foundation section 6,
+I7. Delivered test first on branch `b5-secret-path` by developer A (13 behaviour tests), shape in
+`specs/adr/0003-secret-path-and-log-redaction.md`; verified with `just gate` (ruff, `mypy --strict`,
+138 tests, gitleaks) on 2026-08-28.
 
 **B6. Audit and structured logging.** `todo`. Every form submission logs IP, Cloudflare country,
 timestamp and record id, bound once on a shared path, with correlation keys on request and run.
@@ -172,3 +175,6 @@ finished B2 and B3; developer A's track continues at B5.
 
 2026-08-28: B7 and B9 done by developer B, merged to `main` by pull requests #7 and #8; statuses
 marked here after the merge. The engine track now waits only on the B8 adapter, gated by OQ-1.
+
+2026-08-28: B5 done by developer A on branch `b5-secret-path`, with ADR 0003 for the shape it
+introduced. The screens and safety track continues at B6, which extends the same `LOGGING` block.

@@ -132,3 +132,31 @@ STATIC_URL = "static/"
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+
+# Logging
+# https://docs.djangoproject.com/en/5.2/topics/logging/
+
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "filters": {
+        "redact_secret_path": {"()": "deadliner.log_redaction.SecretPathRedactionFilter"},
+    },
+    "formatters": {
+        "plain": {"format": "{asctime} {levelname} {name} {message}", "style": "{"},
+    },
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "filters": ["redact_secret_path"],
+            "formatter": "plain",
+        },
+    },
+    "root": {"handlers": ["console"], "level": "INFO"},
+    "loggers": {
+        # Django's own configuration attaches handlers this project does not own to the django
+        # logger, and those would write the secret path segment unfiltered (I7).
+        "django": {"handlers": ["console"], "level": "INFO", "propagate": False},
+    },
+}

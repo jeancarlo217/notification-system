@@ -9,6 +9,15 @@ services:
     volumes:
       - data:/data
     command: sh -c "python manage.py migrate --noinput && gunicorn deadliner.wsgi --bind 0.0.0.0:8000"
+    # The single route outside the secret path segment, and it touches no dependency
+    # (foundation section 6). It answers on the loopback name, which DJANGO_ALLOWED_HOSTS
+    # must therefore carry.
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/').read()"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
 
   # The daily scheduler (foundation section 5): the engine outside the web process, no queue.
   # A plain loop is enough because I1 makes a duplicate run harmless and I3 makes a late run
