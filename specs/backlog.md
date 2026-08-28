@@ -30,9 +30,11 @@ CI workflow itself runs on the first push.
 secret path segment and timezone read from the environment at one boundary, with no default that is a
 real credential. Trace: I4, I5.
 
-**B3. Data model.** `todo`. The flat service record (client, service, due date, status, created at)
-and the alert record (service, threshold, state, timestamps) with its uniqueness rule, migrations
-generated. Trace: foundation section 3, I1.
+**B3. Data model.** `done (2026-08-28)`. The flat service record (client, service, due date, status,
+created at) and the alert record (service, threshold, state, timestamps) with its uniqueness rule,
+migrations generated. Trace: foundation section 3, I1. Delivered test first on branch `b3-data-model`;
+verified with `ruff check`, `ruff format --check`, `mypy` and `pytest` (13 passed) plus the gitleaks
+scan on 2026-08-28; merges to `main` by pull request.
 
 **B4. Registration and lifecycle.** `todo`. The three-field form, the list of records, editing a due
 date and marking a service completed. UI text in Portuguese. Trace: foundation sections 1 and 3.
@@ -136,3 +138,5 @@ renewal; per-person accounts and attribution; editing history.
 
 2026-08-28: parallel plan for two developers recorded (waves 0 to 3, two tracks, three conflict
 rules), decided by the owner.
+
+2026-08-28: B3 delivered on branch `b3-data-model` with the gate green, awaiting its pull request.
