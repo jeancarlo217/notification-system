@@ -283,6 +283,17 @@ Blocks nothing structural; a placeholder template satisfies every test.
 The method, test-first in two windows, decisions kept pure and effects behind narrow interfaces,
 the clock injected everywhere, lives in `specs/testing.md` and binds every implementation window.
 
+**Decision.** Four conventions the toolkit already enforced are canon, ratified by the owner on
+2026-08-28: the user interface is in Portuguese, and code, tests, commit messages and every document
+under `specs/` and `.claude/` are in English; framework-owned files (apps, migrations) are generated
+by the framework's CLI and then edited, never hand-written; a code comment exists only where correct
+code looks wrong, and it cites a canon identifier instead of restating its reasoning; prose in any
+document carries no em dash, en dash or double hyphen.
+
+*What this buys:* one voice per audience, and the standing rules of `CLAUDE.md` and the hooks now
+resolve upward to this section instead of standing as orphans. *What this costs:* nothing beyond the
+discipline the toolkit was already applying.
+
 ## 13. Decision log and revisions
 
 2026-08-28, foundation v0.1. Closed: core thesis (persisted truth, derived schedule); flat data
@@ -296,3 +307,7 @@ incorporated above.
 and pinned requirements files, by owner decision ("keep it simple"). What this buys: no extra tool
 to install, the standard Python workflow. What this costs: no lockfile, so transitive versions are
 pinned only through the direct pins recorded in `specs/dependencies.md`.
+
+2026-08-28, revision after the review window. Section 12 ratifies four toolkit conventions (UI in
+Portuguese and English elsewhere, CLI-generated framework files, the comment rule, the prose rule)
+that a docs audit found only in `CLAUDE.md`; the owner had proposed them and promoted them.

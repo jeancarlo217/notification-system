@@ -56,10 +56,17 @@ Docker Hub tags API, and the source at git tag `2.3.7`. The documentation site m
 | Endpoints | git tag `2.3.7` | `src/api/dto/sendMessage.dto.ts`, `src/validate/message.schema.ts`, `src/api/routes/sendMessage.router.ts`, doc pages for instance create, connect and connectionState | `POST /instance/create` body `{instanceName, integration: "WHATSAPP-BAILEYS", qrcode: true}`; `GET /instance/connect/{name}` returns `base64` (PNG data URI) and `pairingCode`; `GET /instance/connectionState/{name}` returns `instance.state` in `open`, `close`, `connecting`; `POST /message/sendText/{name}` body `{number, text}` with optional `delay`, `linkPreview`, and the response carries `key.id` and `status`. Trap: the send-text documentation page still shows the v1 body (`textMessage.text`); the 2.3.7 source is the authority and takes top-level `text`. |
 
 Exit criterion of OQ-1 (one real message delivered to the company number) is not yet met. Done on
-2026-08-28: the Compose services, the keys in `.env.example`, the `just evolution-*` recipes, and
-`docker compose config` validates. Not done: booting the stack on the owner's machine (the disk had
-0.2 GB free and Docker Desktop failed with an I/O error on its data disk), pairing the phone (a
-human scans the QR), and the send. The `just` recipes carry the remaining steps in order.
+2026-08-28, verified on the owner's machine: `just evolution-up` boots the three services, the
+Prisma migrations run at container start, `GET /` answers `version 2.3.7` and names the manager UI
+at `http://localhost:8080/manager` (login with the API key), `POST /instance/create` created
+`valeverde` in state `connecting`, and `GET /instance/connect/valeverde` returned a QR code that
+`just evolution-qr` saved as a PNG. Not done: pairing the phone (a human scans the QR, which
+rotates every few seconds up to `QRCODE_LIMIT`, so generate it right before scanning) and the send.
+
+Trap met on the way: after the disk-full incident the locally cached image had zero-byte files
+(`dist/main.js`, `Docker/scripts/*.sh`), so the container exited 0 in silence and restarted in a
+loop. `docker image rm` and a fresh `docker compose pull` fixed it; the integrity check is
+`docker run --rm --entrypoint sh evoapicloud/evolution-api:v2.3.7 -c 'ls -la dist/main.js'`.
 
 ## Runtime environment, confirmed during B2 (2026-08-28)
 
@@ -73,7 +80,7 @@ added; every finding here is about behaviour that shaped `deadliner/config.py`.
 | `string.Formatter().parse` | Malformed braces raise `ValueError` while the result is iterated. `{}` yields the field name `''`, `{0}` yields `'0'`, `{a.b}` and `{a[0]}` yield the whole expression, and a format spec or conversion is stripped. Membership against an allowed set therefore rejects positional and attribute access for free. |
 | dotenv parsing | The parser behind `just` rejects an unquoted value containing spaces, so the message template is quoted in `.env.example`. Both `just` and Docker Compose `env_file` strip the surrounding quotes, checked by printing the loaded value through each. |
 | gitleaks `generic-api-key` | Fires on an alphanumeric string of sixteen or more characters near the word secret, which any test of the secret path segment trips by nature. Fixtures use obviously fake low entropy values; an allowlist over the test tree would blind the C5 gate exactly where a real credential could be pasted. |
-| `just setup` on Linux | The recipe builds the virtualenv from whatever `python` is on PATH. On Fedora 44 that is 3.14, while the canon, the Dockerfile and CI are all 3.13, so the local venv was created with `python3.13` by hand. The recipe is still unfixed. |
+| `just setup` on Linux | The recipe builds the virtualenv from whatever `python` is on PATH. On Fedora 44 that is 3.14, while the canon, the Dockerfile and CI are all 3.13, so the local venv was created with `python3.13` by hand. Fixed in the review window of 2026-08-28: the recipe now calls `py -3.13` on Windows and `python3.13` elsewhere. |
 
 ## Log
 

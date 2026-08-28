@@ -37,3 +37,11 @@ never appended over.
 ## [2026-08-28] trap | The gitleaks rule `generic-api-key` fires on any alphanumeric string of sixteen or more characters near the word secret, so tests of the secret path segment trip the C5 gate by nature. The fixture gives way, never the gate: obviously fake low entropy values instead of an allowlist over `tests/`, which would blind the scan exactly where a real credential could be pasted. B5 will meet the same rule.
 
 ## [2026-08-28] trap | `just setup` builds the virtualenv from whatever `python` is on PATH, which on Fedora 44 is 3.14 while the canon, the Dockerfile and CI are 3.13; the local venv was created with `python3.13` by hand and the recipe is still unfixed.
+
+## [2026-08-28] trap | An image pulled while the disk was full stays corrupted after space is freed: evoapicloud/evolution-api:v2.3.7 had zero-byte dist/main.js and startup scripts, the container exited 0 silently and restart-looped. Remedy is `docker image rm` plus a fresh pull; Docker Desktop also needed a clean restart (kill lingering Docker Desktop.exe, `wsl --shutdown`). Recorded in specs/dependencies.md.
+
+## [2026-08-28] finding | B8 spike verified up to the QR: Evolution 2.3.7 boots with its Postgres and Redis, migrations apply, instance `valeverde` created, QR generated. Pairing and the real send remain with the owner; OQ-1 still open.
+
+## [2026-08-28] decision | Review window over B1, B2, B3 and the B8 spike on branch b8-evolution-spike after merging main: full gate green on the merged tree (ruff, mypy --strict, 86 tests, gitleaks, makemigrations --check); CLAUDE.md status and layout brought up to B3, backlog B3 marked merged and wave 0 reworded to the one-stack compose of foundation section 8, `just setup` pinned to Python 3.13 (closes the trap above). Orphans reported to the owner, not promoted: UI in Portuguese and English elsewhere, CLI-generated framework files, the comment rule and the prose rule exist in CLAUDE.md and the toolkit but not in the foundation.
+
+## [2026-08-28] decision | Owner promoted the four orphans of the review window into foundation section 12 (UI in Portuguese and English elsewhere, CLI-generated framework files, the comment rule, the prose rule); CLAUDE.md standing rules unchanged and now derived. B8 pairing and real send deferred to 2026-08-29 with the company phone.

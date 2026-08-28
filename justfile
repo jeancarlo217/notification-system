@@ -3,6 +3,8 @@
 set dotenv-load := true
 
 python := if os_family() == "windows" { "venv/Scripts/python.exe" } else { "venv/bin/python" }
+# The interpreter that builds the venv: 3.13 is the canon, whatever `python` on PATH may be
+python313 := if os_family() == "windows" { "py -3.13" } else { "python3.13" }
 evolution_url := env_var_or_default("EVOLUTION_SERVER_URL", "http://localhost:8080")
 
 # List the recipes
@@ -11,7 +13,7 @@ default:
 
 # First-time setup: virtualenv, dependencies, and the untracked .env from the example
 setup:
-    python -m venv venv
+    {{python313}} -m venv venv
     {{python}} -m pip install -r requirements-dev.txt
     cp -n .env.example .env
 
