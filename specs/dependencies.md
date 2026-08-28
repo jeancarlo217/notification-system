@@ -115,7 +115,18 @@ No new package was added: the structured formatter is the standard library.
 | `django.request` records carry the request object | `log_response` passes `extra={"status_code": ..., "request": request}`. A structured formatter renders that object through `str()`, which prints the full path, so redaction has to check values in the form they will be written and not only strings (I7). |
 | `contextvars` under the sync stack | The binding survives across the middleware chain and the view in the same thread, and a reset in `finally` keeps a line written after the response from carrying a stale address. Gunicorn sync workers handle one request at a time per worker, so no cross request bleed exists to defend against beyond that reset. |
 
+## Runtime environment, confirmed during B10 (2026-08-28)
+
+| Piece | Finding |
+| --- | --- |
+| Streaming CSV in Django 5.2 | The documented shape is a pseudo buffer class whose `write` returns the value instead of storing it, passed to `csv.writer`, with the generator of lines handed to `StreamingHttpResponse` and the file name set through `Content-Disposition`. Source: the Django 5.2 how-to on outputting CSV. |
+| Spreadsheet conventions | The file is written with `;` as the delimiter and a leading byte order mark, because a spreadsheet under a pt-BR locale reads the system list separator and needs the mark to take the accents as UTF-8. This is the one claim in this file that was not verified against the tool itself; the owner opening the file once settles it. |
+| `streaming_content` under django-stubs | The test client response is typed as the buffered `_MonkeyPatchedWSGIResponse`, so a test that reads a streamed body casts to `StreamingHttpResponse` and then to `Iterator[bytes]`. |
+
 ## Log
+
+2026-08-28: B10 added the runtime environment section above; no pin changed and no package was
+added.
 
 2026-08-28: B6 added the runtime environment section above; no pin changed and no package was
 added.
