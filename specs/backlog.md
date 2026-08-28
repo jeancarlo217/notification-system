@@ -54,10 +54,12 @@ segment in the same pass, keeping its standard authentication. Trace: foundation
 timestamp and record id, bound once on a shared path, with correlation keys on request and run.
 Trace: foundation section 6, I6, the observability rule in section 8.
 
-**B7. Alert engine.** `doing`. Started 2026-08-28 by developer B on branch `b7-alert-engine`. The pure schedule computation, the daily management command, the
-catch-up rule, the provider interface with its test fake, and alert states a human can see, including
-failed. This is the heart of the product and carries the bulk of the tests. Trace: foundation
-sections 2 and 5, I1, I2, I3.
+**B7. Alert engine.** `done (2026-08-28)`. The pure schedule computation, the daily management
+command, the catch-up rule, the provider interface with its test fake, and alert states a human can
+see, including failed. This is the heart of the product and carries the bulk of the tests. Trace:
+foundation sections 2 and 5, I1, I2, I3. Delivered test first on branch `b7-alert-engine` by
+developer B (19 behaviour tests); verified with `just gate` (ruff, `mypy --strict`, 105 tests,
+gitleaks) on 2026-08-28; merged to `main` by pull request #7.
 
 **B8. Evolution API spike, then adapter.** `spike doing, adapter blocked on OQ-1`. First the spike:
 a running Evolution instance in Compose delivering one real message to the company number, findings
@@ -69,9 +71,11 @@ keys are in `.env.example`, the steps are `just evolution-up`, `evolution-instan
 exists and its QR is generated; the pairing (scan) and the real send resume on 2026-08-29, when the
 company phone is in hand.
 
-**B9. Scheduler.** `doing`. Started 2026-08-28 by developer B on branch `b9-scheduler`, stacked on
-`b7-alert-engine` while its pull request waits. The Compose piece that runs the daily command, with the run-twice test
-proving idempotency end to end. Trace: foundation section 5, I1, I3.
+**B9. Scheduler.** `done (2026-08-28)`. The Compose piece that runs the daily command, with the
+run-twice test proving idempotency end to end. Trace: foundation section 5, I1, I3. Delivered on
+branch `b9-scheduler` by developer B, shape in `specs/adr/0002-scheduler-container.md`; verified
+with `just gate` (ruff, `mypy --strict`, 106 tests, gitleaks) and a one-shot `docker compose run`
+of the service on 2026-08-28; merged to `main` by pull request #8.
 
 **B10. CSV export.** `todo`. One button, one streamed query, one row per record. Trace: foundation
 section 7, the performance rule in section 8.
@@ -166,6 +170,5 @@ The spike stays open on OQ-1.
 2026-08-28: B4 done on branch `b4-registration` by the owner's session while the two developers
 finished B2 and B3; developer A's track continues at B5.
 
-2026-08-28: owner decision, fanned out to foundation sections 6, 10 and 13: Django's administration
-site stays with the framework's standard authentication, mounted inside the secret path segment by
-B5, while the employee-facing screens keep asking no one who they are.
+2026-08-28: B7 and B9 done by developer B, merged to `main` by pull requests #7 and #8; statuses
+marked here after the merge. The engine track now waits only on the B8 adapter, gated by OQ-1.
