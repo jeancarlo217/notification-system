@@ -64,7 +64,8 @@ keys are in `.env.example`, the steps are `just evolution-up`, `evolution-instan
 exists and its QR is generated; the pairing (scan) and the real send resume on 2026-08-29, when the
 company phone is in hand.
 
-**B9. Scheduler.** `todo`. The Compose piece that runs the daily command, with the run-twice test
+**B9. Scheduler.** `doing`. Started 2026-08-28 by developer B on branch `b9-scheduler`, stacked on
+`b7-alert-engine` while its pull request waits. The Compose piece that runs the daily command, with the run-twice test
 proving idempotency end to end. Trace: foundation section 5, I1, I3.
 
 **B10. CSV export.** `todo`. One button, one streamed query, one row per record. Trace: foundation
