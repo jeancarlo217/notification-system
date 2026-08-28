@@ -55,6 +55,12 @@ entry rename the person everywhere in the interface and in every future export. 
 corrects a bad display name through the administration site, which registers `Submitter` alongside
 the catalogue models of ADR 0005.
 
+**Deactivation controls what the field offers, never what a name resolves to.** The combobox lists
+active submitters only. A name typed by hand still resolves through the normalized key to whichever
+row holds it, active or not, and resolution never flips `is_active` back on. Deactivating somebody
+means stop suggesting them. It can never mean that typing their name mints a second row for the
+same person, which would break I8 for the sake of a preference about a dropdown.
+
 **Two people who genuinely share a name are one row.** That is a real cost of a self declared name
 and the owner accepts it; the remedy is that the second one types a distinguishing name, which the
 creatable field allows by construction.
@@ -81,9 +87,13 @@ downgrade of I6.
 
 ## Consequences
 
-The interface can now answer "who entered this" with a name instead of an address, which is what
-the owner asked for, and the log can group a person's submissions by a stable identifier rather
-than by string equality.
+The log can group a person's submissions by a stable identifier rather than by string equality, and
+the record knows who entered it. The interface answers "who entered this" only once a screen shows
+it, which is B15 and not this item; B13 delivers the field, the row and the audit entry.
+
+Amended 2026-08-28, during B13's Window A, on two points it reported: the sentence above claimed an
+interface that no item was building, and this document had not said what a deactivated submitter
+does when their name is typed anyway.
 
 Nothing here authenticates anybody. Anyone holding the secret link can type any name, including
 somebody else's. The name is useful, not evidential, and foundation section 10 is revised in the

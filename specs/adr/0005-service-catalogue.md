@@ -27,7 +27,12 @@ systems ever share a schema, that rename is a mechanical pass done with a reason
 **Fields.**
 
 `ServiceCategory`: `name` (unique), `position` (small integer that orders the menu), `is_active`
-(boolean, default true). There is deliberately no `parent`. Ecobalance carries a nullable self
+(boolean, default true). **A category being inactive hides every service under it from the
+registration form**, and it hides nothing else: records already pointing at a service in that
+category keep displaying, keep being editable and keep earning warnings, exactly as they do when
+the service itself is deactivated. So a service is offered when it is active and its category is
+active, which is one condition on one query rather than a second concept. There is deliberately no
+`parent`. Ecobalance carries a nullable self
 reference that is null in every row today, and REQ-148 forbids subcategory as an entity, so the
 column here would buy nothing and invite someone to fill it.
 
@@ -96,6 +101,10 @@ way out.
 
 Every test that constructs a `Service` with `description=` has to construct one with a catalogue
 entry instead. That is roughly a dozen test modules and it is unavoidable: the model changed.
+
+Amended 2026-08-28, during B12's Window A, which reported that `ServiceCategory.is_active` was a
+column this document declared and then never gave a job. It has one now, stated above, and Window A
+carries the test.
 
 `ecobalance_service_id` is null in all fifteen rows on delivery and stays null until Ecobalance's
 `catalog/` package exists and its SRV-1 question is answered. The column is the whole preparation;

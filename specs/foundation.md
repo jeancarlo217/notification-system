@@ -351,7 +351,8 @@ app produces, and the secret would otherwise ride along.
 **I8. One name, one person.** Two submissions naming the same person resolve to one submitter
 record, however that name is spelled in case, accent or spacing, by construction of a uniqueness
 rule on a normalized form of the name. Acceptance test: submit once as `José Victor` and once as
-`jose  victor`; exactly one submitter row exists and both audit entries carry its identifier.
+`jose  victor`; exactly one submitter row carries that name, the number of submitter rows is
+unchanged by the second submission, and both audit entries carry that row's identifier.
 Scar (owner decision, 2026-08-28): a free text name field with no identity behind it produces four
 spellings of one employee within a month, and an audit trail that cannot count people is not an
 audit trail.

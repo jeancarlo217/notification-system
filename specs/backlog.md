@@ -118,7 +118,8 @@ foundation section 1 (the audience is employees on whatever device they hold), s
 Portuguese interface.
 
 **B15. Alert state in the interface.** `todo`. The list shows, per service, which warnings were
-sent and which failed. Trace: I2, whose acceptance test in the foundation reads "the interface
+sent and which failed, and it gains the submitter column that ADR 0006 promised and no other item
+delivers. Trace: I2, whose acceptance test in the foundation reads "the interface
 lists the alert as failed" and which B7 satisfied only at the persisted-state layer, as
 `tests/test_engine_run.py` shows; no screen displays an alert today. Opened on 2026-08-28 as a
 found gap in delivered work, not as new scope.
