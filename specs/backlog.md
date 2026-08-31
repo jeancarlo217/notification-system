@@ -29,9 +29,8 @@ rule of I3 means the first successful run owes every warning whose trigger date 
 so a registry built over weeks becomes a burst of messages in one minute unless phase two decides a
 cutoff; that is the difference between a system people trust and one they mute in the first week.
 
-**Open beside that:** B24, the date field's mask and picker, reported from production on the day
-B23 landed. B11 is not finished either: Cloudflare fronts nothing yet, so the audit trail carries
-no IP and no country until the zone migration that travels with Ecobalance 2.0.
+**Open beside that:** B11 is not finished. Cloudflare fronts nothing yet, so the audit trail
+carries no IP and no country until the zone migration that travels with Ecobalance 2.0.
 
 **What has no owner yet and should:** copies of the database leave the host by no mechanism at all.
 They sit on the same disk as the two systems that cannot go down, so one dead disk takes the
@@ -383,7 +382,7 @@ assertions expected the ISO value in the bound form, which was the old requireme
 correctly, and both moved. Verified with `just gate` (ruff, `mypy --strict`, 404 tests, gitleaks)
 and by screenshot of the running container at 390 and 900 pixels on 2026-08-31.
 
-**B24. The date field is typed, and typing it should not be a chore.** `todo`. B23 removed the
+**B24. The date field is typed, and typing it should not be a chore.** `done (2026-08-31)`. B23 removed the
 native date input because the browser drew it in its own locale and a date typed day first was
 read month first. What replaced it is a bare text field, and the owner reported the cost the same
 day: no mask, no picker, and a format hint that lives only in the placeholder, which disappears
@@ -404,8 +403,26 @@ construction, since a letter never enters the field, and a `pattern` gives the b
 refusal before the round trip. The same reasoning applies to the term, which is already a number
 input with a floor of zero.
 
+Delivered the same day. `BrazilianDateWidget` follows the widget pattern B14 established, with its
+own template beside the two comboboxes: the text input is still the only control carrying the field
+name, so the form posts identical bytes with the script blocked, the calendar button starts
+`hidden` and the script reveals it only where `showPicker` exists, and the native input beside it
+has no name and is therefore never submitted. Its own display locale decides nothing, because the
+script reads its ISO value and writes the Brazilian order back. `HelpTextIsAnnouncedMixin` points
+every control at the paragraph under it, so the association is general rather than one field's
+special case.
+
 Trace: foundation section 3.3, section 12, and the accessibility standard B14 and B16 already
 hold this interface to. Opened by owner report on 2026-08-31.
+
+Verified with `just gate` (ruff, `mypy --strict`, 411 tests, gitleaks) and by screenshot of the
+running container. **The mask itself carries a measurement and not a gate**, for the same reason
+B22's backfill does: there is no JavaScript test runner here and adding one is a dependency
+decision nobody has taken. Its three pure functions were extracted from the inline script and
+exercised under node over sixteen cases, including typing digit by digit, pasting `05/09/2026`,
+pasting `05-09-2026`, overflowing past ten characters, deleting mid entry, and typing `amanha`,
+which comes back empty. If that is wanted as a gate rather than a measurement, it needs a runner in
+`requirements-dev.txt` or its equivalent, and that is a decision, not an oversight.
 
 Delivery order for the four items above, decided on 2026-08-28: B14 runs first because B12 and B13
 consume its widgets; then B12 and B13 together through one pair of windows, because they touch the

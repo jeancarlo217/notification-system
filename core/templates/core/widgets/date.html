@@ -1,0 +1,20 @@
+{% comment %}
+The date the employee types, plus a calendar they can open. The text input is the only control
+carrying the field name, so the form posts the same bytes whether or not the script ran; the
+button starts hidden and the script reveals it only where it can drive a picker, and the native
+input beside it has no name and is never submitted. Its display locale cannot decide anything,
+because the script reads its ISO value and writes the Brazilian order back into the text input.
+{% endcomment %}
+<div class="dateinput" data-dateinput>
+  {% include "django/forms/widgets/date.html" %}
+  <button class="dateinput__open" type="button" data-dateinput-open hidden
+          aria-label="Escolher no calendário">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+         stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <rect x="3" y="5" width="18" height="16" rx="2"/>
+      <path d="M3 10h18"/><path d="M8 3v4"/><path d="M16 3v4"/>
+    </svg>
+  </button>
+  <input class="dateinput__native" type="date" tabindex="-1" aria-hidden="true"
+         data-dateinput-native>
+</div>
