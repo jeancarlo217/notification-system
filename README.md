@@ -194,8 +194,16 @@ never in architecture.
 
 ```bash
 cp .env.example .env     # on the host, filled with real values, never committed
+chown 1000 backups       # the container runs as uid 1000 and this directory is bind mounted
 docker compose up -d --build web backup
 ```
+
+That `chown` is not decoration. The image creates its own unprivileged user and the backup
+directory is mounted from the host, so its owner is whoever cloned the repository. Clone as root,
+which is the normal thing on a server, and the container cannot write there: the copy fails every
+day and the failure reads as `unable to open database file`, which sends the reader hunting a
+corrupt database that does not exist. The command now refuses with the directory named instead,
+but the `chown` is what makes it unnecessary.
 
 **The `scheduler` service is deliberately absent from that line.** An owner decision of 2026-08-31
 ships this in two phases: the first one is registration and the export, with no WhatsApp delivery,
