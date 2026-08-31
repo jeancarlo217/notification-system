@@ -96,6 +96,10 @@ DATABASES = {
     }
 }
 
+# Where the backup_database command writes its copies, resolved like the database path above: an
+# absolute value from the environment wins, a relative one hangs off the project directory.
+BACKUP_DIRECTORY = BASE_DIR / _config.django.backup_directory
+
 
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators

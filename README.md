@@ -94,10 +94,14 @@ syntax.
 ### The rest
 
 `DJANGO_DEBUG` (`0` or `1`, nothing else is accepted), `DJANGO_ALLOWED_HOSTS`,
-`DJANGO_DATABASE_PATH`, `DEADLINER_ALERT_THRESHOLDS` (`30,7,0`, the days before the due date that
-earn a warning), `DEADLINER_MESSAGE_TEMPLATE` (the Portuguese warning text, over the fields
-`client`, `service`, `due_date` and `days_remaining`) and `DEADLINER_TIMEZONE`
-(`America/Campo_Grande`, which decides what today means).
+`DJANGO_DATABASE_PATH`, `DJANGO_BACKUP_DIRECTORY` (where the daily database copies land, `backups`
+by default and `/backups` inside the container), `DEADLINER_ALERT_THRESHOLDS` (`30,7,0`, the days
+before the due date that earn a warning), `DEADLINER_MESSAGE_TEMPLATE` (the Portuguese warning
+text, over the fields `client`, `service`, `due_date` and `days_remaining`) and
+`DEADLINER_TIMEZONE` (`America/Campo_Grande`, which decides what today means).
+
+The two path variables are infrastructure, not business values, so they are the only ones with a
+default in code. Everything named `DEADLINER_` is required and refuses to boot without a value.
 
 Keep `127.0.0.1` in `DJANGO_ALLOWED_HOSTS`. The Compose healthcheck probes the health endpoint on
 the loopback address, and Django answers 400 to a host it does not allow, so dropping it makes a
@@ -172,6 +176,8 @@ the configuration boundary working exactly as designed and looking exactly like 
 | `just secret-scan` | gitleaks over the working tree, needs Docker |
 | `just gate` | All four, in the order CI runs them |
 | `just up` / `just down` | The full Compose stack |
+| `just backup` | One database copy now, into `./backups` |
+| `just restore <file>` | Put a copy back, writers stopped first |
 
 `just gate` green is the precondition for a commit. Not a suggestion: CI runs the same four and
 blocks on them.
@@ -210,10 +216,88 @@ lands in a log file, which is the one thing invariant I7 exists to prevent. I7 s
 the segment stopped being secret, because withdrawing an invariant is its own decision.
 
 **Back up the volume, not the container.** Everything the company owns is the SQLite file on
-`notification-system_data`.
+`notification-system_data`. Start the `backup` service beside `web` and read the next section,
+which is the whole procedure including the restore.
 
 Static files are handled: WhiteNoise serves them and `collectstatic` runs during the image build,
 under the secret segment like everything else.
+
+## Backups and restore
+
+The database is one SQLite file on the `data` volume, and it is everything the company has. A
+`docker compose down -v`, a migration that goes wrong, or one mistaken delete takes every client
+deadline with it. So the stack runs a copy service:
+
+```bash
+docker compose up -d --build web backup
+```
+
+The `backup` service copies the database once a day into `./backups`, beside `compose.yaml` on the
+host, where a person can reach the files and copy them off the machine. It is the same shape as the
+alert scheduler: a shell loop, no cron and no queue, sleeping a day after a copy and an hour after
+a failure, which stays loud in `docker compose logs backup`.
+
+Each copy is named for the moment it was taken, in the configured time zone, so the directory sorts
+by name into chronological order:
+
+```
+backups/db-2026-08-31T12-56-44.sqlite3
+backups/db-2026-09-01T12-56-51.sqlite3
+```
+
+The directory keeps the 14 most recent copies and deletes the rest, oldest first. Two weeks is long
+enough for a bad migration or a mistaken delete to be noticed across a holiday, and a copy of this
+database is under a megabyte. The number is a constant in `core/backups.py` and not a variable,
+because I4 governs the business values the foundation names and how many copies a disk holds is not
+one of them. Anything in that directory that is not one of these copies is never touched.
+
+The copy goes through SQLite's own online backup API, never through `cp`. Copying the file of a
+database that a writer is inside can produce a torn copy that does not open at all, and finding
+that out on the day you need it is the whole failure this section exists to prevent.
+
+Take one by hand at any time:
+
+```bash
+just backup
+docker compose run --rm --no-deps -T backup python manage.py backup_database   # the same thing without just
+```
+
+### Restoring
+
+Executed end to end on 2026-08-31, not merely written down. Stopping the writers first is the part
+that matters: replacing the file under a live connection corrupts it.
+
+```bash
+ls backups/                                    # 1. pick the copy you want
+docker compose stop web scheduler backup       # 2. nothing may be writing
+docker compose run --rm --no-deps -T backup \
+  sh -c "cp /backups/db-2026-08-31T12-56-44.sqlite3 /data/db.sqlite3 && rm -f /data/db.sqlite3-wal /data/db.sqlite3-shm"
+docker compose up -d web backup                # 3. back in service
+```
+
+`just restore db-2026-08-31T12-56-44.sqlite3` does steps 2 and the copy, and prints the command for
+step 3 rather than guessing which services you were running.
+
+The journal files go with the restored database on purpose. A stale write ahead log left beside a
+replaced file is replayed over it, which turns a good restore into a corrupt one.
+
+### What this protects against, and what it does not
+
+It protects against a destroyed volume, a migration that goes wrong, a mistaken delete, and a
+database file that goes corrupt. Restoring costs a few minutes and the records entered since the
+last copy.
+
+It does not protect against losing the disk. The copies sit on the same machine as the database
+they copy, so a dead VPS, a wiped host or a deleted account takes both. Nothing here replicates
+them anywhere, because no off site destination has been decided. Copying `backups/` to another
+machine periodically (`scp`, `rsync`, anything) is the missing half, and it is a decision for the
+owner rather than something this file invents.
+
+One operational detail. The `backups` directory is tracked with a `.gitkeep` so a fresh clone
+already has it, owned by whoever cloned. If it is ever missing when the stack starts, Docker
+creates it owned by root, the container user cannot write into it, and the daily run then fails
+loudly every hour with the path in the message. The fix is `mkdir -p backups` before the first
+start, or `sudo chown 1000:1000 backups` after the fact.
 
 ## Tests
 
