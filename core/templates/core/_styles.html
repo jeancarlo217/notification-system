@@ -864,6 +864,51 @@ Measured ratios: specs/dependencies.md, B16 section.
     resize: vertical;
   }
 
+  /* The typed date and the button that opens a calendar for it, on one line. The native input
+     beside them is the picker's anchor and is never seen: hidden with `display: none` would stop
+     `showPicker()` from having anywhere to open. */
+  .dateinput {
+    display: flex;
+    align-items: stretch;
+    gap: var(--space-2);
+  }
+
+  .dateinput__typed {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .dateinput__open {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    width: var(--touch);
+    min-height: var(--touch);
+    padding: 0;
+    background: var(--panel);
+    border: 1px solid var(--control-border);
+    border-radius: var(--radius-3);
+    color: var(--text-low);
+    cursor: pointer;
+    transition: border-color 120ms ease, color 120ms ease;
+  }
+
+  .dateinput__open:hover {
+    border-color: var(--control-border-hover);
+    color: var(--text-high);
+  }
+
+  .dateinput__native {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    border: 0;
+    opacity: 0;
+    pointer-events: none;
+  }
+
   .field--invalid input,
   .field--invalid select,
   .field--invalid textarea,

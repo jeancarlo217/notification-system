@@ -11,7 +11,7 @@ from django.forms.models import ModelChoiceIterator
 
 from core.identity import normalize_person_name
 from core.models import CatalogService, Service, Submitter
-from core.widgets import ComboboxWidget, CreatableComboboxWidget
+from core.widgets import BrazilianDateWidget, ComboboxWidget, CreatableComboboxWidget
 
 if TYPE_CHECKING:
     ServiceModelForm = forms.ModelForm[Service]
@@ -32,6 +32,9 @@ TERM_LABELS = {"start_date": "Data de início", "term_days": "Prazo (dias)"}
 BRAZILIAN_DATE_FORMAT = "%d/%m/%Y"
 """How a date is written and read on every screen, which is how the country writes it."""
 
+DATE_HELP_TEXT = "Formato dia/mês/ano, por exemplo 05/09/2026."
+"""Said as help text and not only as a placeholder, which vanishes at the first keystroke."""
+
 
 def _date_input() -> forms.DateInput:
     """A date the employee types, never one the browser draws.
@@ -42,15 +45,40 @@ def _date_input() -> forms.DateInput:
     month. Nothing errors and the deadline lands months away (B23). Parsing is unaffected either
     way, because the pt-BR locale already puts ``%d/%m/%Y`` ahead of the ISO form.
     """
-    return forms.DateInput(
+    return BrazilianDateWidget(
         format=BRAZILIAN_DATE_FORMAT,
         attrs={
             "inputmode": "numeric",
             "placeholder": "dd/mm/aaaa",
             "autocomplete": "off",
             "maxlength": "10",
+            # One or two digits for the day and the month, because `%d/%m/%Y` parses `5/9/2026`
+            # and a browser refusing what the server accepts is a worse lie than no refusal.
+            "pattern": r"\d{1,2}/\d{1,2}/\d{4}",
+            "title": DATE_HELP_TEXT,
         },
     )
+
+
+class HelpTextIsAnnouncedMixin:
+    """Point every control at the help text under it, so a reader hears them together.
+
+    The form template renders help as a paragraph carrying the field's own id plus ``_help``;
+    without ``aria-describedby`` that paragraph is a sentence beside the control rather than a
+    sentence about it, which is exactly what a screen reader cannot infer.
+    """
+
+    fields: dict[str, forms.Field]
+
+    def describe_fields_by_their_help(self) -> None:
+        for name, field in self.fields.items():
+            if field.help_text:
+                field.widget.attrs["aria-describedby"] = f"id_{name}_help"
+
+
+def _term_help() -> dict[str, str]:
+    """The help each half of the deadline carries on every form that asks for it."""
+    return {"start_date": DATE_HELP_TEXT}
 
 
 def _term_widgets() -> dict[str, object]:
@@ -111,7 +139,7 @@ class CatalogueChoiceField(CatalogServiceChoiceField):
         return obj.name
 
 
-class ServiceRegistrationForm(ServiceModelForm):
+class ServiceRegistrationForm(HelpTextIsAnnouncedMixin, ServiceModelForm):
     """The registration form of foundation section 3: what the record is, and who entered it.
 
     Status is not an input: completion is a later human action.
@@ -150,6 +178,11 @@ class ServiceRegistrationForm(ServiceModelForm):
             "notes": forms.Textarea(attrs={"rows": 6}),
             **_term_widgets(),
         }
+        help_texts: ClassVar[dict[str, str]] = _term_help()
+
+    def __init__(self, *args: object, **kwargs: object) -> None:
+        super().__init__(*args, **kwargs)  # type: ignore[arg-type]
+        self.describe_fields_by_their_help()
 
     def clean_submitter(self) -> str:
         """Refuse a name that names nobody, and write nothing (ADR 0006).
@@ -179,7 +212,7 @@ class ServiceRegistrationForm(ServiceModelForm):
             return super().save(commit=commit)
 
 
-class DueDateForm(ServiceModelForm):
+class DueDateForm(HelpTextIsAnnouncedMixin, ServiceModelForm):
     """The due date edit of foundation section 3: a human moves the deadline.
 
     It asks for the start date and the term because the due date is derived from them on every
@@ -191,3 +224,8 @@ class DueDateForm(ServiceModelForm):
         fields: ClassVar[list[str]] = ["start_date", "term_days"]
         labels: ClassVar[dict[str, str]] = dict(TERM_LABELS)
         widgets: ClassVar[dict[str, object]] = _term_widgets()
+        help_texts: ClassVar[dict[str, str]] = _term_help()
+
+    def __init__(self, *args: object, **kwargs: object) -> None:
+        super().__init__(*args, **kwargs)  # type: ignore[arg-type]
+        self.describe_fields_by_their_help()

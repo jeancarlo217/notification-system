@@ -424,7 +424,78 @@ in a template, never from a literal here.
     grow();
   }
 
+  // Digits in, `dd/mm/aaaa` out. A letter never reaches the field, so the person is told at the
+  // keystroke rather than after submitting a whole form, and a pasted `05/09/2026` survives
+  // because only its digits are read.
+  function maskedDate(text) {
+    var digits = String(text).replace(/\D/g, "").slice(0, 8);
+    if (digits.length <= 2) {
+      return digits;
+    }
+    if (digits.length <= 4) {
+      return digits.slice(0, 2) + "/" + digits.slice(2);
+    }
+    return digits.slice(0, 2) + "/" + digits.slice(2, 4) + "/" + digits.slice(4);
+  }
+
+  function isoFromTyped(text) {
+    var parts = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(String(text).trim());
+    if (!parts) {
+      return "";
+    }
+    var day = parts[1].length === 1 ? "0" + parts[1] : parts[1];
+    var month = parts[2].length === 1 ? "0" + parts[2] : parts[2];
+    return parts[3] + "-" + month + "-" + day;
+  }
+
+  function typedFromIso(value) {
+    var parts = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(value));
+    return parts ? parts[3] + "/" + parts[2] + "/" + parts[1] : "";
+  }
+
+  function enhanceDate(root) {
+    var typed = root.querySelector("input.dateinput__typed");
+    var native = root.querySelector("[data-dateinput-native]");
+    var open = root.querySelector("[data-dateinput-open]");
+    if (!typed) {
+      return;
+    }
+
+    typed.addEventListener("input", function () {
+      var masked = maskedDate(typed.value);
+      if (masked !== typed.value) {
+        typed.value = masked;
+      }
+    });
+
+    // The button appears only where a picker can actually be opened, because a control that
+    // does nothing is worse than no control at all.
+    if (!native || !open || typeof native.showPicker !== "function") {
+      return;
+    }
+    open.hidden = false;
+    open.addEventListener("click", function () {
+      native.value = isoFromTyped(typed.value);
+      try {
+        native.showPicker();
+      } catch (error) {
+        native.focus();
+      }
+    });
+    native.addEventListener("change", function () {
+      var written = typedFromIso(native.value);
+      if (written) {
+        typed.value = written;
+        typed.dispatchEvent(new Event("input", { bubbles: true }));
+      }
+    });
+  }
+
   function init() {
+    var dates = document.querySelectorAll("[data-dateinput]");
+    for (var slot = 0; slot < dates.length; slot += 1) {
+      enhanceDate(dates[slot]);
+    }
     var comboboxes = document.querySelectorAll("[data-combobox]");
     for (var index = 0; index < comboboxes.length; index += 1) {
       enhance(comboboxes[index]);
