@@ -13,6 +13,30 @@ cites. An item is done only when the gate is green and the fan-out ran, never wh
 exists. Update the status in place; this file is execution state, and the contract stays in the
 foundation.
 
+## Where this stands, 2026-08-31
+
+**Phase one is in production.** The registration form, the catalogue, the submitter identity, the
+list with its search, paging and alert state, the CSV export, the audit trail and the daily backup
+are live at `avisos.valeverdeambiental.com.br`, on the company's own VPS behind its nginx. The
+registry can start being filled today. Nothing sends a WhatsApp message, by decision and not by
+accident.
+
+**Phase two is one item, B8**, and it starts with a human and the company phone in the same room:
+pairing the instance closes OQ-1, and then the adapter behind the provider interface can be
+written. Two things have to be settled before it is switched on. OQ-3, the wording of the warning
+the company's clients effectively cause, is the owner's voice and nobody else's. And the catch-up
+rule of I3 means the first successful run owes every warning whose trigger date has already passed,
+so a registry built over weeks becomes a burst of messages in one minute unless phase two decides a
+cutoff; that is the difference between a system people trust and one they mute in the first week.
+
+**Open beside that:** B24, the date field's mask and picker, reported from production on the day
+B23 landed. B11 is not finished either: Cloudflare fronts nothing yet, so the audit trail carries
+no IP and no country until the zone migration that travels with Ecobalance 2.0.
+
+**What has no owner yet and should:** copies of the database leave the host by no mechanism at all.
+They sit on the same disk as the two systems that cannot go down, so one dead disk takes the
+institutional site, Ecobalance, this application and every backup of it together.
+
 ## Version 1, the minimum for delivery
 
 The cut line is the foundation's scope statement: form, daily alert engine, audit, export. Everything
@@ -68,7 +92,10 @@ foundation sections 2 and 5, I1, I2, I3. Delivered test first on branch `b7-aler
 developer B (19 behaviour tests); verified with `just gate` (ruff, `mypy --strict`, 105 tests,
 gitleaks) on 2026-08-28; merged to `main` by pull request #7.
 
-**B8. Evolution API spike, then adapter.** `spike doing, adapter blocked on OQ-1`. First the spike:
+**B8. Evolution API spike, then adapter.** `spike doing, adapter blocked on OQ-1`. **This is the
+whole of phase two** since the owner decision of 2026-08-31: nothing else stands between the live
+system and the notifications it was built for. It needs a human with the company phone to pair the
+instance, which closes OQ-1, and then the adapter and its integration tests. First the spike:
 a running Evolution instance in Compose delivering one real message to the company number, findings
 recorded in `specs/dependencies.md`, which closes OQ-1. Then the real adapter behind the provider
 interface and the few integration tests. Trace: foundation section 4. Spike state on 2026-08-28,
@@ -104,7 +131,26 @@ gitleaks) and `just manage makemigrations --check` on 2026-08-31. It grew again 
 start date and the term in days sit beside the due date, which is derived from them and stays in the
 row because it is what the warnings measure against (B19).
 
-**B11. Deployment.** `doing`, unblocked on 2026-08-31 when OQ-2 closed. Two pieces of it landed
+**B11. Deployment.** `doing`. **Phase one is live since 2026-08-31**, at
+`avisos.valeverdeambiental.com.br` under a short path segment, served by the host's own nginx with
+a Let's Encrypt certificate, `web` and `backup` running and `scheduler` deliberately absent. What
+remains is the Cloudflare Tunnel of OQ-2, which waits on the zone migration, and phase two's
+`scheduler`, which waits on OQ-1.
+
+What the first real deployment cost, all of it found by deploying and none of it by planning: the
+published port collided with Portainer on that host, so the container binds loopback on a port the
+deployment chooses; Django refused every POST until the proxy hop was declared, because TLS ends at
+nginx and the CSRF origin check builds its expectation from `request.is_secure()`; the daily backup
+could not write, because the repository was cloned by root and the bind mounted directory came with
+it; and the date field was read month first by a browser in another locale. Three of the four were
+invisible to the suite. The fourth was invisible to everyone until an employee would have typed a
+date.
+
+Until the tunnel exists the audit trail carries no IP and no country, because both come from
+Cloudflare headers that are not there yet, and the submitter of foundation section 6 is what still
+answers who entered a record. That is a known and accepted gap, not a defect.
+
+Two pieces of it landed
 that day, both found by reading the host rather than by planning against an imagined one. The web
 container publishes on the loopback address with a host side port the deployment chooses, because
 8000 on that machine belongs to Portainer and every other container there binds to loopback behind
@@ -192,74 +238,6 @@ same day: the seven columns were answered with a sideways scrollbar rather than 
 window that wrote it recorded that it had checked the result by reasoning and by the suite rather
 than in a browser. Verified on the merged tree with `just gate` (ruff, `mypy --strict`, 343 tests, gitleaks) and `just manage makemigrations --check` on 2026-08-31.
 
-**B21. The interface on the screen the employee is holding.** `done (2026-08-31)`. The list
-stops being a table that scrolls sideways and becomes a table only at the widths where its seven
-columns fit, which measurement put at 68rem; below that every record is a card, and the cards pack
-two to a row wherever two fit. The warning cell, three stacked chips of full text in every row
-under B15, becomes one line of short chips: the threshold, a drawn mark, and the state as a word
-that only the failed one keeps on screen, because the failed one is what a person has to act on
-(I2). The registration form lays out in two columns from 48rem, with the start date and the term
-side by side so the arithmetic of foundation section 3.3 is visible in one glance, and the
-observation box is three rows instead of six. Trace: foundation section 1 (the audience is
-employees on whatever device they hold), section 12 for the Portuguese interface. Opened by owner
-report on 2026-08-31 against delivered work: B15 answered its two new columns with
-`overflow-x: auto`, which put the actions column off screen at 768 and 1024 pixels, so completing a
-service was unreachable on a tablet without scrolling the table itself. Verified with `just gate`
-(ruff, `mypy --strict`, 350 tests, gitleaks) and against Google Chrome 152 headless at 360, 414,
-768, 1024, 1088, 1120, 1280 and 1440 CSS pixels on 2026-08-31.
-
-**B22. The database backup and its restore.** `done (2026-08-31)`. Everything the company owns is
-one SQLite file on the `data` volume and until this item there was no copy of it anywhere: the
-README said to back the volume up and gave no way to do it. A `backup_database` management command
-takes a consistent copy with `sqlite3.Connection.backup()`, the standard library's online backup
-API, never a file copy, because copying the file under a live writer produces a torn copy that does
-not open. The copy is written hidden and renamed only when whole, so a half written file never
-wears a backup name. Retention keeps fourteen copies, a module constant on B17's precedent, deleting
-oldest first and only ever touching files matching the generated pattern. A `backup` Compose service
-runs it daily in the loop shape ADR 0002 chose for the scheduler, and it lands on a bind mount and
-not an anonymous volume, because a copy nobody can reach is not a backup. `just backup` and
-`just restore <file>` are the two recipes; restore stops the writers first and clears the journal
-files beside the replaced database, since a stale journal replayed over a restored file turns a good
-restore into a corrupt one.
-
-Trace: foundation section 0.5 (the product exists because a lost deadline harms a client, and a lost
-database is every deadline at once), section 2 (the truth lives in persisted records, so the records
-are the asset), section 8, I5. Opened on 2026-08-31 by the owner decision that ships phase one as
-registration only, which makes the accumulated registry the single thing the first phase produces.
-
-What it protects against, written in the README rather than left to be assumed: a deleted volume, a
-bad migration, a mistaken delete, a corrupt file. What it does not protect against: losing the disk,
-because the copies sit on the same machine. Copying them off the host is named and deliberately not
-invented here.
-
-**The restore was executed, not described.** A drill on an isolated Compose project created a
-record, took a backup, deleted every record, restored, and read the record back with the catalogue
-and the submitters intact; the transcript is in the pull request. Verified with `just gate` (ruff,
-`mypy --strict`, 395 tests with B10 merged beside it, gitleaks with two real backup files present
-in the tree) and `just manage makemigrations --check` on 2026-08-31.
-
-**B23. The date in the order this country writes it.** `done (2026-08-31)`. The registration and
-edit screens stop using `input type="date"` and take the start date as typed text in `dd/mm/aaaa`,
-with a placeholder saying so, `inputmode="numeric"` for a phone keypad, and the stored value read
-back in the same order. Trace: foundation section 3.3 (the start date is one of the two facts the
-whole schedule derives from), section 12.
-
-Opened by owner report from production on 2026-08-31 and delivered the same day, because the
-failure is silent and the product exists against silent failure. The native widget is drawn in the
-browser's interface locale and never in the document's, so an employee on an English browser is
-shown `mm/dd/yyyy`, types the day first as anybody here does, and the browser reads it as the
-month: the deadline is stored months from where the person meant, the screen agrees with itself,
-and nothing errors. `specs/dependencies.md` had recorded the display as "not something the page can
-set" since B16, which was true of that widget and false of the page, and that row is corrected in
-the same pass.
-
-The server side was never at fault and was confirmed rather than assumed: under pt-BR
-`DATE_INPUT_FORMATS` already resolves to `['%d/%m/%Y', '%d/%m/%y', '%Y-%m-%d']`, so day first wins
-and the ISO form still parses, which is what keeps anything still posting ISO working. Two existing
-assertions expected the ISO value in the bound form, which was the old requirement stated
-correctly, and both moved. Verified with `just gate` (ruff, `mypy --strict`, 404 tests, gitleaks)
-and by screenshot of the running container at 390 and 900 pixels on 2026-08-31.
-
 **B16. Brand, theme control and the static pipeline.** `done (2026-08-28)`. The company's own
 logo replacing B14's placeholder mark, the header reading `Controle de Serviços`, a light and dark
 control whose default follows the operating system, the registration form centred, and another pass
@@ -336,6 +314,98 @@ after this decision has to come up in the same state as the one already running.
 sections 3.1 and 3.2 with its note of 2026-08-31, `specs/adr/0005-service-catalogue.md`. Opened by
 owner decision on 2026-08-31 and delivered the same day on branch
 `b15-b19-b20-alerts-term-and-catalogue`, in migration `0017`. Verified on the merged tree with `just gate` (ruff, `mypy --strict`, 343 tests, gitleaks) and `just manage makemigrations --check` on 2026-08-31.
+
+**B21. The interface on the screen the employee is holding.** `done (2026-08-31)`. The list
+stops being a table that scrolls sideways and becomes a table only at the widths where its seven
+columns fit, which measurement put at 68rem; below that every record is a card, and the cards pack
+two to a row wherever two fit. The warning cell, three stacked chips of full text in every row
+under B15, becomes one line of short chips: the threshold, a drawn mark, and the state as a word
+that only the failed one keeps on screen, because the failed one is what a person has to act on
+(I2). The registration form lays out in two columns from 48rem, with the start date and the term
+side by side so the arithmetic of foundation section 3.3 is visible in one glance, and the
+observation box is three rows instead of six. Trace: foundation section 1 (the audience is
+employees on whatever device they hold), section 12 for the Portuguese interface. Opened by owner
+report on 2026-08-31 against delivered work: B15 answered its two new columns with
+`overflow-x: auto`, which put the actions column off screen at 768 and 1024 pixels, so completing a
+service was unreachable on a tablet without scrolling the table itself. Verified with `just gate`
+(ruff, `mypy --strict`, 350 tests, gitleaks) and against Google Chrome 152 headless at 360, 414,
+768, 1024, 1088, 1120, 1280 and 1440 CSS pixels on 2026-08-31.
+
+**B22. The database backup and its restore.** `done (2026-08-31)`. Everything the company owns is
+one SQLite file on the `data` volume and until this item there was no copy of it anywhere: the
+README said to back the volume up and gave no way to do it. A `backup_database` management command
+takes a consistent copy with `sqlite3.Connection.backup()`, the standard library's online backup
+API, never a file copy, because copying the file under a live writer produces a torn copy that does
+not open. The copy is written hidden and renamed only when whole, so a half written file never
+wears a backup name. Retention keeps fourteen copies, a module constant on B17's precedent, deleting
+oldest first and only ever touching files matching the generated pattern. A `backup` Compose service
+runs it daily in the loop shape ADR 0002 chose for the scheduler, and it lands on a bind mount and
+not an anonymous volume, because a copy nobody can reach is not a backup. `just backup` and
+`just restore <file>` are the two recipes; restore stops the writers first and clears the journal
+files beside the replaced database, since a stale journal replayed over a restored file turns a good
+restore into a corrupt one.
+
+Trace: foundation section 0.5 (the product exists because a lost deadline harms a client, and a lost
+database is every deadline at once), section 2 (the truth lives in persisted records, so the records
+are the asset), section 8, I5. Opened on 2026-08-31 by the owner decision that ships phase one as
+registration only, which makes the accumulated registry the single thing the first phase produces.
+
+What it protects against, written in the README rather than left to be assumed: a deleted volume, a
+bad migration, a mistaken delete, a corrupt file. What it does not protect against: losing the disk,
+because the copies sit on the same machine. Copying them off the host is named and deliberately not
+invented here.
+
+**The restore was executed, not described.** A drill on an isolated Compose project created a
+record, took a backup, deleted every record, restored, and read the record back with the catalogue
+and the submitters intact; the transcript is in the pull request. Verified with `just gate` (ruff,
+`mypy --strict`, 395 tests with B10 merged beside it, gitleaks with two real backup files present
+in the tree) and `just manage makemigrations --check` on 2026-08-31.
+
+**B23. The date in the order this country writes it.** `done (2026-08-31)`. The registration and
+edit screens stop using `input type="date"` and take the start date as typed text in `dd/mm/aaaa`,
+with a placeholder saying so, `inputmode="numeric"` for a phone keypad, and the stored value read
+back in the same order. Trace: foundation section 3.3 (the start date is one of the two facts the
+whole schedule derives from), section 12.
+
+Opened by owner report from production on 2026-08-31 and delivered the same day, because the
+failure is silent and the product exists against silent failure. The native widget is drawn in the
+browser's interface locale and never in the document's, so an employee on an English browser is
+shown `mm/dd/yyyy`, types the day first as anybody here does, and the browser reads it as the
+month: the deadline is stored months from where the person meant, the screen agrees with itself,
+and nothing errors. `specs/dependencies.md` had recorded the display as "not something the page can
+set" since B16, which was true of that widget and false of the page, and that row is corrected in
+the same pass.
+
+The server side was never at fault and was confirmed rather than assumed: under pt-BR
+`DATE_INPUT_FORMATS` already resolves to `['%d/%m/%Y', '%d/%m/%y', '%Y-%m-%d']`, so day first wins
+and the ISO form still parses, which is what keeps anything still posting ISO working. Two existing
+assertions expected the ISO value in the bound form, which was the old requirement stated
+correctly, and both moved. Verified with `just gate` (ruff, `mypy --strict`, 404 tests, gitleaks)
+and by screenshot of the running container at 390 and 900 pixels on 2026-08-31.
+
+**B24. The date field is typed, and typing it should not be a chore.** `todo`. B23 removed the
+native date input because the browser drew it in its own locale and a date typed day first was
+read month first. What replaced it is a bare text field, and the owner reported the cost the same
+day: no mask, no picker, and a format hint that lives only in the placeholder, which disappears
+the moment somebody starts typing and is not reliably announced by a screen reader. Three things
+close it: the format as real help text, associated with the field so assistive technology reads
+it and it stays on screen while the person types; a mask that inserts the slashes as digits
+arrive, without fighting paste; and a calendar the person can open, driven by a hidden native
+input read through its ISO value, so the picker's own display locale cannot decide what the date
+means.
+
+The owner also asked for basic validation on the fields, naming letters typed into a date. Worth
+stating precisely, because it changes the urgency and not the work: **the server already refuses
+them.** `tests/test_registration.py` posts `amanha` as a start date and asserts nothing is
+created, and Django answers `Informe uma data válida.` from the pt-BR catalogue. So no bad date
+reaches the database and this is not a data integrity gap. What is missing is when the person
+learns: today they fill the whole form, submit, and are sent back. The mask closes it by
+construction, since a letter never enters the field, and a `pattern` gives the browser its own
+refusal before the round trip. The same reasoning applies to the term, which is already a number
+input with a floor of zero.
+
+Trace: foundation section 3.3, section 12, and the accessibility standard B14 and B16 already
+hold this interface to. Opened by owner report on 2026-08-31.
 
 Delivery order for the four items above, decided on 2026-08-28: B14 runs first because B12 and B13
 consume its widgets; then B12 and B13 together through one pair of windows, because they touch the
