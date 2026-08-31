@@ -1,28 +1,54 @@
-<!doctype html>
+{% load static %}<!doctype html>
 <html lang="pt-BR">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% block title %}Prazos{% endblock %} | Vale Verde Ambiental</title>
-  <style>
-    body { font-family: system-ui, sans-serif; max-width: 60rem; margin: 2rem auto; padding: 0 1rem; color: #1f2933; }
-    h1 { font-size: 1.5rem; }
-    table { border-collapse: collapse; width: 100%; }
-    th, td { text-align: left; padding: 0.5rem; border-bottom: 1px solid #d9dde3; }
-    form.inline { display: inline; }
-    label { display: block; margin-top: 1rem; font-weight: 600; }
-    input { padding: 0.4rem; font-size: 1rem; }
-    button, a.button { margin-top: 1rem; padding: 0.4rem 0.9rem; font-size: 1rem; cursor: pointer; }
-    .errorlist { color: #b42318; list-style: none; padding: 0; margin: 0.25rem 0 0; }
-    .empty { color: #52606d; }
-  </style>
+  <title>{% block title %}Controle de Serviços{% endblock %} | Vale Verde Ambiental</title>
+  <link rel="icon" href="{% static 'favicon.ico' %}" sizes="any">
+  {% include "core/_styles.html" %}
+  {% include "core/_theme.html" %}
 </head>
 <body>
-  <header>
-    <h1><a href="{% url 'service-list' %}">Prazos de serviços</a></h1>
+  <a class="skip-link" href="#conteudo">Ir para o conteúdo</a>
+  <header class="topbar">
+    <div class="topbar__inner">
+      <a class="brand" href="{% url 'service-list' %}">
+        {% comment %}
+        One lockup per theme, swapped by the same selectors that swap the tokens, because a
+        picture element with a prefers-color-scheme source follows the operating system and
+        ignores a manual override. The word mark is the only place the company is named on
+        screen, so it is content and carries the name; the pair never announces twice because
+        the hidden one is display:none and leaves the accessibility tree.
+        {% endcomment %}
+        <img class="brand__logo brand__logo--light" src="{% static 'logo/vale-verde-light.svg' %}"
+             alt="Vale Verde Ambiental" width="412" height="68">
+        <img class="brand__logo brand__logo--dark" src="{% static 'logo/vale-verde-dark.svg' %}"
+             alt="Vale Verde Ambiental" width="412" height="68">
+        <span class="brand__divider" aria-hidden="true"></span>
+        <span class="brand__product">Controle de Serviços</span>
+      </a>
+      <div class="theme" role="radiogroup" aria-labelledby="tema-titulo">
+        <span class="theme__label" id="tema-titulo">Tema</span>
+        <div class="theme__options">
+          <label class="theme__option">
+            <input class="theme__input" type="radio" name="theme" value="system" checked>
+            <span class="theme__text">Sistema</span>
+          </label>
+          <label class="theme__option">
+            <input class="theme__input" type="radio" name="theme" value="light">
+            <span class="theme__text">Claro</span>
+          </label>
+          <label class="theme__option">
+            <input class="theme__input" type="radio" name="theme" value="dark">
+            <span class="theme__text">Escuro</span>
+          </label>
+        </div>
+      </div>
+    </div>
   </header>
-  <main>
+  <main class="{% block shell_class %}shell{% endblock %}" id="conteudo">
     {% block content %}{% endblock %}
   </main>
+  {% include "core/_scripts.html" %}
 </body>
 </html>

@@ -1,7 +1,8 @@
 """B3, data model: the flat service record and the alert record with its uniqueness rule.
 
-Traces: foundation section 3 (flat data model), I1 (one warning, one message, by construction
-of a uniqueness rule on the persisted alert), I2 (a failed send is a visible persisted state).
+Traces: foundation section 3 (flat data model, whose only foreign keys point at the catalogue
+entry and the submitter), I1 (one warning, one message, by construction of a uniqueness rule on
+the persisted alert), I2 (a failed send is a visible persisted state).
 """
 
 import datetime
@@ -11,43 +12,40 @@ from django.core.management import call_command
 from django.db import IntegrityError
 
 from core.models import Alert, Service
+from tests.builders import a_catalog_service, a_service, a_submitter
 
 pytestmark = pytest.mark.django_db
 
 
-def _a_service(client: str = "Fazenda Boa Vista") -> Service:
-    return Service.objects.create(
-        client=client,
-        description="Renovacao de licenca ambiental",
-        due_date=datetime.date(2026, 12, 25),
-    )
-
-
 def test_a_service_record_persists_its_flat_business_fields() -> None:
-    """Foundation section 3: one flat record per service, a spreadsheet row by construction."""
-    Service.objects.create(
+    """Foundation section 3: one flat record per service, a spreadsheet row by construction,
+    whose only references are the catalogue entry and the submitter."""
+    entry = a_catalog_service()
+    submitter = a_submitter()
+
+    a_service(
         client="Fazenda Boa Vista",
-        description="Renovacao de licenca ambiental",
+        catalog_service=entry,
+        notes="Renovacao anual",
         due_date=datetime.date(2026, 12, 25),
         status="completed",
+        submitter=submitter,
     )
 
     stored = Service.objects.get()
 
     assert stored.client == "Fazenda Boa Vista"
-    assert stored.description == "Renovacao de licenca ambiental"
+    assert stored.catalog_service == entry
+    assert stored.notes == "Renovacao anual"
     assert stored.due_date == datetime.date(2026, 12, 25)
     assert stored.status == "completed"
+    assert stored.submitter == submitter
 
 
 def test_a_new_service_is_active_by_default() -> None:
     """Foundation section 3: registration creates an active service; completion is a later
     human action."""
-    Service.objects.create(
-        client="Fazenda Boa Vista",
-        description="Renovacao de licenca ambiental",
-        due_date=datetime.date(2026, 12, 25),
-    )
+    a_service()
 
     stored = Service.objects.get()
 
@@ -56,7 +54,7 @@ def test_a_new_service_is_active_by_default() -> None:
 
 def test_a_service_records_its_created_timestamp() -> None:
     """Foundation section 3: the flat record carries a created timestamp."""
-    _a_service()
+    a_service()
 
     stored = Service.objects.get()
 
@@ -66,7 +64,7 @@ def test_a_service_records_its_created_timestamp() -> None:
 def test_a_second_alert_for_the_same_service_and_threshold_is_rejected() -> None:
     """I1: at most one alert exists per (service, threshold), enforced by the database,
     never by the engine remembering."""
-    service = _a_service()
+    service = a_service()
     Alert.objects.create(service=service, threshold=30)
 
     with pytest.raises(IntegrityError):
@@ -75,7 +73,7 @@ def test_a_second_alert_for_the_same_service_and_threshold_is_rejected() -> None
 
 def test_different_thresholds_on_the_same_service_are_both_allowed() -> None:
     """I1, the quiet side: the uniqueness rule blocks only the same (service, threshold) pair."""
-    service = _a_service()
+    service = a_service()
 
     Alert.objects.create(service=service, threshold=30)
     Alert.objects.create(service=service, threshold=7)
@@ -85,8 +83,8 @@ def test_different_thresholds_on_the_same_service_are_both_allowed() -> None:
 
 def test_the_same_threshold_on_different_services_is_allowed() -> None:
     """I1, the quiet side: the uniqueness rule is per service, never global per threshold."""
-    first = _a_service(client="Fazenda Boa Vista")
-    second = _a_service(client="Sitio Santa Fe")
+    first = a_service(client="Fazenda Boa Vista")
+    second = a_service(client="Sitio Santa Fe")
 
     Alert.objects.create(service=first, threshold=0)
     Alert.objects.create(service=second, threshold=0)
@@ -97,7 +95,7 @@ def test_the_same_threshold_on_different_services_is_allowed() -> None:
 def test_a_new_alert_starts_in_the_pending_state() -> None:
     """Core thesis, section 2: the alert row is written before the send, so a crash mid-run
     leaves a visible pending record, never an absence."""
-    Alert.objects.create(service=_a_service(), threshold=7)
+    Alert.objects.create(service=a_service(), threshold=7)
 
     stored = Alert.objects.get()
 
@@ -107,7 +105,7 @@ def test_a_new_alert_starts_in_the_pending_state() -> None:
 @pytest.mark.parametrize("state", ["pending", "sent", "failed"])
 def test_an_alert_persists_each_lifecycle_state(state: str) -> None:
     """I2: sent and failed are persisted, visible states; no outcome lives only in memory."""
-    Alert.objects.create(service=_a_service(), threshold=7, state=state)
+    Alert.objects.create(service=a_service(), threshold=7, state=state)
 
     stored = Alert.objects.get()
 
@@ -116,7 +114,7 @@ def test_an_alert_persists_each_lifecycle_state(state: str) -> None:
 
 def test_a_new_alert_records_its_timestamps() -> None:
     """Foundation section 3: the alert record carries its timestamps."""
-    Alert.objects.create(service=_a_service(), threshold=30)
+    Alert.objects.create(service=a_service(), threshold=30)
 
     stored = Alert.objects.get()
 

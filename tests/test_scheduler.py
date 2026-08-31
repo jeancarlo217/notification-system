@@ -14,8 +14,9 @@ import pytest
 from django.core.management import call_command
 from django.test import override_settings
 
-from core.models import Alert, Service
+from core.models import Alert
 from deadliner.config import DeadlinerConfig
+from tests.builders import a_service
 from tests.fakes import FakeProvider
 
 pytestmark = pytest.mark.django_db
@@ -37,11 +38,7 @@ def test_running_the_command_twice_delivers_each_owed_warning_once(
     same day and the company phone still receives one message per owed warning."""
     fake = FakeProvider()
     monkeypatch.setattr("core.provider.get_provider", lambda: fake)
-    Service.objects.create(
-        client="Fazenda Boa Vista",
-        description="Renovacao de licenca ambiental",
-        due_date=datetime.date(2026, 12, 25),
-    )
+    a_service(due_date=datetime.date(2026, 12, 25))
 
     call_command("send_alerts", today="2026-12-18")
     call_command("send_alerts", today="2026-12-18")

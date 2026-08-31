@@ -29,6 +29,9 @@ jobs:
       - run: ruff check .
       - run: ruff format --check .
       - run: mypy
+      # WhiteNoise warns once per middleware construction when STATIC_ROOT is absent, and a
+      # warning nobody can silence is a warning nobody reads.
+      - run: python manage.py collectstatic --noinput
       - run: pytest
       - uses: gitleaks/gitleaks-action@v3
         env:

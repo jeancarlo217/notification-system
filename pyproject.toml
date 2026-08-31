@@ -18,7 +18,7 @@ exclude = ["^core/migrations/"]
 [tool.django-stubs]
 django_settings_module = "deadliner.settings"
 
-[tool.pytest]
+[tool.pytest.ini_options]
 minversion = "9.0"
 DJANGO_SETTINGS_MODULE = "deadliner.settings"
 testpaths = ["tests"]

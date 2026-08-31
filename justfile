@@ -16,6 +16,7 @@ setup:
     {{python313}} -m venv venv
     {{python}} -m pip install -r requirements-dev.txt
     cp -n .env.example .env
+    {{python}} manage.py collectstatic --noinput
 
 # Run the development server
 dev:

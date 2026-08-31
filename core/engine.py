@@ -75,7 +75,10 @@ def run_daily_engine(*, provider: NotificationProvider, today: datetime.date) ->
     config = get_config()
     # Two reads for the whole run, never one per row (foundation section 8).
     services = {
-        service.id: service for service in Service.objects.filter(status=Service.Status.ACTIVE)
+        service.id: service
+        for service in Service.objects.filter(status=Service.Status.ACTIVE).select_related(
+            "catalog_service"
+        )
     }
     alerts = {
         (alert.service_id, alert.threshold): alert
@@ -98,7 +101,7 @@ def run_daily_engine(*, provider: NotificationProvider, today: datetime.date) ->
         text = render_message(
             config.message_template,
             client=service.client,
-            service=service.description,
+            service=service.catalog_service.name,
             due_date=service.due_date,
             days_remaining=(service.due_date - today).days,
         )

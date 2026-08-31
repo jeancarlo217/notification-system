@@ -1,0 +1,1004 @@
+{% comment %}
+The whole design system, inline. B14 inlined it because nothing under a static directory was
+served; B16 added the static pipeline (whitenoise) and kept the stylesheet inline anyway, because
+splitting it would turn a design change into a restructuring and costs nothing at this size.
+Static files carry the brand assets and the administration site's own bundle.
+
+Colour scales are Radix Colors 3.0.0 (sage, green, red), copied from the published package
+(@radix-ui/colors 3.0.0, src/light.ts and src/dark.ts). Steps carry their documented roles:
+1 and 2 backgrounds, 3 to 5 component backgrounds by state, 6 to 8 borders by state, 9 and 10
+solid fills, 11 low contrast text, 12 high contrast text. The brand hexes are anchored on the
+solid accent and its text, where they measure 6.21:1; the scale keeps the reading steps.
+Measured ratios: specs/dependencies.md, B16 section.
+{% endcomment %}
+<style>
+  :root {
+    /* Two values, so the browser resolves the theme from the operating system with no script,
+       and so form controls, scrollbars and the date picker follow it too. The two rules below
+       force one of them when a person overrides the setting. */
+    color-scheme: light dark;
+
+    --sage-1: #fbfdfc;
+    --sage-2: #f7f9f8;
+    --sage-3: #eef1f0;
+    --sage-4: #e6e9e8;
+    --sage-5: #dfe2e0;
+    --sage-6: #d7dad9;
+    --sage-7: #cbcfcd;
+    --sage-8: #b8bcba;
+    --sage-9: #868e8b;
+    --sage-10: #7c8481;
+    --sage-11: #5f6563;
+    --sage-12: #1a211e;
+
+    --green-1: #fbfefc;
+    --green-2: #f4fbf6;
+    --green-3: #e6f6eb;
+    --green-4: #d6f1df;
+    --green-5: #c4e8d1;
+    --green-6: #adddc0;
+    --green-7: #8eceaa;
+    --green-8: #5bb98b;
+    --green-9: #30a46c;
+    --green-10: #2b9a66;
+    --green-11: #218358;
+    --green-12: #193b2d;
+
+    --red-1: #fffcfc;
+    --red-2: #fff7f7;
+    --red-3: #feebec;
+    --red-4: #ffdbdc;
+    --red-5: #ffcdce;
+    --red-6: #fdbdbe;
+    --red-7: #f4a9aa;
+    --red-8: #eb8e90;
+    --red-9: #e5484d;
+    --red-10: #dc3e42;
+    --red-11: #ce2c31;
+    --red-12: #641723;
+
+    /* The identity, exact. The lockup carries these in its own fills; the interface carries them
+       on the solid accent only, because #72BF00 as text or as a hairline measures 2.2:1. */
+    --brand-green: #72bf00;
+    --brand-green-strong: #66ab00;
+    --brand-ink: #00312d;
+
+    /* Theme flipped tokens: a panel is lighter than the page in both themes, which needs
+       opposite steps, so the value moves and every rule below stays written once. */
+    --canvas: var(--sage-2);
+    --panel: var(--sage-1);
+    --surface-subtle: var(--sage-2);
+    --shadow-soft: rgba(0, 0, 0, 0.06);
+    --shadow-hard: rgba(0, 0, 0, 0.12);
+    --shadow-popup: rgba(0, 0, 0, 0.18);
+
+    --text-high: var(--sage-12);
+    --text-low: var(--sage-11);
+    --text-placeholder: var(--sage-10);
+    --border-subtle: var(--sage-6);
+    --border: var(--sage-7);
+    /* A control is identified by its boundary, so it takes a step that measures over 3:1 against
+       the surface behind it; steps 7 and 8 are drawn for separation, not for that. */
+    --control-border: var(--sage-9);
+    --control-border-hover: var(--sage-10);
+    --component: var(--sage-3);
+    --component-hover: var(--sage-4);
+
+    --accent-bg: var(--green-3);
+    --accent-bg-hover: var(--green-4);
+    --accent-border: var(--green-7);
+    --accent-solid: var(--brand-green);
+    --accent-solid-hover: var(--brand-green-strong);
+    --accent-solid-border: var(--brand-ink);
+    --accent-text: var(--green-11);
+    --accent-text-high: var(--green-12);
+    --accent-contrast: var(--brand-ink);
+    --focus-ring: var(--green-11);
+
+    --danger-border: var(--red-7);
+    --danger-bg: var(--red-3);
+    --danger-text: var(--red-11);
+
+    --radius-2: 4px;
+    --radius-3: 6px;
+    --radius-4: 8px;
+    --radius-5: 12px;
+    --radius-full: 9999px;
+
+    --space-1: 0.25rem;
+    --space-2: 0.5rem;
+    --space-3: 0.75rem;
+    --space-4: 1rem;
+    --space-5: 1.5rem;
+    --space-6: 2rem;
+    --space-7: 2.5rem;
+    --space-8: 3rem;
+
+    --text-1: 0.75rem;
+    --text-2: 0.8125rem;
+    --text-3: 0.875rem;
+    --text-4: 1rem;
+    --text-5: 1.125rem;
+    --text-6: 1.375rem;
+    --text-7: 1.625rem;
+
+    --font: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --touch: 44px;
+    --shell-width: 66rem;
+    --shell-width-narrow: 40rem;
+  }
+
+  /* A manual choice beats the operating system in both directions, which the media query alone
+     cannot do. It carries color-scheme only; the tokens are in the two rules below. */
+  :root[data-theme="light"] {
+    color-scheme: light;
+  }
+
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+  }
+
+  /* The dark palette is written twice on purpose: once for the system default, once for a manual
+     override that disagrees with it, and a media query cannot be reused by an attribute rule.
+     The two blocks must stay identical, which
+     test_the_two_dark_theme_blocks_declare_the_same_tokens asserts, because a value edited in one
+     of them is a defect visible in exactly one of the three theme states. */
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --sage-1: #101211;
+      --sage-2: #171918;
+      --sage-3: #202221;
+      --sage-4: #272a29;
+      --sage-5: #2e3130;
+      --sage-6: #373b39;
+      --sage-7: #444947;
+      --sage-8: #5b625f;
+      --sage-9: #63706b;
+      --sage-10: #717d79;
+      --sage-11: #adb5b2;
+      --sage-12: #eceeed;
+      --green-1: #0e1512;
+      --green-2: #121b17;
+      --green-3: #132d21;
+      --green-4: #113b29;
+      --green-5: #174933;
+      --green-6: #20573e;
+      --green-7: #28684a;
+      --green-8: #2f7c57;
+      --green-9: #30a46c;
+      --green-10: #33b074;
+      --green-11: #3dd68c;
+      --green-12: #b1f1cb;
+      --red-1: #191111;
+      --red-2: #201314;
+      --red-3: #3b1219;
+      --red-4: #500f1c;
+      --red-5: #611623;
+      --red-6: #72232d;
+      --red-7: #8c333a;
+      --red-8: #b54548;
+      --red-9: #e5484d;
+      --red-10: #ec5d5e;
+      --red-11: #ff9592;
+      --red-12: #ffd1d9;
+      --canvas: var(--sage-1);
+      --panel: var(--sage-2);
+      --surface-subtle: var(--sage-3);
+      --shadow-soft: rgba(0, 0, 0, 0.3);
+      --shadow-hard: rgba(0, 0, 0, 0.45);
+      --shadow-popup: rgba(0, 0, 0, 0.6);
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --sage-1: #101211;
+    --sage-2: #171918;
+    --sage-3: #202221;
+    --sage-4: #272a29;
+    --sage-5: #2e3130;
+    --sage-6: #373b39;
+    --sage-7: #444947;
+    --sage-8: #5b625f;
+    --sage-9: #63706b;
+    --sage-10: #717d79;
+    --sage-11: #adb5b2;
+    --sage-12: #eceeed;
+    --green-1: #0e1512;
+    --green-2: #121b17;
+    --green-3: #132d21;
+    --green-4: #113b29;
+    --green-5: #174933;
+    --green-6: #20573e;
+    --green-7: #28684a;
+    --green-8: #2f7c57;
+    --green-9: #30a46c;
+    --green-10: #33b074;
+    --green-11: #3dd68c;
+    --green-12: #b1f1cb;
+    --red-1: #191111;
+    --red-2: #201314;
+    --red-3: #3b1219;
+    --red-4: #500f1c;
+    --red-5: #611623;
+    --red-6: #72232d;
+    --red-7: #8c333a;
+    --red-8: #b54548;
+    --red-9: #e5484d;
+    --red-10: #ec5d5e;
+    --red-11: #ff9592;
+    --red-12: #ffd1d9;
+    --canvas: var(--sage-1);
+    --panel: var(--sage-2);
+    --surface-subtle: var(--sage-3);
+    --shadow-soft: rgba(0, 0, 0, 0.3);
+    --shadow-hard: rgba(0, 0, 0, 0.45);
+    --shadow-popup: rgba(0, 0, 0, 0.6);
+  }
+
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background: var(--canvas);
+    color: var(--text-high);
+    font-family: var(--font);
+    font-size: var(--text-4);
+    line-height: 1.5;
+  }
+
+  a {
+    color: var(--accent-text);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 2px;
+    border-radius: var(--radius-2);
+  }
+
+  .skip-link {
+    position: absolute;
+    left: var(--space-3);
+    top: var(--space-3);
+    z-index: 100;
+    padding: var(--space-2) var(--space-3);
+    border-radius: var(--radius-3);
+    background: var(--panel);
+    color: var(--accent-text);
+    box-shadow: 0 4px 16px var(--shadow-hard);
+    transform: translateY(-200%);
+  }
+
+  .skip-link:focus {
+    transform: translateY(0);
+  }
+
+  .topbar {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    background: var(--panel);
+    border-bottom: 1px solid var(--border-subtle);
+  }
+
+  .topbar__inner {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+    max-width: var(--shell-width);
+    margin: 0 auto;
+    padding: var(--space-3) var(--space-4);
+  }
+
+  .brand {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-3);
+    min-width: 0;
+    color: var(--text-high);
+    text-decoration: none;
+  }
+
+  .brand__logo {
+    display: block;
+    width: auto;
+    height: 1.75rem;
+    flex: none;
+  }
+
+  /* The lockup that matches the resolved theme is the one shown, in all three states. The pair
+     of rules for a manual light choice is missing on purpose: the media query below already
+     excludes it, so the base rule here is what applies. */
+  .brand__logo--dark {
+    display: none;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) .brand__logo--light {
+      display: none;
+    }
+
+    :root:not([data-theme="light"]) .brand__logo--dark {
+      display: block;
+    }
+  }
+
+  :root[data-theme="dark"] .brand__logo--light {
+    display: none;
+  }
+
+  :root[data-theme="dark"] .brand__logo--dark {
+    display: block;
+  }
+
+  .brand__divider {
+    width: 1px;
+    height: 1.5rem;
+    background: var(--border);
+    flex: none;
+  }
+
+  .brand__product {
+    font-size: var(--text-4);
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    white-space: nowrap;
+  }
+
+  .theme {
+    display: none;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    min-width: 0;
+  }
+
+  /* The control does nothing without the script that reads and writes the stored choice, so it
+     appears only once that script has run. */
+  :root.js .theme {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+  }
+
+  .theme__label {
+    float: none;
+    padding: 0;
+    color: var(--text-low);
+    font-size: var(--text-2);
+    font-weight: 600;
+  }
+
+  .theme__options {
+    display: flex;
+    gap: var(--space-1);
+    padding: 3px;
+    background: var(--component);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-full);
+  }
+
+  .theme__option {
+    display: flex;
+    min-width: 0;
+  }
+
+  .theme__input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    border: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .theme__text {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 1;
+    min-height: 2.25rem;
+    padding: 0 var(--space-3);
+    border-radius: var(--radius-full);
+    color: var(--text-low);
+    font-size: var(--text-2);
+    font-weight: 500;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background-color 120ms ease, color 120ms ease;
+  }
+
+  .theme__text:hover {
+    color: var(--text-high);
+  }
+
+  .theme__input:checked + .theme__text {
+    background: var(--panel);
+    border-color: var(--border);
+    box-shadow: 0 1px 2px var(--shadow-soft);
+    color: var(--text-high);
+  }
+
+  /* The input is off screen but still focusable, so the ring has to be drawn on what is seen. */
+  .theme__input:focus-visible + .theme__text {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 2px;
+  }
+
+  .shell {
+    max-width: var(--shell-width);
+    margin: 0 auto;
+    padding: var(--space-6) var(--space-4) var(--space-8);
+  }
+
+  /* The registration and the due date edit are one column of controls, so the column is what is
+     centred, heading included, instead of a narrow card pinned to the left of a wide page. */
+  .shell--narrow {
+    max-width: var(--shell-width-narrow);
+  }
+
+  .page-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+    margin-bottom: var(--space-5);
+  }
+
+  .page-head__title {
+    margin: 0;
+    font-size: var(--text-7);
+    font-weight: 600;
+    letter-spacing: -0.02em;
+  }
+
+  .page-head__meta {
+    flex-basis: 100%;
+    margin: 0;
+    color: var(--text-low);
+    font-size: var(--text-3);
+  }
+
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-5);
+    box-shadow: 0 1px 2px var(--shadow-soft);
+  }
+
+  /* The rounded corners need this, and the combobox popup escapes it only because the popup is
+     position: fixed. Give any ancestor a transform, a filter or will-change and the popup gets a
+     new containing block, falls back to being clipped here, and the list is cut off. */
+  .card--clipped {
+    overflow: hidden;
+  }
+
+  .card--form {
+    padding: var(--space-5);
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2);
+    min-height: var(--touch);
+    padding: 0 var(--space-4);
+    border: 1px solid transparent;
+    border-radius: var(--radius-3);
+    font-family: inherit;
+    font-size: var(--text-3);
+    font-weight: 500;
+    line-height: 1;
+    text-decoration: none;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background-color 120ms ease, border-color 120ms ease;
+  }
+
+  /* The fill measures 2.2:1 against the page in the light theme, so the boundary that identifies
+     the button is the ink border, not the green. */
+  .btn--solid {
+    background: var(--accent-solid);
+    border-color: var(--accent-solid-border);
+    color: var(--accent-contrast);
+    font-weight: 600;
+  }
+
+  .btn--solid:hover {
+    background: var(--accent-solid-hover);
+  }
+
+  .btn--soft {
+    background: var(--component);
+    border-color: var(--control-border);
+    color: var(--text-high);
+  }
+
+  .btn--soft:hover {
+    background: var(--component-hover);
+    border-color: var(--control-border-hover);
+  }
+
+  .btn--ghost {
+    background: transparent;
+    color: var(--accent-text);
+  }
+
+  .btn--ghost:hover {
+    background: var(--accent-bg);
+  }
+
+  .btn--sm {
+    min-height: var(--touch);
+    padding: 0 var(--space-3);
+    font-size: var(--text-2);
+  }
+
+  .inline {
+    display: inline;
+  }
+
+  .table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: var(--text-3);
+  }
+
+  .table th {
+    padding: var(--space-3) var(--space-4);
+    background: var(--surface-subtle);
+    border-bottom: 1px solid var(--border-subtle);
+    color: var(--text-low);
+    font-size: var(--text-1);
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-align: left;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+
+  .table td {
+    padding: var(--space-3) var(--space-4);
+    border-bottom: 1px solid var(--border-subtle);
+    vertical-align: middle;
+  }
+
+  .table tbody tr:last-child td {
+    border-bottom: 0;
+  }
+
+  .table tbody tr:hover td {
+    background: var(--surface-subtle);
+  }
+
+  .table__client {
+    color: var(--text-high);
+    font-weight: 600;
+  }
+
+  .table__date {
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+
+  /* A table cell, not a flex container: display:flex on a td drops it out of the table's own
+     box tree and the browser wraps it in an anonymous cell, which paints its own band across
+     the row. The buttons are laid out inline instead. */
+  .table__actions {
+    white-space: nowrap;
+  }
+
+  .table__actions > * + * {
+    margin-left: var(--space-2);
+  }
+
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-1) var(--space-3);
+    border: 1px solid transparent;
+    border-radius: var(--radius-full);
+    font-size: var(--text-2);
+    font-weight: 500;
+    white-space: nowrap;
+  }
+
+  .badge::before {
+    content: "";
+    width: 0.4rem;
+    height: 0.4rem;
+    border-radius: var(--radius-full);
+    background: currentColor;
+  }
+
+  .badge--active {
+    background: var(--accent-bg);
+    border-color: var(--accent-border);
+    color: var(--accent-text-high);
+  }
+
+  .badge--completed {
+    background: var(--component);
+    border-color: var(--border);
+    color: var(--text-low);
+  }
+
+  .empty {
+    display: grid;
+    justify-items: center;
+    gap: var(--space-4);
+    padding: var(--space-8) var(--space-4);
+    background: var(--panel);
+    border: 1px dashed var(--border);
+    border-radius: var(--radius-5);
+    color: var(--text-low);
+    text-align: center;
+  }
+
+  .empty__icon {
+    color: var(--text-placeholder);
+  }
+
+  .empty__text {
+    margin: 0;
+    font-size: var(--text-4);
+  }
+
+  .form {
+    display: grid;
+    gap: var(--space-5);
+  }
+
+  .field {
+    display: grid;
+    gap: var(--space-2);
+  }
+
+  .field label {
+    color: var(--text-high);
+    font-size: var(--text-3);
+    font-weight: 500;
+  }
+
+  .field__help {
+    margin: 0;
+    color: var(--text-low);
+    font-size: var(--text-2);
+  }
+
+  /* The base layer for every control sits in :where(), so a state rule below (invalid, enhanced)
+     wins on order alone instead of needing a heavier selector to beat this one. */
+  :where(
+    .field input[type="text"],
+    .field input[type="date"],
+    .field input[type="number"],
+    .field input[type="email"],
+    .field select,
+    .field textarea,
+    .combobox__input
+  ) {
+    width: 100%;
+    min-height: var(--touch);
+    padding: var(--space-2) var(--space-3);
+    background: var(--panel);
+    border: 1px solid var(--control-border);
+    border-radius: var(--radius-3);
+    color: var(--text-high);
+    font-family: inherit;
+    font-size: var(--text-4);
+    line-height: 1.5;
+    transition: border-color 120ms ease, box-shadow 120ms ease;
+  }
+
+  :where(.field input, .field select, .field textarea, .combobox__input):hover {
+    border-color: var(--control-border-hover);
+  }
+
+  :where(.field input, .field textarea, .combobox__input)::placeholder {
+    color: var(--text-placeholder);
+  }
+
+  /* Six rows whatever the rows attribute says, because the height is what the layout was drawn
+     around; the auto-grow script overrides this inline once there is something to grow to. */
+  .field textarea {
+    height: calc(6 * 1.6em + 2 * var(--space-2) + 2px);
+    min-height: calc(6 * 1.6em + 2 * var(--space-2) + 2px);
+    line-height: 1.6;
+    resize: vertical;
+  }
+
+  .field--invalid input,
+  .field--invalid select,
+  .field--invalid textarea,
+  .field--invalid .combobox__input {
+    border-color: var(--danger-text);
+  }
+
+  .errorlist {
+    display: grid;
+    gap: var(--space-1);
+    margin: 0;
+    padding: var(--space-2) var(--space-3);
+    list-style: none;
+    background: var(--danger-bg);
+    border: 1px solid var(--danger-border);
+    border-radius: var(--radius-3);
+    color: var(--danger-text);
+    font-size: var(--text-3);
+  }
+
+  .form__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-3);
+    padding-top: var(--space-1);
+  }
+
+  .combobox {
+    position: relative;
+  }
+
+  .combobox__control {
+    position: relative;
+    display: flex;
+    align-items: center;
+  }
+
+  .combobox__chevron,
+  .combobox--enhanced .combobox__select {
+    display: none;
+  }
+
+  .combobox--enhanced .combobox__chevron {
+    display: block;
+    position: absolute;
+    right: var(--space-3);
+    color: var(--text-low);
+    pointer-events: none;
+  }
+
+  .combobox--enhanced .combobox__input {
+    padding-right: var(--space-7);
+  }
+
+  .combobox__listbox {
+    position: fixed;
+    z-index: 60;
+    margin: 0;
+    padding: var(--space-1);
+    list-style: none;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-4);
+    box-shadow: 0 10px 30px var(--shadow-popup), 0 2px 6px var(--shadow-hard);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  /* The class sets display, so the attribute selector has to say it again or [hidden] loses. */
+  .combobox__listbox[hidden] {
+    display: none;
+  }
+
+  .combobox__group-items {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .combobox__group {
+    display: block;
+    padding: var(--space-3) var(--space-3) var(--space-1);
+    color: var(--text-low);
+    font-size: var(--text-1);
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  .combobox__option {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    min-height: var(--touch);
+    padding: 0 var(--space-3);
+    border-radius: var(--radius-3);
+    color: var(--text-high);
+    font-size: var(--text-3);
+    cursor: pointer;
+  }
+
+  .combobox__option[data-active="true"] {
+    background: var(--accent-bg-hover);
+    color: var(--accent-text-high);
+  }
+
+  .combobox__option[aria-selected="true"]::after {
+    content: "\2713";
+    margin-left: auto;
+    color: var(--accent-text);
+  }
+
+  .combobox__empty {
+    display: flex;
+    align-items: center;
+    min-height: var(--touch);
+    padding: 0 var(--space-3);
+    color: var(--text-low);
+    font-size: var(--text-3);
+  }
+
+  /* Between the phone layout and a full desktop the five columns no longer fit beside two action
+     buttons, so the actions stack inside their own cell and the table keeps its columns. */
+  @media (max-width: 62rem) {
+    .table__actions {
+      white-space: normal;
+    }
+
+    .table__actions .inline {
+      display: block;
+    }
+
+    .table__actions .btn {
+      display: flex;
+      width: 100%;
+    }
+
+    .table__actions > * + * {
+      margin-left: 0;
+      margin-top: var(--space-2);
+    }
+  }
+
+  @media (max-width: 40rem) {
+    .topbar__inner,
+    .shell {
+      padding-left: var(--space-3);
+      padding-right: var(--space-3);
+    }
+
+    .topbar__inner {
+      row-gap: var(--space-2);
+    }
+
+    .brand__logo {
+      height: 1.5rem;
+    }
+
+    .brand__product {
+      font-size: var(--text-3);
+    }
+
+    :root.js .theme {
+      flex-basis: 100%;
+      justify-content: space-between;
+    }
+
+    .theme__options {
+      flex: 1;
+      max-width: 20rem;
+    }
+
+    .theme__text {
+      min-height: var(--touch);
+      padding: 0 var(--space-2);
+    }
+
+    .shell {
+      padding-top: var(--space-5);
+    }
+
+    .page-head__title {
+      font-size: var(--text-5);
+    }
+
+    .page-head .btn {
+      width: 100%;
+    }
+
+    .card--bleed {
+      background: transparent;
+      border: 0;
+      border-radius: 0;
+      box-shadow: none;
+      overflow: visible;
+    }
+
+    .card--form {
+      padding: var(--space-4);
+    }
+
+    /* Blocks instead of table boxes, so five columns become one card per row and nothing
+       scrolls sideways. Changing display drops the implicit table semantics, which is why every
+       row and cell in the markup carries its ARIA role by hand. */
+    .table,
+    .table tbody,
+    .table tr,
+    .table td {
+      display: block;
+      width: 100%;
+    }
+
+    .table thead {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip-path: inset(50%);
+      white-space: nowrap;
+    }
+
+    .table tr {
+      margin-bottom: var(--space-3);
+      padding: var(--space-2) var(--space-4);
+      background: var(--panel);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-5);
+      box-shadow: 0 1px 2px var(--shadow-soft);
+    }
+
+    .table td {
+      display: grid;
+      grid-template-columns: 6.5rem minmax(0, 1fr);
+      align-items: baseline;
+      justify-items: start;
+      gap: var(--space-3);
+      padding: var(--space-2) 0;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .table td::before {
+      content: attr(data-label);
+      color: var(--text-low);
+      font-size: var(--text-2);
+      font-weight: 600;
+    }
+
+    .table tbody tr:hover td {
+      background: transparent;
+    }
+
+    .table tbody td:last-child {
+      border-bottom: 0;
+    }
+
+    .table td.table__actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--space-2);
+      padding-top: var(--space-3);
+    }
+
+    .table td.table__actions::before {
+      content: none;
+    }
+
+    .table td.table__actions > * {
+      flex: 1 1 8rem;
+      margin: 0;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    * {
+      transition-duration: 0.01ms !important;
+    }
+  }
+</style>

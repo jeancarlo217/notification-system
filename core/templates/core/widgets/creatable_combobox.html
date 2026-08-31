@@ -1,0 +1,11 @@
+<div class="combobox" data-combobox="creatable" data-empty-text="Nenhum resultado">
+  <div class="combobox__control">
+    {% include "django/forms/widgets/input.html" %}
+    <svg class="combobox__chevron" width="16" height="16" viewBox="0 0 16 16" fill="none"
+         stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"
+         aria-hidden="true"><path d="M4 6.5 8 10.5 12 6.5"/></svg>
+  </div>
+  <datalist id="{{ widget.datalist_id }}">
+    {% for suggestion in widget.suggestions %}<option value="{{ suggestion }}"></option>{% endfor %}
+  </datalist>
+</div>

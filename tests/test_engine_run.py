@@ -16,6 +16,7 @@ from django.test import override_settings
 from core.engine import run_daily_engine
 from core.models import Alert, Service
 from deadliner.config import DeadlinerConfig
+from tests.builders import DEFAULT_CATALOG_SERVICE, a_service
 from tests.fakes import FakeProvider
 
 pytestmark = pytest.mark.django_db
@@ -33,11 +34,8 @@ def _a_service(
     due: datetime.date,
     status: str = "active",
     client: str = "Fazenda Boa Vista",
-    description: str = "Renovacao de licenca ambiental",
 ) -> Service:
-    return Service.objects.create(
-        client=client, description=description, due_date=due, status=status
-    )
+    return a_service(client=client, due_date=due, status=status)
 
 
 @override_settings(DEADLINER=TEST_DEADLINER)
@@ -97,7 +95,7 @@ def test_the_message_is_computed_at_send_time_from_the_current_record() -> None:
 
     run_daily_engine(provider=provider, today=datetime.date(2026, 12, 15))
 
-    assert provider.deliveries == ["Fazenda Boa Vista|Renovacao de licenca ambiental|2026-12-25|10"]
+    assert provider.deliveries == [f"Fazenda Boa Vista|{DEFAULT_CATALOG_SERVICE}|2026-12-25|10"]
 
 
 @override_settings(DEADLINER=TEST_DEADLINER)

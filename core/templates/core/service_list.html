@@ -3,40 +3,63 @@
 {% block title %}Serviços{% endblock %}
 
 {% block content %}
-  <p><a class="button" href="{% url 'service-create' %}">Novo serviço</a></p>
+  <div class="page-head">
+    <h1 class="page-head__title">Serviços</h1>
+    <a class="btn btn--solid" href="{% url 'service-create' %}">Novo serviço</a>
+  </div>
 
   {% if services %}
-    <table>
-      <thead>
-        <tr>
-          <th>Cliente</th>
-          <th>Serviço</th>
-          <th>Vencimento</th>
-          <th>Status</th>
-          <th>Ações</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for service in services %}
-          <tr>
-            <td>{{ service.client }}</td>
-            <td>{{ service.description }}</td>
-            <td>{{ service.due_date|date:"d/m/Y" }}</td>
-            <td>{{ service.get_status_display }}</td>
-            <td>
-              <a href="{% url 'service-due-date' service.pk %}">Editar vencimento</a>
-              {% if service.status == "active" %}
-                <form class="inline" method="post" action="{% url 'service-complete' service.pk %}">
-                  {% csrf_token %}
-                  <button type="submit">Concluir</button>
-                </form>
-              {% endif %}
-            </td>
+    {% comment %}
+    Below 40rem the table is laid out as blocks, which drops the implicit table semantics in
+    every browser, so each row and cell states its ARIA role by hand and each cell carries the
+    column name the small layout prints in front of it.
+    {% endcomment %}
+    <div class="card card--clipped card--bleed">
+      <table class="table" role="table">
+        <thead role="rowgroup">
+          <tr role="row">
+            <th role="columnheader" scope="col">Cliente</th>
+            <th role="columnheader" scope="col">Serviço</th>
+            <th role="columnheader" scope="col">Vencimento</th>
+            <th role="columnheader" scope="col">Status</th>
+            <th role="columnheader" scope="col">Ações</th>
           </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+        </thead>
+        <tbody role="rowgroup">
+          {% for service in services %}
+            <tr role="row">
+              <td role="cell" class="table__client" data-label="Cliente">{{ service.client }}</td>
+              <td role="cell" data-label="Serviço">{{ service.catalog_service.name }}</td>
+              <td role="cell" class="table__date" data-label="Vencimento">
+                <time datetime="{{ service.due_date|date:'Y-m-d' }}">{{ service.due_date|date:"d/m/Y" }}</time>
+              </td>
+              <td role="cell" data-label="Status">
+                <span class="badge badge--{{ service.status }}">{{ service.get_status_display }}</span>
+              </td>
+              <td role="cell" class="table__actions" data-label="Ações">
+                <a class="btn btn--ghost btn--sm" href="{% url 'service-due-date' service.pk %}">Editar vencimento</a>
+                {% if service.status == "active" %}
+                  <form class="inline" method="post" action="{% url 'service-complete' service.pk %}">
+                    {% csrf_token %}
+                    <button class="btn btn--soft btn--sm" type="submit">Concluir</button>
+                  </form>
+                {% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
   {% else %}
-    <p class="empty">Nenhum serviço cadastrado.</p>
+    <div class="empty">
+      <svg class="empty__icon" width="32" height="32" viewBox="0 0 24 24" fill="none"
+           stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"
+           aria-hidden="true">
+        <path d="M4 7a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/>
+        <path d="M4 10h16"/><path d="M8 3v4"/><path d="M16 3v4"/>
+      </svg>
+      <p class="empty__text">Nenhum serviço cadastrado.</p>
+      <a class="btn btn--soft" href="{% url 'service-create' %}">Cadastrar serviço</a>
+    </div>
   {% endif %}
 {% endblock %}

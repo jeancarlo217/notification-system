@@ -14,3 +14,4 @@ __pycache__
 .github
 specs
 tests
+staticfiles
