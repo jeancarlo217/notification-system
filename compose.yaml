@@ -4,8 +4,12 @@ services:
     env_file: .env
     environment:
       DJANGO_DATABASE_PATH: /data/db.sqlite3
+    # Loopback only, and never `0.0.0.0`: nothing reaches this application except through what
+    # fronts it, which is a reverse proxy or a Cloudflare tunnel depending on the host. The host
+    # side port is a variable because the deployment target already runs other services and 8000
+    # is taken there; only Compose reads it, never the configuration boundary of adr 0001.
     ports:
-      - "8000:8000"
+      - "127.0.0.1:${WEB_PORT:-8000}:8000"
     volumes:
       - data:/data
     command: sh -c "python manage.py migrate --noinput && gunicorn deadliner.wsgi --bind 0.0.0.0:8000"
