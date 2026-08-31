@@ -24,38 +24,53 @@
     {% endif %}
   </form>
 
-  {% if services %}
+  {% if rows %}
     {% comment %}
     Below 40rem the table is laid out as blocks, which drops the implicit table semantics in
     every browser, so each row and cell states its ARIA role by hand and each cell carries the
     column name the small layout prints in front of it.
     {% endcomment %}
-    <div class="card card--clipped card--bleed">
+    <div class="card card--clipped card--scroll card--bleed">
       <table class="table" role="table">
         <thead role="rowgroup">
           <tr role="row">
             <th role="columnheader" scope="col">Cliente</th>
             <th role="columnheader" scope="col">Serviço</th>
             <th role="columnheader" scope="col">Vencimento</th>
+            <th role="columnheader" scope="col">Responsável</th>
             <th role="columnheader" scope="col">Status</th>
+            <th role="columnheader" scope="col">Avisos</th>
             <th role="columnheader" scope="col">Ações</th>
           </tr>
         </thead>
         <tbody role="rowgroup">
-          {% for service in services %}
+          {% for row in rows %}
             <tr role="row">
-              <td role="cell" class="table__client" data-label="Cliente">{{ service.client }}</td>
-              <td role="cell" data-label="Serviço">{{ service.catalog_service.name }}</td>
+              <td role="cell" class="table__client" data-label="Cliente">{{ row.service.client }}</td>
+              <td role="cell" data-label="Serviço">{{ row.service.catalog_service.name }}</td>
               <td role="cell" class="table__date" data-label="Vencimento">
-                <time datetime="{{ service.due_date|date:'Y-m-d' }}">{{ service.due_date|date:"d/m/Y" }}</time>
+                <time datetime="{{ row.service.due_date|date:'Y-m-d' }}">{{ row.service.due_date|date:"d/m/Y" }}</time>
               </td>
+              <td role="cell" data-label="Responsável">{{ row.service.submitter.display_name }}</td>
               <td role="cell" data-label="Status">
-                <span class="badge badge--{{ service.status }}">{{ service.get_status_display }}</span>
+                <span class="badge badge--{{ row.service.status }}">{{ row.service.get_status_display }}</span>
+              </td>
+              {% comment %}
+              One badge per configured threshold, so a threshold nobody has reached reads as
+              waiting and never as a failure (I2), and adding or removing one is a configuration
+              change and not an edit here (I4).
+              {% endcomment %}
+              <td role="cell" data-label="Avisos">
+                <div class="warnings">
+                  {% for warning in row.warnings %}
+                    <span class="badge badge--warning-{{ warning.state }}">{{ warning.label }} {{ warning.text }}</span>
+                  {% endfor %}
+                </div>
               </td>
               <td role="cell" class="table__actions" data-label="Ações">
-                <a class="btn btn--ghost btn--sm" href="{% url 'service-due-date' service.pk %}">Editar vencimento</a>
-                {% if service.status == "active" %}
-                  <form class="inline" method="post" action="{% url 'service-complete' service.pk %}">
+                <a class="btn btn--ghost btn--sm" href="{% url 'service-due-date' row.service.pk %}">Editar vencimento</a>
+                {% if row.service.status == "active" %}
+                  <form class="inline" method="post" action="{% url 'service-complete' row.service.pk %}">
                     {% csrf_token %}
                     <button class="btn btn--soft btn--sm" type="submit">Concluir</button>
                   </form>

@@ -488,6 +488,13 @@ Measured ratios: specs/dependencies.md, B16 section.
     overflow: hidden;
   }
 
+  /* Not a contradiction with the rule above: this resolves to overflow-x: auto with overflow-y
+     still hidden, so the seven columns scroll sideways at the widths they no longer fit instead
+     of being clipped away. The phone layout drops it again with .card--bleed. */
+  .card--scroll {
+    overflow-x: auto;
+  }
+
   .card--form {
     padding: var(--space-5);
   }
@@ -637,6 +644,40 @@ Measured ratios: specs/dependencies.md, B16 section.
   .badge--completed {
     background: var(--component);
     border-color: var(--border);
+    color: var(--text-low);
+  }
+
+  .warnings {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-1);
+  }
+
+  /* Every one of these carries its condition as a word, so the colour is a second channel and
+     never the only one (I2). Reading steps only: green 12 on green 3 measures 11.00:1 light and
+     11.45:1 dark, red 11 on red 3 measures 4.54:1 and 7.75:1, sage 12 on sage 3 measures 14.43:1
+     and 13.73:1, sage 11 on the panel measures 5.83:1 and 8.44:1. */
+  .badge--warning-sent {
+    background: var(--accent-bg);
+    border-color: var(--accent-border);
+    color: var(--accent-text-high);
+  }
+
+  .badge--warning-failed {
+    background: var(--danger-bg);
+    border-color: var(--danger-border);
+    color: var(--danger-text);
+  }
+
+  .badge--warning-pending {
+    background: var(--component);
+    border-color: var(--border);
+    color: var(--text-high);
+  }
+
+  .badge--warning-waiting {
+    background: transparent;
+    border-color: var(--border-subtle);
     color: var(--text-low);
   }
 
