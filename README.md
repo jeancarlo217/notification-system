@@ -231,6 +231,57 @@ which is the whole procedure including the restore.
 Static files are handled: WhiteNoise serves them and `collectstatic` runs during the image build,
 under the secret segment like everything else.
 
+### The reverse proxy, on a host that already runs other things
+
+The deployment host is shared with the company's institutional site and with Ecobalance, and its
+nginx already fronts several services by hostname, each container published on the loopback address
+only. This application joins that pattern rather than inventing another one, and it publishes on
+the loopback address too, which is why `WEB_PORT` exists: pick one nothing else is using.
+
+```bash
+ss -tlnp | grep :8010 || echo "free"     # 8000 is taken on that host by Portainer
+```
+
+Write `/etc/nginx/sites-available/avisos.valeverdeambiental.com.br` with the plain HTTP server
+first, because certbot's nginx plugin needs a block carrying the name before it can add TLS to it:
+
+```nginx
+server {
+    listen 80;
+    listen [::]:80;
+    server_name avisos.valeverdeambiental.com.br;
+
+    location / {
+        include proxy_params;
+        proxy_pass http://127.0.0.1:8010;
+    }
+}
+```
+
+One `location` is the whole file, and that is not an oversight: this application serves its own
+static assets through WhiteNoise, under the same path segment as everything else, so there is no
+`alias` to write and no second route to expose. `include proxy_params` is what sends
+`X-Forwarded-Proto`, which the settings module turns into `request.is_secure()`; without that pair
+Django computes the CSRF origin as `http://` while the browser sends `https://` and refuses every
+form in the application.
+
+```bash
+ln -s /etc/nginx/sites-available/avisos.valeverdeambiental.com.br /etc/nginx/sites-enabled/
+nginx -t && systemctl reload nginx
+certbot --nginx -d avisos.valeverdeambiental.com.br
+nginx -t && systemctl reload nginx
+```
+
+**`nginx -t` before every reload, without exception.** It validates the whole configuration, so a
+mistake in this file is caught before the reload rather than after it, and the other sites on that
+host never learn this one was deployed. That is the entire reason adding a service here is routine
+instead of frightening.
+
+When the zone moves to Cloudflare and this application goes behind a tunnel, this virtual host is
+retired: the tunnel reaches the container directly and nginx stops being in the path. Remove the
+certificate from certbot in the same pass, or its renewal starts failing for a name that no longer
+resolves to this machine.
+
 ## Backups and restore
 
 The database is one SQLite file on the `data` volume, and it is everything the company has. A
