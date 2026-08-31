@@ -6,6 +6,11 @@
 *.sqlite
 .evolution-qr.png
 
+# The database copies backup_database writes, and where Compose bind mounts them. The directory
+# itself is tracked so a clone has it before Docker creates it as root.
+backups/*
+!backups/.gitkeep
+
 # Python
 __pycache__/
 *.py[cod]

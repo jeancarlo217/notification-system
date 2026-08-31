@@ -84,18 +84,57 @@ branch `b9-scheduler` by developer B, shape in `specs/adr/0002-scheduler-contain
 with `just gate` (ruff, `mypy --strict`, 106 tests, gitleaks) and a one-shot `docker compose run`
 of the service on 2026-08-28; merged to `main` by pull request #8.
 
-**B10. CSV export.** `todo`. One button, one streamed query, one row per record. Trace: foundation
-section 7, the performance rule in section 8. The row grew on 2026-08-28: it now carries the
-category, the catalogue service, the observation and the submitter display name, reached through
-`select_related` so the constant-query promise holds (B12, B13). It grew again on 2026-08-31: the
+**B10. CSV export.** `done (2026-08-31)`. One button, one streamed query, one row per record.
+Trace: foundation section 7, the performance rule in section 8. The row grew twice: on 2026-08-28
+it took the category, the catalogue service, the observation and the submitter display name (B12,
+B13), and on 2026-08-31 the start date and the term (B19), reached through `select_related` so the
+constant-query promise holds. The shaping of one record into one row is a pure function in
+`core/export.py` with no Django import, which is the shape `specs/testing.md` names for a decision.
+Measured at **one** query for the whole file, proved by consuming `streaming_content` inside the
+counter, because a lazy generator runs no query during the request itself and a naive test would
+assert nothing; the window that wrote it also removed `select_related` and watched the test fail
+before restoring the line. The file is UTF-8 with a byte order mark and semicolon separated, which
+is a module constant and not configuration on B17's precedent, chosen so it opens correctly in both
+Excel under a Portuguese locale and Google Sheets; **that last claim is reasoned and not measured**,
+because no Excel exists on any machine this was built on, and one double click settles it. Exports
+the whole dataset and not the current page or search, which is what foundation section 7 decides
+and which is worth an owner sentence, since an employee who searched and then exported receives
+every record the company owns. Verified with `just gate` (ruff, `mypy --strict`, 375 tests,
+gitleaks) and `just manage makemigrations --check` on 2026-08-31. It grew again on 2026-08-31: the
 start date and the term in days sit beside the due date, which is derived from them and stays in the
 row because it is what the warnings measure against (B19).
 
-**B11. Deployment.** `blocked on OQ-2`. The always-on host, Cloudflare in front, the production env
-file created on the host and never in the repository. Also needs the final message wording (OQ-3),
-which can land as a config change at any point before go-live. Trace: foundation section 8, I5, I6.
-It stays the last item to run whatever else enters version 1, and B12's deleting data migration
-assumes it has not run yet.
+**B11. Deployment.** `todo`, unblocked on 2026-08-31 when OQ-2 closed. The VPS, `cloudflared` in
+the Compose stack fronting it by Tunnel, and the production env file created on the host and never
+in the repository. The final message wording (OQ-3) is no longer a precondition: the owner decision
+of 2026-08-31 ships this in two phases and the first one carries no WhatsApp delivery at all, so
+the alert `scheduler` service does not deploy and the template stays a placeholder until phase two.
+Trace: foundation section 8, section 6, I5, I6.
+
+**The host is shared, confirmed by the owner on 2026-08-31.** The VPS is the same machine that runs
+Ecobalance and the company's institutional site, `103.199.184.160`, reverse `srv722493.hstgr.cloud`,
+a Hostinger VPS. Three consequences follow and none of them is optional. Adding this application
+must not touch that machine's existing web server: no new virtual host, no port, no certificate, no
+reload, because a bad reload takes down both of the systems that cannot go down, and it would be
+taking that risk for an internal tool. Cloudflare Tunnel is what makes that possible, since
+`cloudflared` opens an outbound connection and needs no inbound port and no change to whatever
+serves the other two today. And the backups of B22 sit on the same disk as the systems they would
+be needed to recover beside, so losing that disk loses Ecobalance, the institutional site, this
+application and every copy of its database at once; carrying copies off the host stops being a
+refinement at that point.
+
+The step that carries the risk is not ours and has to be written down before anybody runs it. The
+domain already serves another production system of the company and its DNS is not on Cloudflare
+today, so a Tunnel hostname means moving the whole zone's nameservers, which puts a live system
+behind a change made for this one. Two things break silently in that move and neither is visible
+from this repository: a record that Cloudflare's import scan did not find, email above all, since
+missing `MX`, `SPF`, `DKIM` or `DMARC` records fail quietly for days rather than loudly at once;
+and DNSSEC left enabled at the registrar while the nameservers change, which breaks resolution for
+the whole domain until the old `DS` record is withdrawn. The existing system's records go in as
+proxy off, so nothing about how it is served changes, only who answers the queries.
+
+B12's deleting data migration still assumes this item has not run, and the moment it does that
+precondition is spent.
 
 **B12. Service catalogue.** `done (2026-08-28)`. The two reference tables, `ServiceCategory` and
 `CatalogService`, seeded from the July 2026 declaration by a data migration and registered in the
@@ -157,6 +196,36 @@ report on 2026-08-31 against delivered work: B15 answered its two new columns wi
 service was unreachable on a tablet without scrolling the table itself. Verified with `just gate`
 (ruff, `mypy --strict`, 350 tests, gitleaks) and against Google Chrome 152 headless at 360, 414,
 768, 1024, 1088, 1120, 1280 and 1440 CSS pixels on 2026-08-31.
+
+**B22. The database backup and its restore.** `done (2026-08-31)`. Everything the company owns is
+one SQLite file on the `data` volume and until this item there was no copy of it anywhere: the
+README said to back the volume up and gave no way to do it. A `backup_database` management command
+takes a consistent copy with `sqlite3.Connection.backup()`, the standard library's online backup
+API, never a file copy, because copying the file under a live writer produces a torn copy that does
+not open. The copy is written hidden and renamed only when whole, so a half written file never
+wears a backup name. Retention keeps fourteen copies, a module constant on B17's precedent, deleting
+oldest first and only ever touching files matching the generated pattern. A `backup` Compose service
+runs it daily in the loop shape ADR 0002 chose for the scheduler, and it lands on a bind mount and
+not an anonymous volume, because a copy nobody can reach is not a backup. `just backup` and
+`just restore <file>` are the two recipes; restore stops the writers first and clears the journal
+files beside the replaced database, since a stale journal replayed over a restored file turns a good
+restore into a corrupt one.
+
+Trace: foundation section 0.5 (the product exists because a lost deadline harms a client, and a lost
+database is every deadline at once), section 2 (the truth lives in persisted records, so the records
+are the asset), section 8, I5. Opened on 2026-08-31 by the owner decision that ships phase one as
+registration only, which makes the accumulated registry the single thing the first phase produces.
+
+What it protects against, written in the README rather than left to be assumed: a deleted volume, a
+bad migration, a mistaken delete, a corrupt file. What it does not protect against: losing the disk,
+because the copies sit on the same machine. Copying them off the host is named and deliberately not
+invented here.
+
+**The restore was executed, not described.** A drill on an isolated Compose project created a
+record, took a backup, deleted every record, restored, and read the record back with the catalogue
+and the submitters intact; the transcript is in the pull request. Verified with `just gate` (ruff,
+`mypy --strict`, 395 tests with B10 merged beside it, gitleaks with two real backup files present
+in the tree) and `just manage makemigrations --check` on 2026-08-31.
 
 **B16. Brand, theme control and the static pipeline.** `done (2026-08-28)`. The company's own
 logo replacing B14's placeholder mark, the header reading `Controle de Serviços`, a light and dark

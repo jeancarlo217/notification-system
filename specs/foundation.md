@@ -452,10 +452,16 @@ stack that delivers one real message to the company number, with findings record
 `specs/dependencies.md`. Blocks the Compose entries for the Evolution service and the adapter's
 integration test.
 
-**OQ-2. Deployment host and Cloudflare mechanism.** Which always-on machine runs the stack, and
-whether Cloudflare fronts it via Tunnel or proxied DNS. Open because the owner has not named the
-host. Closed by an owner decision. Blocks deployment configuration only; application code is
-indifferent to it, though I6's trust in Cloudflare headers assumes it is honoured.
+**OQ-2. Deployment host and Cloudflare mechanism.** **Closed 2026-08-31 by owner decision.** The
+host is a VPS the owner already runs, named on 2026-08-28, reachable over SSH. Cloudflare fronts it
+by **Tunnel**, decided on 2026-08-31 with proxied DNS offered as the alternative: `cloudflared` runs
+as a service in the same Compose stack of section 8, the machine opens no inbound port, and the
+origin is therefore unreachable except through Cloudflare by construction rather than by a firewall
+rule somebody has to maintain. That is what I6 needs, because the audit trail's IP and country come
+from Cloudflare's forwarding headers and a request that reaches the origin directly can forge them.
+The application is reached at a subdomain of a domain the company already uses for another
+production system, which is what makes the DNS move of B11 a change to something already live and
+not a greenfield step. Delivery is backlog B11.
 
 **OQ-3. Message wording.** The Portuguese template text for each warning. Open because it is the
 owner's voice, not a technical choice. Closed by the owner writing or approving the template.

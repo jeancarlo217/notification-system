@@ -4,8 +4,12 @@ services:
     env_file: .env
     environment:
       DJANGO_DATABASE_PATH: /data/db.sqlite3
+    # Loopback only, and never `0.0.0.0`: nothing reaches this application except through what
+    # fronts it, which is a reverse proxy or a Cloudflare tunnel depending on the host. The host
+    # side port is a variable because the deployment target already runs other services and 8000
+    # is taken there; only Compose reads it, never the configuration boundary of adr 0001.
     ports:
-      - "8000:8000"
+      - "127.0.0.1:${WEB_PORT:-8000}:8000"
     volumes:
       - data:/data
     command: sh -c "python manage.py migrate --noinput && gunicorn deadliner.wsgi --bind 0.0.0.0:8000"
@@ -34,6 +38,26 @@ services:
     depends_on:
       - web
     command: sh -c "while true; do if python manage.py send_alerts; then sleep 86400; else sleep 3600; fi; done"
+
+  # The daily copy of the database. Everything the company owns is the SQLite file on the data
+  # volume (foundation section 8), and until this service existed there was no copy of it. Same
+  # loop shape and the same reasons as the scheduler above (ADR 0002): a duplicate run is
+  # harmless, a missed one costs a day, and a failed one is loud and retried within the hour.
+  backup:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DJANGO_DATABASE_PATH: /data/db.sqlite3
+      DJANGO_BACKUP_DIRECTORY: /backups
+    volumes:
+      - data:/data
+      # A bind mount and not a volume: a copy nobody can reach is not a backup. The directory is
+      # tracked with a .gitkeep so it exists, and owned by whoever cloned rather than by root.
+      - ./backups:/backups
+    depends_on:
+      - web
+    command: sh -c "while true; do if python manage.py backup_database; then sleep 86400; else sleep 3600; fi; done"
 
   # Evolution API and its own dependencies (foundation section 4, OQ-1). Opaque to the
   # application: web talks to it only through the provider adapter (B8).

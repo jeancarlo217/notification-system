@@ -474,6 +474,12 @@ Measured ratios: specs/dependencies.md, B16 section.
     font-size: var(--text-3);
   }
 
+  .page-head__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-3);
+  }
+
   .card {
     background: var(--panel);
     border: 1px solid var(--border-subtle);
@@ -1183,6 +1189,13 @@ Measured ratios: specs/dependencies.md, B16 section.
 
     .page-head__title {
       font-size: var(--text-5);
+    }
+
+    /* The column, not the row: the buttons already stretch to the full width below, and two of
+       them side by side would each shrink to half a phone and clip their own label. */
+    .page-head__actions {
+      flex-direction: column;
+      width: 100%;
     }
 
     .page-head .btn {
