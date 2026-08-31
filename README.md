@@ -252,6 +252,7 @@ server {
     server_name avisos.valeverdeambiental.com.br;
 
     location / {
+        limit_req zone=avisos burst=40 nodelay;
         include proxy_params;
         proxy_pass http://127.0.0.1:8010;
     }
@@ -261,9 +262,25 @@ server {
 One `location` is the whole file, and that is not an oversight: this application serves its own
 static assets through WhiteNoise, under the same path segment as everything else, so there is no
 `alias` to write and no second route to expose. `include proxy_params` is what sends
-`X-Forwarded-Proto`, which the settings module turns into `request.is_secure()`; without that pair
-Django computes the CSRF origin as `http://` while the browser sends `https://` and refuses every
-form in the application.
+`X-Forwarded-Proto`, confirmed present on that host, and the settings module turns it into
+`request.is_secure()`; without that pair Django computes the CSRF origin as `http://` while the
+browser sends `https://` and refuses every form in the application.
+
+The rate limit needs its own zone, declared in the `http` block and therefore in its own file at
+`/etc/nginx/conf.d/avisos-rate-limit.conf`:
+
+```nginx
+limit_req_zone $binary_remote_addr zone=avisos:10m rate=20r/s;
+```
+
+Its own zone and not the host's existing general one, because a shared zone counts this
+application's requests against the same per address budget as the institutional site, and a small
+company reaches its office behind one address. Twenty a second with a burst of forty is far above
+what a person filling a form produces and far below what a script enumerating the link produces.
+
+**This is not access control and does not pretend to be.** Foundation section 6 says the link is
+open, so anyone holding or guessing it reads and writes everything; the limit bounds how fast that
+can be done, and nothing else.
 
 ```bash
 ln -s /etc/nginx/sites-available/avisos.valeverdeambiental.com.br /etc/nginx/sites-enabled/
