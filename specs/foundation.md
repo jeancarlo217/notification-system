@@ -26,6 +26,13 @@ Scope policy: this is an internal tool for one small company, Vale Verde Ambient
 the registration form, the daily alert engine, the audit trail and the CSV export. There is no
 delivery deadline stated in the brief, so "ship it sooner" is not an architectural argument here.
 
+**Version 1 ships in two phases, by owner decision of 2026-08-31.** Phase one is the registration
+form, the audit trail and the CSV export, and it is live. Phase two is the daily alert engine
+reaching WhatsApp, which waits on OQ-1. The reason is the owner's and it is a good one: there is
+nothing worth notifying anybody about until the registry has something in it, so the engine is
+built, tested and not deployed rather than deployed and useless. Nothing about the scope of version
+1 changed; only the order in which it arrives.
+
 ## 0.5. Product philosophy
 
 Today the company tracks client service deadlines, environmental licenses and the like, in heads
@@ -361,7 +368,8 @@ deployment differ in configuration, never in architecture.
 
 The Compose stack runs the web application, the daily scheduler, and the Evolution API service
 with whatever internal dependencies OQ-1 confirms it needs. Cloudflare fronts the public
-hostname; the mechanism (Tunnel versus proxied DNS) is OQ-2. Configuration comes from the
+hostname; the mechanism is Tunnel, decided on 2026-08-31 when OQ-2 closed, and until that zone
+moves the host's own nginx stands in that place. Configuration comes from the
 environment; no secret enters the repository and no production credential or data exists in a
 non-production environment (I5).
 
@@ -465,7 +473,9 @@ not a greenfield step. Delivery is backlog B11.
 
 **OQ-3. Message wording.** The Portuguese template text for each warning. Open because it is the
 owner's voice, not a technical choice. Closed by the owner writing or approving the template.
-Blocks nothing structural; a placeholder template satisfies every test.
+Blocks nothing structural; a placeholder template satisfies every test. Since the two phase
+decision of 2026-08-31 it does not gate going live either, because phase one sends no message at
+all; it gates phase two, beside OQ-1.
 
 ## 12. Development method
 
@@ -539,6 +549,26 @@ business actually has, instead of the one number an employee computed from them 
 this costs: a derived column that every write path has to keep true, and a stored term that is wrong
 for the backfilled rows until a human corrects it. Shape in
 `specs/adr/0007-service-term-and-derived-due-date.md`; delivery is backlog B19.
+
+2026-08-31, decision, owner. OQ-2 closes. The host is a VPS the company already runs, shared with
+its institutional site and with Ecobalance, and Cloudflare fronts it by Tunnel rather than by
+proxied DNS, so the machine opens no inbound port and I6's trust in the forwarding headers is
+structural instead of a firewall rule somebody maintains. The zone migration itself is deferred to
+the pass that carries Ecobalance 2.0, because every project on that domain moves at once and the
+two systems that cannot go down gain nothing from moving it now for an internal tool. Until then
+the host's own nginx terminates TLS in front of this application, which costs the audit trail its
+IP and country fields, since those come from Cloudflare headers that do not exist yet; the
+submitter of section 6 still answers who entered a record. Delivery is backlog B11.
+
+2026-08-31, decision, owner. Version 1 ships in two phases, recorded in the scope policy of section
+0. Phase one is registration, audit and export, with no WhatsApp delivery at all and the alert
+scheduler deliberately not deployed; phase two turns the engine on. What this buys: the registry
+starts filling immediately, and a notification system with nothing to notify about is not shipped
+as if it worked. What this costs: the engine sits written and unexercised against real data, and
+the catch-up rule of I3 means the first successful run after phase two owes every warning whose
+trigger date has passed, so phase two has to decide between accepting that burst and recording the
+older warnings as handled without sending them. That consequence is written down now rather than
+discovered on the day.
 
 2026-08-31, revision, owner decision, in the same v0.3 pass. The company withdrew the five services
 under `Sustentabilidade e ESG`, so the category is deactivated and section 3.2 carries a dated note
