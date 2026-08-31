@@ -26,11 +26,12 @@
 
   {% if rows %}
     {% comment %}
-    Below 40rem the table is laid out as blocks, which drops the implicit table semantics in
-    every browser, so each row and cell states its ARIA role by hand and each cell carries the
-    column name the small layout prints in front of it.
+    Below 68rem the table is laid out as a grid of cards, which drops the implicit table
+    semantics in every browser, so each row and cell states its ARIA role by hand and each cell
+    carries the column name that layout prints in front of it. Nothing ever scrolls sideways:
+    the table shape is used only at the widths where all seven columns fit.
     {% endcomment %}
-    <div class="card card--clipped card--scroll card--bleed">
+    <div class="card card--clipped card--bleed">
       <table class="table" role="table">
         <thead role="rowgroup">
           <tr role="row">
@@ -47,25 +48,47 @@
           {% for row in rows %}
             <tr role="row">
               <td role="cell" class="table__client" data-label="Cliente">{{ row.service.client }}</td>
-              <td role="cell" data-label="Serviço">{{ row.service.catalog_service.name }}</td>
+              <td role="cell" class="table__service" data-label="Serviço">{{ row.service.catalog_service.name }}</td>
               <td role="cell" class="table__date" data-label="Vencimento">
                 <time datetime="{{ row.service.due_date|date:'Y-m-d' }}">{{ row.service.due_date|date:"d/m/Y" }}</time>
               </td>
-              <td role="cell" data-label="Responsável">{{ row.service.submitter.display_name }}</td>
-              <td role="cell" data-label="Status">
+              <td role="cell" class="table__submitter" data-label="Responsável">{{ row.service.submitter.display_name }}</td>
+              <td role="cell" class="table__status" data-label="Status">
                 <span class="badge badge--{{ row.service.status }}">{{ row.service.get_status_display }}</span>
               </td>
               {% comment %}
-              One badge per configured threshold, so a threshold nobody has reached reads as
+              One chip per configured threshold, so a threshold nobody has reached reads as
               waiting and never as a failure (I2), and adding or removing one is a configuration
-              change and not an edit here (I4).
+              change and not an edit here (I4). The sentence reaches assistive technology and the
+              chip is the same fact drawn short; the mark is what keeps the colour from being the
+              only channel, and the failed state is the one that also keeps its word, because a
+              warning that did not arrive is what this product exists to surface.
               {% endcomment %}
-              <td role="cell" data-label="Avisos">
-                <div class="warnings">
+              <td role="cell" class="table__warnings" data-label="Avisos">
+                <ul class="warnings">
                   {% for warning in row.warnings %}
-                    <span class="badge badge--warning-{{ warning.state }}">{{ warning.label }} {{ warning.text }}</span>
+                    <li class="warn warn--{{ warning.state }}" title="{{ warning.label }} {{ warning.text }}">
+                      {% if warning.state == "sent" %}
+                        <svg class="warn__mark" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                             stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                          <path d="M20 6 9 17l-5-5"/>
+                        </svg>
+                      {% elif warning.state == "failed" %}
+                        <svg class="warn__mark" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                             stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                          <path d="M18 6 6 18"/><path d="M6 6l12 12"/>
+                        </svg>
+                      {% elif warning.state == "pending" %}
+                        <svg class="warn__mark" viewBox="0 0 24 24" fill="currentColor" stroke="none"
+                             aria-hidden="true">
+                          <circle cx="12" cy="12" r="5"/>
+                        </svg>
+                      {% endif %}
+                      <span class="warn__label">{{ warning.label }}</span>
+                      <span class="warn__word{% if warning.state != 'failed' %} visually-hidden{% endif %}">{{ warning.text }}</span>
+                    </li>
                   {% endfor %}
-                </div>
+                </ul>
               </td>
               <td role="cell" class="table__actions" data-label="Ações">
                 <a class="btn btn--ghost btn--sm" href="{% url 'service-due-date' row.service.pk %}">Editar vencimento</a>

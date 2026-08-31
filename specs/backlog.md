@@ -137,7 +137,26 @@ threshold, in four states named by a word and never by colour alone: `enviado`, 
 `pendente` for an alert row that reported nothing, and `aguardando` for a threshold with no
 row yet. The reading costs one prefetch, so the list is three constant queries and not two,
 and the bound in `tests/test_registration.py` moved by one with the constant-query promise
-of section 8 asserted more strictly beside it. Verified on the merged tree with `just gate` (ruff, `mypy --strict`, 343 tests, gitleaks) and `just manage makemigrations --check` on 2026-08-31.
+of section 8 asserted more strictly beside it. It also shipped a layout defect, repaired by B21 the
+same day: the seven columns were answered with a sideways scrollbar rather than a layout, and the
+window that wrote it recorded that it had checked the result by reasoning and by the suite rather
+than in a browser. Verified on the merged tree with `just gate` (ruff, `mypy --strict`, 343 tests, gitleaks) and `just manage makemigrations --check` on 2026-08-31.
+
+**B21. The interface on the screen the employee is holding.** `done (2026-08-31)`. The list
+stops being a table that scrolls sideways and becomes a table only at the widths where its seven
+columns fit, which measurement put at 68rem; below that every record is a card, and the cards pack
+two to a row wherever two fit. The warning cell, three stacked chips of full text in every row
+under B15, becomes one line of short chips: the threshold, a drawn mark, and the state as a word
+that only the failed one keeps on screen, because the failed one is what a person has to act on
+(I2). The registration form lays out in two columns from 48rem, with the start date and the term
+side by side so the arithmetic of foundation section 3.3 is visible in one glance, and the
+observation box is three rows instead of six. Trace: foundation section 1 (the audience is
+employees on whatever device they hold), section 12 for the Portuguese interface. Opened by owner
+report on 2026-08-31 against delivered work: B15 answered its two new columns with
+`overflow-x: auto`, which put the actions column off screen at 768 and 1024 pixels, so completing a
+service was unreachable on a tablet without scrolling the table itself. Verified with `just gate`
+(ruff, `mypy --strict`, 350 tests, gitleaks) and against Google Chrome 152 headless at 360, 414,
+768, 1024, 1088, 1120, 1280 and 1440 CSS pixels on 2026-08-31.
 
 **B16. Brand, theme control and the static pipeline.** `done (2026-08-28)`. The company's own
 logo replacing B14's placeholder mark, the header reading `Controle de Serviços`, a light and dark
