@@ -5,6 +5,7 @@ from django.db import models
 from django.db.models.base import ModelBase
 
 from core.identity import normalize_person_name
+from core.terms import due_date_from
 
 
 class ServiceCategory(models.Model):
@@ -97,13 +98,38 @@ class Service(models.Model):
         CatalogService, on_delete=models.PROTECT, related_name="services"
     )
     notes = models.TextField(blank=True)
-    due_date = models.DateField()
+    start_date = models.DateField()
+    term_days = models.PositiveIntegerField()
+    due_date = models.DateField(editable=False)
     status = models.CharField(max_length=9, choices=Status, default=Status.ACTIVE)
     submitter = models.ForeignKey(Submitter, on_delete=models.PROTECT, related_name="services")
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self) -> str:
         return f"{self.client}: {self.catalog_service.name} (due {self.due_date})"
+
+    def save(
+        self,
+        *,
+        force_insert: bool | tuple[ModelBase, ...] = False,
+        force_update: bool = False,
+        using: str | None = None,
+        update_fields: Iterable[str] | None = None,
+    ) -> None:
+        """Persist the row with its deadline derived from the start date and the term.
+
+        The deadline stays a stored column so the engine, the uniqueness rule of I1, the ordering
+        and the search can filter on it, and it is recomputed on every write so the column can
+        never disagree with the two facts it comes from.
+        """
+        self.due_date = due_date_from(self.start_date, self.term_days)
+        super().save(
+            force_insert=force_insert,
+            force_update=force_update,
+            using=using,
+            # The deadline is derived, so a caller naming its own fields cannot know to write it.
+            update_fields=None if update_fields is None else {*update_fields, "due_date"},
+        )
 
 
 class Alert(models.Model):

@@ -18,7 +18,12 @@ from django.urls import reverse
 
 from core.forms import ServiceRegistrationForm
 from core.models import Service
-from tests.builders import DEFAULT_CATALOG_SERVICE, a_service, registration_payload
+from tests.builders import (
+    DEFAULT_CATALOG_SERVICE,
+    a_service,
+    edit_payload,
+    registration_payload,
+)
 
 pytestmark = pytest.mark.django_db
 
@@ -46,13 +51,15 @@ def test_registering_a_service_persists_the_submitted_fields_as_an_active_record
 
 
 def test_the_registration_form_asks_for_the_business_fields_and_the_submitter() -> None:
-    """Foundation section 3 with ADR 0005 and ADR 0006: the record is the client, the catalogue
-    entry, the observation, the due date and who entered it, and nothing else is an input."""
+    """Foundation section 3 with ADR 0005 and ADR 0006, revised by the owner decision of
+    2026-08-31: the record is the client, the catalogue entry, the observation, the start date,
+    the term and who entered it, and nothing else is an input."""
     assert set(ServiceRegistrationForm().fields) == {
         "client",
         "catalog_service",
         "notes",
-        "due_date",
+        "start_date",
+        "term_days",
         "submitter",
     }
 
@@ -76,8 +83,8 @@ def test_a_registration_missing_a_field_creates_nothing_and_shows_the_form_again
 
 
 def test_a_registration_with_an_unreadable_date_creates_nothing(client: Client) -> None:
-    """B4: a due date that is not a date cannot be warned about, so it is refused."""
-    response = client.post(reverse("service-create"), registration_payload(due_date="amanha"))
+    """B4: a start date that is not a date derives no deadline, so it is refused."""
+    response = client.post(reverse("service-create"), registration_payload(start_date="amanha"))
 
     assert response.status_code == 200
     assert Service.objects.count() == 0
@@ -100,14 +107,15 @@ def test_registration_cannot_set_the_status_because_the_form_does_not_ask_for_it
 
 
 def test_the_registration_form_labels_its_fields_in_portuguese(client: Client) -> None:
-    """Foundation section 12: the employee reads Cliente, Servico, Observacao and Data de
-    vencimento."""
+    """Foundation section 12: the employee reads Cliente, Servico, Observacao, Data de inicio
+    and Prazo."""
     page = _page(client, "service-create")
 
     assert "Cliente" in page
     assert "Serviço" in page
     assert "Observação" in page
-    assert "Data de vencimento" in page
+    assert "Data de início" in page
+    assert "Prazo (dias)" in page
 
 
 def test_the_list_shows_every_registered_service(client: Client) -> None:
@@ -206,7 +214,7 @@ def test_editing_the_due_date_persists_the_new_date(client: Client) -> None:
     service = _registered()
 
     response = client.post(
-        reverse("service-due-date", args=[service.pk]), {"due_date": "2027-01-10"}
+        reverse("service-due-date", args=[service.pk]), edit_payload(start_date="2027-01-10")
     )
 
     service.refresh_from_db()
@@ -221,12 +229,12 @@ def test_the_due_date_form_changes_the_date_and_nothing_else(client: Client) -> 
 
     client.post(
         reverse("service-due-date", args=[service.pk]),
-        {
-            "due_date": "2027-01-10",
-            "client": "Outro",
-            "notes": "Outro",
-            "status": "completed",
-        },
+        edit_payload(
+            start_date="2027-01-10",
+            client="Outro",
+            notes="Outro",
+            status="completed",
+        ),
     )
 
     service.refresh_from_db()
@@ -248,7 +256,9 @@ def test_an_unreadable_due_date_edit_changes_nothing(client: Client) -> None:
     """B4: a refused edit leaves the record as it was and shows the form again."""
     service = _registered()
 
-    response = client.post(reverse("service-due-date", args=[service.pk]), {"due_date": "x"})
+    response = client.post(
+        reverse("service-due-date", args=[service.pk]), edit_payload(start_date="x")
+    )
 
     service.refresh_from_db()
     assert response.status_code == 200

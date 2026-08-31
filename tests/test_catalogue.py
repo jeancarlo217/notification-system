@@ -30,6 +30,7 @@ from tests.builders import (
     a_category,
     a_service,
     a_submitter,
+    edit_payload,
     registration_payload,
 )
 from tests.fakes import FakeProvider
@@ -264,7 +265,8 @@ def test_a_service_is_valid_without_an_observation() -> None:
     candidate = Service(
         client="Fazenda Boa Vista",
         catalog_service=a_catalog_service(),
-        due_date=datetime.date(2026, 12, 25),
+        start_date=datetime.date(2026, 12, 25),
+        term_days=0,
         submitter=a_submitter(),
     )
 
@@ -386,7 +388,7 @@ def test_a_record_pointing_at_a_deactivated_entry_is_still_editable(client: Clie
     retired.save(update_fields=["is_active"])
 
     response = client.post(
-        reverse("service-due-date", args=[service.pk]), {"due_date": "2027-01-10"}
+        reverse("service-due-date", args=[service.pk]), edit_payload(start_date="2027-01-10")
     )
 
     service.refresh_from_db()
@@ -444,7 +446,7 @@ def test_a_record_under_an_inactive_category_is_still_editable(client: Client) -
     category.save(update_fields=["is_active"])
 
     response = client.post(
-        reverse("service-due-date", args=[service.pk]), {"due_date": "2027-01-10"}
+        reverse("service-due-date", args=[service.pk]), edit_payload(start_date="2027-01-10")
     )
 
     service.refresh_from_db()

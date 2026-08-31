@@ -23,7 +23,7 @@ from django.urls import reverse
 from core.identity import normalize_person_name
 from core.models import Service, Submitter
 from deadliner.config import DeadlinerConfig
-from tests.builders import a_service, a_submitter, registration_payload
+from tests.builders import a_service, a_submitter, edit_payload, registration_payload
 from tests.fakes import FakeProvider
 
 pytestmark = pytest.mark.django_db
@@ -153,7 +153,7 @@ def test_an_edit_is_audited_against_the_submitter_who_registered_the_record(
 
     client.post(
         reverse("service-due-date", args=[service.pk]),
-        {"due_date": "2027-01-10"},
+        edit_payload(start_date="2027-01-10"),
         headers=CLOUDFLARE_HEADERS,
     )
 
@@ -183,7 +183,7 @@ def test_a_due_date_edit_is_audited_against_the_record_it_touched(
 
     client.post(
         reverse("service-due-date", args=[service.pk]),
-        {"due_date": "2027-01-10"},
+        edit_payload(start_date="2027-01-10"),
         headers=CLOUDFLARE_HEADERS,
     )
 
