@@ -5,7 +5,11 @@
 {% block content %}
   <div class="page-head">
     <h1 class="page-head__title">Serviços</h1>
-    <a class="btn btn--solid" href="{% url 'service-create' %}">Novo serviço</a>
+    <div class="page-head__actions">
+      <a class="btn btn--solid" href="{% url 'service-create' %}">Novo serviço</a>
+      <a class="btn btn--soft" href="{% url 'service-export' %}"
+         title="Exporta todos os serviços cadastrados, e não apenas os desta página">Exportar CSV</a>
+    </div>
     {% if page.paginator.count %}
       <p class="page-head__meta">
         {{ page.paginator.count }} serviço{{ page.paginator.count|pluralize:"s" }}
