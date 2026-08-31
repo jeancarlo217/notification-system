@@ -185,6 +185,36 @@ service was unreachable on a tablet without scrolling the table itself. Verified
 (ruff, `mypy --strict`, 350 tests, gitleaks) and against Google Chrome 152 headless at 360, 414,
 768, 1024, 1088, 1120, 1280 and 1440 CSS pixels on 2026-08-31.
 
+**B22. The database backup and its restore.** `done (2026-08-31)`. Everything the company owns is
+one SQLite file on the `data` volume and until this item there was no copy of it anywhere: the
+README said to back the volume up and gave no way to do it. A `backup_database` management command
+takes a consistent copy with `sqlite3.Connection.backup()`, the standard library's online backup
+API, never a file copy, because copying the file under a live writer produces a torn copy that does
+not open. The copy is written hidden and renamed only when whole, so a half written file never
+wears a backup name. Retention keeps fourteen copies, a module constant on B17's precedent, deleting
+oldest first and only ever touching files matching the generated pattern. A `backup` Compose service
+runs it daily in the loop shape ADR 0002 chose for the scheduler, and it lands on a bind mount and
+not an anonymous volume, because a copy nobody can reach is not a backup. `just backup` and
+`just restore <file>` are the two recipes; restore stops the writers first and clears the journal
+files beside the replaced database, since a stale journal replayed over a restored file turns a good
+restore into a corrupt one.
+
+Trace: foundation section 0.5 (the product exists because a lost deadline harms a client, and a lost
+database is every deadline at once), section 2 (the truth lives in persisted records, so the records
+are the asset), section 8, I5. Opened on 2026-08-31 by the owner decision that ships phase one as
+registration only, which makes the accumulated registry the single thing the first phase produces.
+
+What it protects against, written in the README rather than left to be assumed: a deleted volume, a
+bad migration, a mistaken delete, a corrupt file. What it does not protect against: losing the disk,
+because the copies sit on the same machine. Copying them off the host is named and deliberately not
+invented here.
+
+**The restore was executed, not described.** A drill on an isolated Compose project created a
+record, took a backup, deleted every record, restored, and read the record back with the catalogue
+and the submitters intact; the transcript is in the pull request. Verified with `just gate` (ruff,
+`mypy --strict`, 395 tests with B10 merged beside it, gitleaks with two real backup files present
+in the tree) and `just manage makemigrations --check` on 2026-08-31.
+
 **B16. Brand, theme control and the static pipeline.** `done (2026-08-28)`. The company's own
 logo replacing B14's placeholder mark, the header reading `Controle de Serviços`, a light and dark
 control whose default follows the operating system, the registration form centred, and another pass

@@ -189,7 +189,24 @@ suite alone and the suite cannot see a column that is off screen.
 | Actions inside a card | A wrapping flex row decides from the length of the button label, which is a Portuguese string nobody should be laying out around. `repeat(auto-fit, minmax(8rem, 1fr))` decides from the card width instead: the two buttons sit side by side wherever two fit and stack once they do not. |
 | Contrast | No new pair. The chips reuse the four pairs B15 measured and B16 recorded: green 12 on green 3, red 11 on red 3, sage 12 on sage 3, and sage 11 on the panel. The mark is drawn in `currentColor`, so it carries the contrast of the text beside it. |
 
+## Backups, confirmed during B22 (2026-08-31)
+
+Confirmed against the CPython 3.13 `sqlite3` documentation, `https://www.sqlite.org/backup.html`
+for the C level guarantee, and the installed interpreter (Python 3.13.15, `sqlite3.sqlite_version`
+3.51.2), then measured rather than trusted. No package was added.
+
+| Piece | Finding |
+| --- | --- |
+| `Connection.backup()` signature | `backup(target, *, pages=-1, progress=None, name='main', sleep=0.250)`, and `inspect.signature` on the installed build returns exactly that, so the pinned interpreter matches the documented one. |
+| Why it is used instead of copying the file | `pages` at or below zero copies the whole database in one step, and SQLite's own page explains what that buys: a single `sqlite3_backup_step` holds a read lock on the source for the duration, so the result is a consistent snapshot. A `cp` of a live database can copy a file mid transaction and produce something that does not open, which is discovered on the day it is needed. |
+| Concurrent writers | Documented to work while other clients are accessing the database, and measured: with a second connection holding an open `INSERT`, the copy succeeded, `pragma integrity_check` returned `ok`, and the copy carried the committed row and not the uncommitted one. Bit-wise identity is documented but does not hold in that scenario, so nothing asserts it. |
+| **It hangs on a self locked source** | The documentation's "concurrently by the same connection" does not extend to a source connection holding an open write transaction. There `sqlite3_backup_step` answers `SQLITE_LOCKED` forever and CPython retries inside a C loop that no Python signal handler reaches: a `SIGALRM` set at five seconds never fired and the process had to be `SIGKILL`ed. A hanging daily job is a silent failure, so the code refuses that state and raises. The command tests therefore need `transaction=True` and `serialized_rollback=True`, because plain `django_db` wraps each test in an atomic block. |
+| `.dockerignore` matching | A pattern matches one path segment, so the pre-existing `*.sqlite3` excluded a database at the root and not `backups/db-*.sqlite3`. Measured: the built image carried two 192 KB copies under `/app/backups`, and after adding `**/*.sqlite3`, `**/*.sqlite` and `backups` the directory is absent from the image. Production data in a distributable image is I5. |
+| Time zone of the copy name | The file is named in the configured zone and not the host's, verified during the drill: the host clock read 13:56 at UTC-3 while the copy was written `12-56-44`, which is America/Campo_Grande at UTC-4. |
+
 ## Log
+
+2026-08-31: B22 added the backups section above; no pin changed and no package was added.
 
 2026-08-31: B21 added the responsive layout section above; no pin changed and no package was added.
 

@@ -194,10 +194,18 @@ never in architecture.
 
 ```bash
 cp .env.example .env     # on the host, filled with real values, never committed
-docker compose up -d --build web scheduler
+docker compose up -d --build web backup
 ```
 
-Five things that are specific to production:
+**The `scheduler` service is deliberately absent from that line.** An owner decision of 2026-08-31
+ships this in two phases: the first one is registration and the export, with no WhatsApp delivery,
+because there is nothing worth notifying anybody about until the registry has something in it. The
+adapter behind the provider interface is not written (OQ-1), so `send_alerts` fails loudly by
+design, and a scheduler started now would fail and retry every hour forever. Phase two adds
+`scheduler` to that command once the adapter exists. The `backup` service does run from day one,
+because the registry the first phase accumulates is then the only asset the company owns.
+
+Six things that are specific to production:
 
 **`DJANGO_DEBUG=0`.** Then `DJANGO_ALLOWED_HOSTS` must carry the real hostname and must still carry
 `127.0.0.1` for the healthcheck.
@@ -216,7 +224,8 @@ lands in a log file, which is the one thing invariant I7 exists to prevent. I7 s
 the segment stopped being secret, because withdrawing an invariant is its own decision.
 
 **Back up the volume, not the container.** Everything the company owns is the SQLite file on
-`notification-system_data`. Start the `backup` service beside `web` and read the next section,
+`notification-system_data`. The `backup` service above does this daily; the section on backups and
+restore is what to read before you need it, not after. Start the `backup` service beside `web` and read the next section,
 which is the whole procedure including the restore.
 
 Static files are handled: WhiteNoise serves them and `collectstatic` runs during the image build,
