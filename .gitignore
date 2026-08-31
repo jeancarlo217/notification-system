@@ -21,6 +21,10 @@ dist/
 # Build artifact of collectstatic, rebuilt by the image and by just setup
 staticfiles/
 
+# Agent worktrees created by the toolkit: a nested copy of the tree, so ruff, pytest and
+# a careless `git add -A` all reach into it if it is not ignored here.
+.claude/worktrees/
+
 # Editors and per-machine files
 .vscode/
 .idea/
