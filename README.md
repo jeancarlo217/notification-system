@@ -1,1 +1,248 @@
-# notification-system
+# Deadline Notification System
+
+An internal tool for Vale Verde Ambiental. A three field form records the services the company
+owes a client and when they are due; once a day an engine works out which warnings are owed and
+sends them to the company WhatsApp number. Every submission is audited and no warning is ever
+sent twice.
+
+The canon lives in `specs/foundation.md`, which every other document derives from and loses to.
+`CLAUDE.md` is the working digest. This file is only about running the thing.
+
+## What you need
+
+To **run** it: Docker with the Compose plugin. Nothing else.
+
+To **develop** it: Python 3.13, [just](https://github.com/casey/just), and Docker for the secret
+scan. Python 3.13 exactly, because the canon, the image and CI all pin it; 3.14 on your PATH will
+build a virtualenv that disagrees with the one CI runs.
+
+## Quick start
+
+```bash
+git clone https://github.com/jeancarlo217/notification-system.git
+cd notification-system
+cp .env.example .env
+```
+
+Now edit `.env`. Four values must change before anything will start, and the section below says
+what each one is. Then:
+
+```bash
+docker compose up -d --build web
+```
+
+Open `http://localhost:8000/<your-secret-segment>/` in a browser. That is the whole application.
+
+The first boot applies the migrations, which seed the fifteen catalogue services and the two known
+submitters, so the form is usable immediately.
+
+### Why the URL has a random segment in it
+
+There is no login. Access is the link (foundation section 6): the entire application is served
+under a secret path segment that lives in configuration, and that segment is a credential. The one
+exception is `http://localhost:8000/health/`, which the container runtime probes and which touches
+no dependency and reveals nothing.
+
+So `http://localhost:8000/` answers 404 on purpose. It is not broken.
+
+If the segment ever leaks, the remedy is to change `DEADLINER_SECRET_PATH_SEGMENT` and restart.
+Everybody's bookmarks break, which is the cost of having no passwords.
+
+## Configuration
+
+Every value the application needs is an environment variable, validated at one boundary when the
+process starts (`deadliner/config.py`, shape in `specs/adr/0001-configuration-boundary.md`). No
+business value has a default in code, so a missing variable stops the process at boot with a
+message naming it, rather than failing at three in the morning during a send.
+
+`.env` is untracked and must stay that way. `.env.example` is the tracked template.
+
+### The four you must set
+
+| Variable | What it is |
+| --- | --- |
+| `DJANGO_SECRET_KEY` | Django's signing key. Any long random string. |
+| `DEADLINER_SECRET_PATH_SEGMENT` | The URL segment above. At least 16 characters of `A-Za-z0-9_-`. |
+| `DEADLINER_WHATSAPP_NUMBER` | The company number, digits only, country code first, no plus sign. |
+| `EVOLUTION_API_KEY` and `EVOLUTION_DB_PASSWORD` | Yours to invent. Compose refuses to parse the file without them even when you only start `web`. |
+
+Generate the two random ones with:
+
+```bash
+python3 -c "import secrets; print(secrets.token_urlsafe(50))"   # DJANGO_SECRET_KEY
+python3 -c "import secrets; print(secrets.token_urlsafe(32))"   # DEADLINER_SECRET_PATH_SEGMENT
+```
+
+`token_urlsafe` is the right generator here rather than Django's own `get_random_secret_key`,
+whose alphabet includes punctuation that the dotenv parsers behind `just` and Compose read as
+syntax.
+
+### The rest
+
+`DJANGO_DEBUG` (`0` or `1`, nothing else is accepted), `DJANGO_ALLOWED_HOSTS`,
+`DJANGO_DATABASE_PATH`, `DEADLINER_ALERT_THRESHOLDS` (`30,7,0`, the days before the due date that
+earn a warning), `DEADLINER_MESSAGE_TEMPLATE` (the Portuguese warning text, over the fields
+`client`, `service`, `due_date` and `days_remaining`) and `DEADLINER_TIMEZONE`
+(`America/Campo_Grande`, which decides what today means).
+
+Keep `127.0.0.1` in `DJANGO_ALLOWED_HOSTS`. The Compose healthcheck probes the health endpoint on
+the loopback address, and Django answers 400 to a host it does not allow, so dropping it makes a
+perfectly healthy container report as unhealthy.
+
+The message template contains spaces and therefore has to stay quoted in the file. Both `just` and
+Compose strip the surrounding quotes.
+
+## The administration site
+
+Django's admin sits at `<segment>/admin/`, inside the secret path, with the framework's own
+authentication. Two barriers guard it, the link and a password. It is the maintenance door for the
+owner and the developers, never the employee facing product, and its accounts are not one per
+employee.
+
+Create the first account:
+
+```bash
+docker compose exec web python manage.py createsuperuser
+```
+
+That is where the service catalogue is edited. The fifteen services arrive by migration once and
+are the company's responsibility from then on; adding, renaming or deactivating one is a form,
+never a code change. Deactivate, never delete: tracked deadlines point at those rows and the
+foreign key will refuse.
+
+## Running it
+
+### With Docker, which is how it runs in production
+
+```bash
+docker compose up -d --build web     # the application alone, on port 8000
+docker compose logs -f web           # follow its logs
+docker compose ps                    # check health
+docker compose down                  # stop, keeping the database
+```
+
+The SQLite file lives on a Docker volume mounted at `/data`, so `docker compose down` keeps your
+data and only `docker compose down -v` destroys it.
+
+`just up` starts everything instead: the web application, the daily scheduler, and Evolution API
+with its own Postgres and Redis. You want that only when working on the WhatsApp integration.
+Two warnings about the full stack. The scheduler will fail on every run and retry hourly, because
+the Evolution adapter does not exist yet (see the open questions below). And Evolution pulls three
+more containers, so give it disk.
+
+### Without Docker, for development
+
+```bash
+just setup     # virtualenv on Python 3.13, dependencies, .env from the example, collectstatic
+just dev       # development server on port 8000
+```
+
+`just` loads `.env` for every recipe. This matters more than it looks: run `pytest` or `mypy`
+directly and they will fail with five complaints about missing `DEADLINER_*` variables, which is
+the configuration boundary working exactly as designed and looking exactly like a bug. Go through
+`just`.
+
+### Commands
+
+`just` with no argument lists them all. The ones you will use:
+
+| Command | What it does |
+| --- | --- |
+| `just dev` | Development server |
+| `just manage <args>` | Any `manage.py` command |
+| `just test [args]` | The test suite |
+| `just lint` / `just format` | ruff, checking or applying |
+| `just typecheck` | `mypy --strict` |
+| `just secret-scan` | gitleaks over the working tree, needs Docker |
+| `just gate` | All four, in the order CI runs them |
+| `just up` / `just down` | The full Compose stack |
+
+`just gate` green is the precondition for a commit. Not a suggestion: CI runs the same four and
+blocks on them.
+
+## Deploying to a VPS
+
+The host is a VPS running this stack with gunicorn, decided by the owner. **The rest of deployment
+is genuinely undecided and this file will not pretend otherwise**: whether Cloudflare fronts it by
+Tunnel or by proxied DNS is open question OQ-2 in `specs/foundation.md`, and backlog item B11 is
+blocked on it. What follows is the part that is settled.
+
+Build and run exactly what you run locally. Development and production differ in configuration,
+never in architecture.
+
+```bash
+cp .env.example .env     # on the host, filled with real values, never committed
+docker compose up -d --build web scheduler
+```
+
+Five things that are specific to production:
+
+**`DJANGO_DEBUG=0`.** Then `DJANGO_ALLOWED_HOSTS` must carry the real hostname and must still carry
+`127.0.0.1` for the healthcheck.
+
+**A fresh segment.** The production `DEADLINER_SECRET_PATH_SEGMENT` is generated on the host and
+has never existed anywhere else. Same for `DJANGO_SECRET_KEY`.
+
+**Client IP and country come from Cloudflare's forwarding headers only**, which is what makes the
+audit trail meaningful, and that trust is only sound if every request really does arrive through
+Cloudflare. Direct access to the origin defeats it.
+
+**Do not turn on gunicorn's access log.** It ignores Django's logging configuration entirely, so
+`--access-logfile` writes the full request path straight past the redaction filter and the secret
+segment lands in a log file, which is the one thing invariant I7 exists to prevent.
+
+**Back up the volume, not the container.** Everything the company owns is the SQLite file on
+`notification-system_data`.
+
+Static files are handled: WhiteNoise serves them and `collectstatic` runs during the image build,
+under the secret segment like everything else.
+
+## Tests
+
+```bash
+just test              # the whole suite
+just test -k catalogue # one slice
+just gate              # what CI blocks on
+```
+
+Development is test first in two windows: one writes failing behaviour tests and implements
+nothing, the next implements the minimum to turn them green and may not edit a test. Every test
+names the invariant or requirement it implements. The method is `specs/testing.md` and it is not
+optional.
+
+## Open questions, so you do not go looking for what is not there
+
+- **OQ-1, the WhatsApp integration is not finished.** Evolution API runs in Compose and the
+  instance can be created and paired, but the adapter behind the provider interface is not written,
+  so `send_alerts` fails loudly instead of sending. That is deliberate: the alternative is code
+  that pretends to send. Spike steps are the `just evolution-*` recipes, findings in
+  `specs/dependencies.md`.
+- **OQ-2, the Cloudflare mechanism**, as above.
+- **OQ-3, the exact warning wording**, which is the owner's voice and not a technical choice. The
+  template in `.env.example` is a placeholder that satisfies every test.
+
+## Troubleshooting
+
+**`port is already allocated`.** Something else holds 8000. Either stop it or publish a different
+one, without editing the tracked `compose.yaml`:
+
+```bash
+printf 'services:\n  web:\n    ports: !override\n      - "8010:8000"\n' > compose.override.yaml
+docker compose up -d --build web
+```
+
+Compose reads `compose.override.yaml` automatically. Add it to `.gitignore`, since it is a fact
+about your machine and not about the project. The `!override` tag is required: without it Compose
+merges the two port lists and tries to bind both.
+
+**`required variable EVOLUTION_API_KEY is missing a value`.** Compose interpolates the entire file
+before it decides which service you asked for, so those keys are required even to start `web`
+alone. Copy the current `.env.example`; an older `.env` predates them.
+
+**Five complaints about missing `DEADLINER_*` variables.** You ran Python directly instead of
+through `just`. See above.
+
+**`http://localhost:8000/` returns 404.** Correct. The application is under the secret segment.
+
+**The admin has no styling.** It should not happen any more, but if it does, `collectstatic` did
+not run. Rebuild the image, or run `just setup` locally.
