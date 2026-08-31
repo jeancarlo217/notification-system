@@ -36,17 +36,29 @@ Open `http://localhost:8000/<your-secret-segment>/` in a browser. That is the wh
 The first boot applies the migrations, which seed the fifteen catalogue services and the two known
 submitters, so the form is usable immediately.
 
-### Why the URL has a random segment in it
+### Why the URL has a segment in it, and why that segment is not a password
 
-There is no login. Access is the link (foundation section 6): the entire application is served
-under a secret path segment that lives in configuration, and that segment is a credential. The one
-exception is `http://localhost:8000/health/`, which the container runtime probes and which touches
-no dependency and reveals nothing.
+There is no login. The entire application is served under a path segment that lives in
+configuration (foundation section 6). The one exception is `http://localhost:8000/health/`, which
+the container runtime probes and which touches no dependency and reveals nothing.
 
 So `http://localhost:8000/` answers 404 on purpose. It is not broken.
 
-If the segment ever leaks, the remedy is to change `DEADLINER_SECRET_PATH_SEGMENT` and restart.
-Everybody's bookmarks break, which is the cost of having no passwords.
+**Read this before deploying.** Until 2026-08-31 that segment was a credential: long, random, and
+the only thing standing between the internet and every client deadline in the database. On
+2026-08-31 the owner decided the link must be short enough to send to people in a message, and
+that nothing replaces it: no login, no check at the edge, no list of allowed addresses. The
+consequence, accepted in that decision and written here so nobody rediscovers it by accident, is
+that **anyone who holds the link, is forwarded it, or guesses it can read every client and every
+deadline, and can create, edit and complete records.** The audit trail records what happened and
+from which address; it cannot say who did it, and it prevents nothing.
+
+The two ways to have a short link and still have a door, both offered and both declined on
+2026-08-31, are Cloudflare Access in front of the origin and an application login. Either can be
+added later without touching the rest of the system.
+
+If the segment ever needs changing, change `DEADLINER_SECRET_PATH_SEGMENT` and restart. Everybody's
+bookmarks break.
 
 ## Configuration
 
@@ -62,7 +74,7 @@ message naming it, rather than failing at three in the morning during a send.
 | Variable | What it is |
 | --- | --- |
 | `DJANGO_SECRET_KEY` | Django's signing key. Any long random string. |
-| `DEADLINER_SECRET_PATH_SEGMENT` | The URL segment above. At least 16 characters of `A-Za-z0-9_-`. |
+| `DEADLINER_SECRET_PATH_SEGMENT` | The URL segment above. At least 3 characters of `A-Za-z0-9_-`. It is not a password; read the section above before choosing it. |
 | `DEADLINER_WHATSAPP_NUMBER` | The company number, digits only, country code first, no plus sign. |
 | `EVOLUTION_API_KEY` and `EVOLUTION_DB_PASSWORD` | Yours to invent. Compose refuses to parse the file without them even when you only start `web`. |
 
@@ -70,8 +82,10 @@ Generate the two random ones with:
 
 ```bash
 python3 -c "import secrets; print(secrets.token_urlsafe(50))"   # DJANGO_SECRET_KEY
-python3 -c "import secrets; print(secrets.token_urlsafe(32))"   # DEADLINER_SECRET_PATH_SEGMENT
 ```
+
+`DEADLINER_SECRET_PATH_SEGMENT` is no longer generated: since 2026-08-31 it is a short word chosen
+to be typed and sent, and the section above says what that costs.
 
 `token_urlsafe` is the right generator here rather than Django's own `get_random_secret_key`,
 whose alphabet includes punctuation that the dotenv parsers behind `just` and Compose read as
@@ -180,16 +194,18 @@ Five things that are specific to production:
 **`DJANGO_DEBUG=0`.** Then `DJANGO_ALLOWED_HOSTS` must carry the real hostname and must still carry
 `127.0.0.1` for the healthcheck.
 
-**A fresh segment.** The production `DEADLINER_SECRET_PATH_SEGMENT` is generated on the host and
-has never existed anywhere else. Same for `DJANGO_SECRET_KEY`.
+**A fresh `DJANGO_SECRET_KEY`,** generated on the host and never existing anywhere else. The
+production `DEADLINER_SECRET_PATH_SEGMENT` is a short chosen word since 2026-08-31 and guards
+nothing, so the only rule left for it is that it is a valid segment.
 
 **Client IP and country come from Cloudflare's forwarding headers only**, which is what makes the
 audit trail meaningful, and that trust is only sound if every request really does arrive through
 Cloudflare. Direct access to the origin defeats it.
 
 **Do not turn on gunicorn's access log.** It ignores Django's logging configuration entirely, so
-`--access-logfile` writes the full request path straight past the redaction filter and the secret
-segment lands in a log file, which is the one thing invariant I7 exists to prevent.
+`--access-logfile` writes the full request path straight past the redaction filter and the segment
+lands in a log file, which is the one thing invariant I7 exists to prevent. I7 stands even though
+the segment stopped being secret, because withdrawing an invariant is its own decision.
 
 **Back up the volume, not the container.** Everything the company owns is the SQLite file on
 `notification-system_data`.

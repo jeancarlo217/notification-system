@@ -64,12 +64,12 @@ def test_the_site_root_offers_nothing(client: Client) -> None:
 
 
 def test_a_wrong_segment_reaches_no_screen(client: Client) -> None:
-    """Foundation section 6: the segment is the credential, so a near miss is simply not found."""
+    """Foundation section 6: one segment is mounted, so a near miss is simply not found."""
     assert client.get("/servicos/").status_code == 404
 
 
 def test_the_health_endpoint_answers_outside_the_secret_segment(client: Client) -> None:
-    """Foundation section 6: the container runtime probes one route and holds no credential."""
+    """Foundation section 6: the container runtime probes one route and holds no segment."""
     health = reverse("health")
 
     assert _segment() not in health
@@ -121,7 +121,7 @@ def test_the_redacted_line_still_reports_which_path_was_requested(
     client: Client,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """I7: redaction hides the credential and keeps the log useful, it does not drop the line."""
+    """I7: redaction hides the segment and keeps the log useful, it does not drop the line."""
     stream = _capture_every_configured_stream(monkeypatch)
 
     client.get(f"/{_segment()}/rota-inexistente/")
@@ -156,7 +156,7 @@ def test_a_structured_field_carrying_the_segment_is_redacted_too(
 def test_a_line_carrying_no_segment_is_written_unchanged(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """I7: the filter redacts the credential and leaves every other message alone."""
+    """I7: the filter redacts the segment and leaves every other message alone."""
     stream = _capture_every_configured_stream(monkeypatch)
 
     logging.getLogger("core").warning("alerta %s enviado", 42)

@@ -1,6 +1,6 @@
 # Deadline Notification System, foundation
 
-Status: active. Version 0.1, 2026-08-28.
+Status: active. Version 0.2, 2026-08-31.
 
 This document is the single source of truth for this project. Every other document, including
 `CLAUDE.md`, the ADRs and any future task spec, derives from it and loses to it on any disagreement.
@@ -227,11 +227,12 @@ the single route outside the secret path, and it touches no dependency and revea
 Static assets are served under the segment too, for the same reason: putting them at the site root
 would create a second route outside it. The health endpoint stays the only one.
 
-*What this costs:* anyone holding the link can read and write everything. The link is a
-credential: it must never enter the repository, and if it leaks the remedy is rotating the
-configured path, which breaks saved bookmarks. Because request paths normally appear in logs, the
-secret would leak into its own audit trail; redaction of the secret segment lives on the logging
-path (I7).
+*What this costs:* anyone holding the link can read and write everything. Until 2026-08-31 that
+cost was narrowed by making the link unguessable, and the owner decision below removed that
+narrowing, so today it is the whole cost. The segment still never enters the repository, and
+rotating it still breaks every saved bookmark. Because request paths normally appear in logs, the
+segment would otherwise land in its own audit trail; redaction of it lives on the logging path
+(I7).
 
 **Decision (owner, 2026-08-28).** Django's own administration site stays, with the framework's
 standard authentication, mounted inside the secret path segment. It is a maintenance door for the
@@ -260,6 +261,26 @@ network address alone told the owner which router the record came through, which
 name, including somebody else's, and two employees who genuinely share a name are one row. This is
 useful attribution, never evidential attribution, and section 10 is revised in the same pass so
 that nobody reads it as the start of user accounts.
+
+**Decision (owner, 2026-08-31).** The path segment is short and shareable, not secret. It is
+chosen to be sent in a message and typed by hand, so a value such as `vale` is valid and the
+configuration boundary lowers its floor from sixteen characters to three. Nothing takes its place:
+no login, no check at the edge, no list of allowed addresses.
+
+*What this buys:* one short address that reaches every employee through the channels the company
+already uses, which is what the owner's management asked for.
+
+*What this costs:* the application is open. Anyone who holds the link, is forwarded it, or guesses
+it can read every client, every deadline and every submitter name, and can register, edit and
+complete records. The company name and the words the tool is about are the first guesses anybody
+makes. The audit trail of this section still records what was done and from which address, and it
+still cannot say who did it, so with an open link it is a record of damage rather than a control
+that prevents it. The owner was shown this consequence in full on 2026-08-31, with Cloudflare
+Access and an application login offered as the two alternatives that also give a short address,
+and chose the open link.
+
+I7 is untouched by this: the segment is still redacted on the logging path. It now protects little,
+and it stays because removing an invariant is its own decision and nobody has taken it.
 
 **Decision.** Every form submission is audited: a structured log entry with the submitter's IP,
 their country as reported by Cloudflare, the timestamp, the identifier of the record touched and
@@ -442,3 +463,13 @@ of those. What this buys: a queryable vocabulary and an audit trail that can cou
 this costs: two reference tables to maintain, a catalogue the interface must be able to edit, and a
 name that identifies without authenticating. Shapes in `specs/adr/0005-service-catalogue.md` and
 `specs/adr/0006-submitter-identity.md`; delivery is backlog B12 and B13.
+
+2026-08-31, revision, owner decision, foundation v0.2. Section 6's path segment stops being a
+credential and becomes a short shareable link, with nothing put in its place: the application is
+reachable by anyone holding or guessing the segment. The owner took that decision after being shown
+Cloudflare Access and an application login as the two alternatives that keep a short address. The
+configuration floor drops from sixteen characters to three, recorded in
+`specs/adr/0001-configuration-boundary.md`, and the shape note lands in
+`specs/adr/0003-secret-path-and-log-redaction.md`. I7 stays as written. What this buys: the short
+address management asked for. What this costs: the application has no access control at all.
+Delivery is backlog B18.

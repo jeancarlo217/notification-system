@@ -13,8 +13,9 @@ operation: the segment is redacted on the logging path before any line is writte
 paths reach the logs by default and access logs are the most copied artifact a web application
 produces.
 
-The segment is a credential, so the two questions are where the prefix is applied and where the
-redaction sits. Both have a cheap answer and an expensive one, and the cheap one is correct here.
+The segment was a credential when this was written, so the two questions were where the prefix is
+applied and where the redaction sits. Both have a cheap answer and an expensive one, and the cheap
+one is correct here. The premise changed on 2026-08-31; see the note at the end.
 
 ## Decision
 
@@ -69,3 +70,11 @@ anything that is not a string through `str()` and Django's own `django.request` 
 request object with the full path on it. The `plain` formatter named above is now the JSON
 formatter of `0004-audit-and-structured-logging.md`, and the console handler carries a second
 filter that binds the correlation keys.
+
+Changed 2026-08-31 by the owner decision of foundation section 6 v0.2. The segment is now a short
+shareable link and not a credential, and nothing replaced it as an access control. Neither decision
+of this ADR changes: the prefix is still applied in the root URL configuration, so a rotation is
+still an environment change and a restart, and the redaction filter still sits on the handler. What
+changes is why they are there. The prefix is now a namespace and a habit rather than a guard, and
+the redaction protects a value that is meant to be sent to people. Both stay until a decision
+removes them, and I7 has not been removed.

@@ -6,7 +6,23 @@
   <div class="page-head">
     <h1 class="page-head__title">Serviços</h1>
     <a class="btn btn--solid" href="{% url 'service-create' %}">Novo serviço</a>
+    {% if page.paginator.count %}
+      <p class="page-head__meta">
+        {{ page.paginator.count }} serviço{{ page.paginator.count|pluralize:"s" }}
+        {% if term %}encontrado{{ page.paginator.count|pluralize:"s" }} para "{{ term }}"{% endif %}
+      </p>
+    {% endif %}
   </div>
+
+  <form class="search" method="get" role="search">
+    <label class="visually-hidden" for="search-term">Buscar serviços</label>
+    <input class="search__input" id="search-term" type="search" name="q" value="{{ term }}"
+           placeholder="Buscar por cliente ou serviço" autocomplete="off">
+    <button class="btn btn--soft" type="submit">Buscar</button>
+    {% if term %}
+      <a class="btn btn--ghost" href="{% url 'service-list' %}">Limpar</a>
+    {% endif %}
+  </form>
 
   {% if services %}
     {% comment %}
@@ -50,6 +66,30 @@
         </tbody>
       </table>
     </div>
+
+    {% if page.paginator.num_pages > 1 %}
+      {% comment %}
+      The search term rides in every page link. A link that carries only the page number would
+      page through the whole table while the box still shows the term (B17).
+      {% endcomment %}
+      <nav class="pager" aria-label="Paginação">
+        {% if page.has_previous %}
+          <a class="btn btn--soft btn--sm" rel="prev"
+             href="?{% if term %}q={{ term|urlencode }}&amp;{% endif %}page={{ page.previous_page_number }}">Anterior</a>
+        {% else %}
+          <span class="btn btn--soft btn--sm is-disabled" aria-disabled="true">Anterior</span>
+        {% endif %}
+        <span class="pager__status" aria-current="page">
+          Página {{ page.number }} de {{ page.paginator.num_pages }}
+        </span>
+        {% if page.has_next %}
+          <a class="btn btn--soft btn--sm" rel="next"
+             href="?{% if term %}q={{ term|urlencode }}&amp;{% endif %}page={{ page.next_page_number }}">Próxima</a>
+        {% else %}
+          <span class="btn btn--soft btn--sm is-disabled" aria-disabled="true">Próxima</span>
+        {% endif %}
+      </nav>
+    {% endif %}
   {% else %}
     <div class="empty">
       <svg class="empty__icon" width="32" height="32" viewBox="0 0 24 24" fill="none"
@@ -58,8 +98,13 @@
         <path d="M4 7a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/>
         <path d="M4 10h16"/><path d="M8 3v4"/><path d="M16 3v4"/>
       </svg>
-      <p class="empty__text">Nenhum serviço cadastrado.</p>
-      <a class="btn btn--soft" href="{% url 'service-create' %}">Cadastrar serviço</a>
+      {% if term %}
+        <p class="empty__text">Nenhum serviço encontrado para "{{ term }}".</p>
+        <a class="btn btn--soft" href="{% url 'service-list' %}">Ver todos os serviços</a>
+      {% else %}
+        <p class="empty__text">Nenhum serviço cadastrado.</p>
+        <a class="btn btn--soft" href="{% url 'service-create' %}">Cadastrar serviço</a>
+      {% endif %}
     </div>
   {% endif %}
 {% endblock %}

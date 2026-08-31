@@ -49,7 +49,7 @@ because that text reaches the logs (I7).
 | Thresholds | `tuple[int, ...]`, distinct, ordered from the earliest warning to the due date | the loader owns the order, so no caller sorts again |
 | Number | digits only, country code first, no plus sign | every vendor format is reached by adding characters to this one, and OQ-1 is still open on the exact form Evolution API accepts |
 | Template | a `str.format` string over `MESSAGE_TEMPLATE_FIELDS` | those four fields are the ones foundation section 4 names |
-| Secret segment | at least 16 characters of `A-Za-z0-9_-` | foundation section 6 calls the link a credential, and a short segment is not one |
+| Path segment | at least 3 characters of `A-Za-z0-9_-` | foundation section 6, revised on 2026-08-31, wants a short link people can be sent and can type; the floor only keeps the URL mount from being handed an empty or one letter value |
 | Time zone | a `zoneinfo.ZoneInfo`, resolved at startup | an invalid name is caught on boot rather than during a run |
 
 **Two B1 behaviours tightened.** `DJANGO_DEBUG` accepts `0` or `1` and errors on anything else,
@@ -75,3 +75,10 @@ Test fixtures for the secret path segment use obviously fake low entropy values,
 gitleaks rule `generic-api-key` fires on an alphanumeric string of sixteen or more characters near
 the word secret. Allowlisting the test directory would blind the C5 gate exactly where a real
 credential could one day be pasted, so the fixture gives way instead. B5 will meet the same rule.
+
+Changed 2026-08-31 by the owner decision of foundation section 6 v0.2. The segment is no longer a
+credential, so its floor drops from sixteen characters to three and the reason column above no
+longer argues from unguessability. Two things did not change and are worth stating, because both
+look wrong now: the error message still omits the offending value, and the segment is still
+redacted before any line is written (I7). Both are cheap, both are what an invariant asks for while
+it stands, and neither is evidence that the segment is still secret.
