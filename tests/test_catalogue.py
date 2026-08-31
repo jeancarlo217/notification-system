@@ -26,6 +26,7 @@ from core.engine import run_daily_engine
 from core.models import CatalogService, Service, ServiceCategory
 from deadliner.config import DeadlinerConfig
 from tests.builders import (
+    RETIRED_CATEGORY,
     a_catalog_service,
     a_category,
     a_service,
@@ -88,6 +89,10 @@ DECLARED_CATEGORIES = [category for category, _ in DECLARED_CATALOGUE]
 DECLARED_PAIRS = [
     (category, service) for category, services in DECLARED_CATALOGUE for service in services
 ]
+# What the company still performs, after the board retired one heading on 2026-08-31. The
+# declaration above is what the seed writes; this is what the menu is allowed to show.
+OFFERED_CATEGORIES = [name for name in DECLARED_CATEGORIES if name != RETIRED_CATEGORY]
+OFFERED_PAIRS = [pair for pair in DECLARED_PAIRS if pair[0] != RETIRED_CATEGORY]
 
 QueryCounter = Callable[..., AbstractContextManager[Any]]
 
@@ -325,21 +330,22 @@ def test_a_registration_naming_no_catalogue_entry_creates_nothing(client: Client
 
 
 def test_the_registration_page_offers_every_declared_catalogue_service(client: Client) -> None:
-    """Foundation section 3.2: the employee picks from the fifteen the company declares."""
+    """Foundation section 3.2 and the board decision of 2026-08-31: the employee picks from the
+    services the company declares and still performs."""
     page = _page(client, "service-create")
 
-    for _, service in DECLARED_PAIRS:
+    for _, service in OFFERED_PAIRS:
         assert service in page
 
 
-def test_the_registration_page_groups_the_catalogue_under_its_three_categories(
+def test_the_registration_page_groups_the_catalogue_under_its_offered_categories(
     client: Client,
 ) -> None:
     """Foundation section 3.1 rule 1: category is navigation, so it organises the menu the
     employee reads without ever reaching the record."""
     page = _page(client, "service-create")
 
-    for category in DECLARED_CATEGORIES:
+    for category in OFFERED_CATEGORIES:
         assert f'<optgroup label="{category}">' in page
 
 

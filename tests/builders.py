@@ -18,6 +18,9 @@ from core.models import CatalogService, Service, ServiceCategory, Submitter
 DEFAULT_CATEGORY = "Regularização e Licenciamento"
 DEFAULT_CATALOG_SERVICE = "Licenciamentos Ambientais"
 DEFAULT_SUBMITTER = "José Victor"
+# The heading the board retired on 2026-08-31: still seeded, still pointed at by a deadline,
+# and no longer offered.
+RETIRED_CATEGORY = "Sustentabilidade e ESG"
 DEFAULT_CLIENT = "Fazenda Boa Vista"
 DEFAULT_START_DATE = datetime.date(2026, 12, 25)
 DEFAULT_TERM_DAYS = 0
