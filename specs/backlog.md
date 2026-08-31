@@ -125,14 +125,19 @@ Portuguese interface. Delivered on branch `b14-interface-refactor`; verified wit
 the pytest configuration section, which was `[tool.pytest]` and read by nothing, so
 `--strict-markers` had been inert since B1.
 
-**B15. Alert state in the interface.** `doing`. The list shows, per service, which warnings were
+**B15. Alert state in the interface.** `done (2026-08-31)`. The list shows, per service, which warnings were
 sent and which failed, and it gains the submitter column that ADR 0006 promised and no other item
 delivers. Trace: I2, whose acceptance test in the foundation reads "the interface
 lists the alert as failed" and which B7 satisfied only at the persisted-state layer, as
 `tests/test_engine_run.py` shows; no screen displays an alert today. Opened on 2026-08-28 as a
-found gap in delivered work, not as new scope. Started on 2026-08-31 on branch
-`b15-b19-b20-alerts-term-and-catalogue`, alongside B19 and B20 in their own worktrees; the
-verification line goes here when the gate is green.
+found gap in delivered work, not as new scope. Delivered on 2026-08-31 on branch
+`b15-b19-b20-alerts-term-and-catalogue`, alongside B19 and B20 in their own worktrees. The
+list gained a `Responsável` column and an `Avisos` cell carrying one badge per configured
+threshold, in four states named by a word and never by colour alone: `enviado`, `falhou`,
+`pendente` for an alert row that reported nothing, and `aguardando` for a threshold with no
+row yet. The reading costs one prefetch, so the list is three constant queries and not two,
+and the bound in `tests/test_registration.py` moved by one with the constant-query promise
+of section 8 asserted more strictly beside it. Verified on the merged tree with `just gate` (ruff, `mypy --strict`, 343 tests, gitleaks) and `just manage makemigrations --check` on 2026-08-31.
 
 **B16. Brand, theme control and the static pipeline.** `done (2026-08-28)`. The company's own
 logo replacing B14's placeholder mark, the header reading `Controle de Serviços`, a light and dark
@@ -178,7 +183,7 @@ Verified with `just gate` (ruff, `mypy --strict`, 290 tests, gitleaks) on 2026-0
 foundation section 6 v0.2, `specs/adr/0001-configuration-boundary.md`,
 `specs/adr/0003-secret-path-and-log-redaction.md`.
 
-**B19. The service term.** `doing`. The registration form stops asking for a due date and asks for
+**B19. The service term.** `done (2026-08-31)`. The registration form stops asking for a due date and asks for
 the date the service starts and a term in days. `Service` gains `start_date` and `term_days`, the
 due date stays a stored column derived on every write by `Service.save` from the pure
 `due_date_from` in a new `core/terms.py`, the administration site shows it read only, and rows
@@ -190,10 +195,15 @@ on it in the database, and a Python property cannot be filtered on without readi
 Shape in `specs/adr/0007-service-term-and-derived-due-date.md`. The Portuguese labels shipping are
 `Data de início` and `Prazo (dias)` and the owner has not settled that wording, which is recorded
 rather than treated as settled because a label is one line to change and a field name is not. Opened
-by owner decision on 2026-08-31 and being delivered the same day on branch
-`b15-b19-b20-alerts-term-and-catalogue`; the verification line goes here when the gate is green.
+by owner decision on 2026-08-31 and delivered the same day on branch
+`b15-b19-b20-alerts-term-and-catalogue`, in migrations `0014` to `0016`. Verified on the merged tree with `just gate` (ruff, `mypy --strict`, 343 tests, gitleaks) and `just manage makemigrations --check` on 2026-08-31. The
+backfill carries no automated test and a measurement instead: the four migrations were run
+against a copy of the Compose volume database and every one of the six due dates came out
+identical, with the catalogue and the alert table unchanged. A gate for it would need
+`django-test-migrations` in `requirements-dev.txt`, which is a dependency decision nobody has
+taken.
 
-**B20. The ESG services withdrawn.** `doing`. The company no longer performs the five services under
+**B20. The ESG services withdrawn.** `done (2026-08-31)`. The company no longer performs the five services under
 `Sustentabilidade e ESG`, so a data migration sets `is_active = False` on the category, which per
 ADR 0005 hides its services from the registration form and hides nothing else. Nothing is deleted:
 rule 3 of foundation section 3.1 deactivates a withdrawn service, both catalogue foreign keys are
@@ -203,8 +213,8 @@ being editable and keep earning their warnings. It ships as a migration rather t
 administration edit because an administration edit lives in one database, and a database created
 after this decision has to come up in the same state as the one already running. Trace: foundation
 sections 3.1 and 3.2 with its note of 2026-08-31, `specs/adr/0005-service-catalogue.md`. Opened by
-owner decision on 2026-08-31 and being delivered the same day on branch
-`b15-b19-b20-alerts-term-and-catalogue`; the verification line goes here when the gate is green.
+owner decision on 2026-08-31 and delivered the same day on branch
+`b15-b19-b20-alerts-term-and-catalogue`, in migration `0017`. Verified on the merged tree with `just gate` (ruff, `mypy --strict`, 343 tests, gitleaks) and `just manage makemigrations --check` on 2026-08-31.
 
 Delivery order for the four items above, decided on 2026-08-28: B14 runs first because B12 and B13
 consume its widgets; then B12 and B13 together through one pair of windows, because they touch the

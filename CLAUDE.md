@@ -38,10 +38,9 @@ to v0.3: a service is registered by a start date and a term in days, with the du
 the two and still stored (new section 3.3,
 `specs/adr/0007-service-term-and-derived-due-date.md`, backlog B19), and the five services under
 `Sustentabilidade e ESG` are withdrawn, so that category is deactivated and nothing is deleted
-(section 3.2's dated note, backlog B20). B19, B20 and B15 are `doing` together on branch
-`b15-b19-b20-alerts-term-and-catalogue`, in separate worktrees, and none of the three is verified
-yet. What version 1 still owes: B10 (the CSV export), B15, B19, B20, the B8 adapter behind OQ-1 and
-B11 behind OQ-2.
+(section 3.2's dated note, backlog B20). B19 and B20 were delivered the same day together with
+B15, which finally puts alert state on a screen and closes the gap I2 had been carrying since B7.
+What version 1 still owes: B10 (the CSV export), the B8 adapter behind OQ-1 and B11 behind OQ-2.
 Stack, decided in the foundation: Python 3.13, Django 5.2 LTS with server-rendered templates and
 Django Forms, SQLite on a Docker volume, a plain virtualenv with pip and pinned requirements files,
 `mypy --strict` with django-stubs, ruff, pytest with pytest-django, Docker Compose from the first
