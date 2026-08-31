@@ -27,6 +27,13 @@ administration registrations the project has, and the interface rebuilt responsi
 system with the two combobox widgets the two fields use, and then the company lockup, a three
 state theme control defaulting to the operating system, and whitenoise serving static under the
 segment. B15 is the only open item of the four.
+On 2026-08-31 the owner revised foundation section 6 to v0.2, which turned the path segment from
+a credential into a short shareable link, and opened B17 (search and pages in the list) and B18
+(the short link); both were delivered the same day, together with the loss of the `servicos/`
+prefix on the list routes, so the screens are now `/novo/`, `/<pk>/vencimento/` and
+`/<pk>/concluir/` under the segment and the segment floor in `deadliner/config.py` is three
+characters. What version 1 still owes: B10 (the CSV export), B15, the B8 adapter behind OQ-1 and
+B11 behind OQ-2.
 Stack, decided in the foundation: Python 3.13, Django 5.2 LTS with server-rendered templates and
 Django Forms, SQLite on a Docker volume, a plain virtualenv with pip and pinned requirements files,
 `mypy --strict` with django-stubs, ruff, pytest with pytest-django, Docker Compose from the first

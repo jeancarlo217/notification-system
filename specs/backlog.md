@@ -291,3 +291,15 @@ interface that does not exist yet.
 `core/engine.py` and the `send_alerts` command to bind the run correlation keys the item asks for,
 which is engine track territory; developer B rebases the B8 adapter on it. The screens and safety
 track continues at B10.
+
+2026-08-31: the list routes lost their `servicos/` prefix by owner request, so the screens are
+`/novo/`, `/<pk>/vencimento/` and `/<pk>/concluir/` under the segment. Nothing changed in a
+template or a test, because every caller reverses the route name.
+
+2026-08-31: B17 opened and delivered by owner request: search over the client name and the
+catalogue service name, and pages of twenty rows.
+
+2026-08-31: B18 opened and delivered after the owner's revision of foundation section 6 to v0.2:
+the path segment is a short shareable link and the configuration floor drops to three characters.
+The application now has no access control at all, which is the owner's decision to revisit.
+B10 and B15 are what version 1 still owes beyond the two blocked items.
