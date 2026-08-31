@@ -125,7 +125,7 @@ Measured ratios: specs/dependencies.md, B16 section.
     --font: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     --touch: 44px;
     --shell-width: 66rem;
-    --shell-width-narrow: 40rem;
+    --shell-width-narrow: 52rem;
   }
 
   /* A manual choice beats the operating system in both directions, which the media query alone
@@ -488,13 +488,6 @@ Measured ratios: specs/dependencies.md, B16 section.
     overflow: hidden;
   }
 
-  /* Not a contradiction with the rule above: this resolves to overflow-x: auto with overflow-y
-     still hidden, so the seven columns scroll sideways at the widths they no longer fit instead
-     of being clipped away. The phone layout drops it again with .card--bleed. */
-  .card--scroll {
-    overflow-x: auto;
-  }
-
   .card--form {
     padding: var(--space-5);
   }
@@ -568,7 +561,7 @@ Measured ratios: specs/dependencies.md, B16 section.
   }
 
   .table th {
-    padding: var(--space-3) var(--space-4);
+    padding: var(--space-3);
     background: var(--surface-subtle);
     border-bottom: 1px solid var(--border-subtle);
     color: var(--text-low);
@@ -581,7 +574,7 @@ Measured ratios: specs/dependencies.md, B16 section.
   }
 
   .table td {
-    padding: var(--space-3) var(--space-4);
+    padding: var(--space-3);
     border-bottom: 1px solid var(--border-subtle);
     vertical-align: middle;
   }
@@ -602,6 +595,16 @@ Measured ratios: specs/dependencies.md, B16 section.
   .table__date {
     font-variant-numeric: tabular-nums;
     white-space: nowrap;
+  }
+
+  /* Shrink to their content so the client and the service names get every pixel left over.
+     A percentage this small is the table layout algorithm's way of saying "as narrow as fits". */
+  .table__date,
+  .table__submitter,
+  .table__status,
+  .table__warnings,
+  .table__actions {
+    width: 1%;
   }
 
   /* A table cell, not a flex container: display:flex on a td drops it out of the table's own
@@ -649,33 +652,63 @@ Measured ratios: specs/dependencies.md, B16 section.
 
   .warnings {
     display: flex;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     gap: var(--space-1);
+    margin: 0;
+    padding: 0;
+    list-style: none;
   }
 
-  /* Every one of these carries its condition as a word, so the colour is a second channel and
-     never the only one (I2). Reading steps only: green 12 on green 3 measures 11.00:1 light and
-     11.45:1 dark, red 11 on red 3 measures 4.54:1 and 7.75:1, sage 12 on sage 3 measures 14.43:1
-     and 13.73:1, sage 11 on the panel measures 5.83:1 and 8.44:1. */
-  .badge--warning-sent {
+  /* Every chip carries its condition as a word in the markup, hidden from the eye except when it
+     failed, and draws a shape beside the threshold, so the colour is a third channel and never
+     the only one (I2). The shape is an SVG rather than a character because the cell is read as
+     text by the tests and by assistive technology, and a tick mark is a drawing, not a word.
+     Reading steps only: green 12 on green 3 measures 11.00:1 light and 11.45:1 dark, red 11 on
+     red 3 measures 4.54:1 and 7.75:1, sage 12 on sage 3 measures 14.43:1 and 13.73:1, sage 11 on
+     the panel measures 5.83:1 and 8.44:1. */
+  .warn {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
+    padding: var(--space-1) var(--space-2);
+    border: 1px solid transparent;
+    border-radius: var(--radius-full);
+    font-size: var(--text-2);
+    font-weight: 500;
+    line-height: 1.2;
+    white-space: nowrap;
+  }
+
+  .warn__label {
+    font-variant-numeric: tabular-nums;
+  }
+
+  .warn__mark {
+    width: 0.75rem;
+    height: 0.75rem;
+    flex: none;
+  }
+
+  .warn--sent {
     background: var(--accent-bg);
     border-color: var(--accent-border);
     color: var(--accent-text-high);
   }
 
-  .badge--warning-failed {
+  .warn--failed {
     background: var(--danger-bg);
     border-color: var(--danger-border);
     color: var(--danger-text);
+    font-weight: 600;
   }
 
-  .badge--warning-pending {
+  .warn--pending {
     background: var(--component);
     border-color: var(--border);
     color: var(--text-high);
   }
 
-  .badge--warning-waiting {
+  .warn--waiting {
     background: transparent;
     border-color: var(--border-subtle);
     color: var(--text-low);
@@ -817,11 +850,11 @@ Measured ratios: specs/dependencies.md, B16 section.
     color: var(--text-placeholder);
   }
 
-  /* Six rows whatever the rows attribute says, because the height is what the layout was drawn
+  /* Three rows whatever the rows attribute says, because the height is what the layout was drawn
      around; the auto-grow script overrides this inline once there is something to grow to. */
   .field textarea {
-    height: calc(6 * 1.6em + 2 * var(--space-2) + 2px);
-    min-height: calc(6 * 1.6em + 2 * var(--space-2) + 2px);
+    height: calc(3 * 1.6em + 2 * var(--space-2) + 2px);
+    min-height: calc(3 * 1.6em + 2 * var(--space-2) + 2px);
     line-height: 1.6;
     resize: vertical;
   }
@@ -851,6 +884,23 @@ Measured ratios: specs/dependencies.md, B16 section.
     flex-wrap: wrap;
     gap: var(--space-3);
     padding-top: var(--space-1);
+  }
+
+  /* Six stacked fields is a page and a half of scrolling on a tablet that has room for two
+     columns. The pair that decides the deadline stays on one row, so the arithmetic of
+     foundation section 3.3 is visible without scrolling between its two halves. */
+  @media (min-width: 48rem) {
+    .form {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      column-gap: var(--space-5);
+    }
+
+    .field--notes,
+    .field--submitter,
+    .form__actions,
+    .form > .errorlist {
+      grid-column: 1 / -1;
+    }
   }
 
   .combobox {
@@ -947,11 +997,140 @@ Measured ratios: specs/dependencies.md, B16 section.
     font-size: var(--text-3);
   }
 
-  /* Between the phone layout and a full desktop the five columns no longer fit beside two action
-     buttons, so the actions stack inside their own cell and the table keeps its columns. */
-  @media (max-width: 62rem) {
+  /* Seven columns stop fitting long before the phone, and the answer is never sideways scrolling:
+     a table that scrolls hides the actions column from the person reaching for it, which is what
+     this layout shipped before 2026-08-31. Below this width every record is drawn as its own
+     card. Changing the display drops the implicit table semantics, which is why every row and
+     cell in the markup carries its ARIA role by hand. */
+  @media (max-width: 68rem) {
+    .card--bleed {
+      background: transparent;
+      border: 0;
+      border-radius: 0;
+      box-shadow: none;
+      overflow: visible;
+    }
+
+    .table {
+      display: block;
+      width: 100%;
+    }
+
+    .table tbody {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(21rem, 1fr));
+      gap: var(--space-3);
+      width: 100%;
+    }
+
+    .table td {
+      display: block;
+      width: auto;
+      padding: 0;
+      border-bottom: 0;
+    }
+
+    .table thead {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip-path: inset(50%);
+      white-space: nowrap;
+    }
+
+    .table tr {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      grid-template-areas:
+        "client   status"
+        "service  service"
+        "date     submitter"
+        "warnings warnings"
+        "actions  actions";
+      align-items: start;
+      gap: var(--space-2) var(--space-4);
+      align-content: start;
+      padding: var(--space-4);
+      background: var(--panel);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-5);
+      box-shadow: 0 1px 2px var(--shadow-soft);
+    }
+
+    .table tbody tr:hover td {
+      background: transparent;
+    }
+
+    .table td::before {
+      content: attr(data-label);
+      display: block;
+      margin-bottom: var(--space-1);
+      color: var(--text-low);
+      font-size: var(--text-1);
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    /* Four cells name themselves: the client is the card title, the service sits under it, the
+       badge is already a word, and the buttons carry their own labels. */
+    .table td.table__client::before,
+    .table td.table__service::before,
+    .table td.table__status::before,
+    .table td.table__actions::before {
+      content: none;
+    }
+
+    .table__client {
+      grid-area: client;
+      font-size: var(--text-5);
+      line-height: 1.3;
+    }
+
+    .table__service {
+      grid-area: service;
+      color: var(--text-low);
+    }
+
+    .table__date {
+      grid-area: date;
+    }
+
+    .table__submitter {
+      grid-area: submitter;
+    }
+
+    .table__status {
+      grid-area: status;
+      justify-self: end;
+    }
+
+    .table__warnings {
+      grid-area: warnings;
+    }
+
+    /* The card is narrow and the number of thresholds is configuration, so here they wrap. */
+    .warnings {
+      flex-wrap: wrap;
+    }
+
+    /* A grid rather than a wrapping flex row: auto-fit decides the number of columns from the
+       card width instead of from the length of a Portuguese button label, so the two actions sit
+       side by side wherever two fit and stack once they do not. */
     .table__actions {
+      grid-area: actions;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
+      gap: var(--space-2);
+      margin-top: var(--space-1);
+      padding-top: var(--space-3);
+      border-top: 1px solid var(--border-subtle);
       white-space: normal;
+    }
+
+    .table__actions > * {
+      margin: 0;
     }
 
     .table__actions .inline {
@@ -961,11 +1140,6 @@ Measured ratios: specs/dependencies.md, B16 section.
     .table__actions .btn {
       display: flex;
       width: 100%;
-    }
-
-    .table__actions > * + * {
-      margin-left: 0;
-      margin-top: var(--space-2);
     }
   }
 
@@ -1015,86 +1189,8 @@ Measured ratios: specs/dependencies.md, B16 section.
       width: 100%;
     }
 
-    .card--bleed {
-      background: transparent;
-      border: 0;
-      border-radius: 0;
-      box-shadow: none;
-      overflow: visible;
-    }
-
     .card--form {
       padding: var(--space-4);
-    }
-
-    /* Blocks instead of table boxes, so five columns become one card per row and nothing
-       scrolls sideways. Changing display drops the implicit table semantics, which is why every
-       row and cell in the markup carries its ARIA role by hand. */
-    .table,
-    .table tbody,
-    .table tr,
-    .table td {
-      display: block;
-      width: 100%;
-    }
-
-    .table thead {
-      position: absolute;
-      width: 1px;
-      height: 1px;
-      overflow: hidden;
-      clip-path: inset(50%);
-      white-space: nowrap;
-    }
-
-    .table tr {
-      margin-bottom: var(--space-3);
-      padding: var(--space-2) var(--space-4);
-      background: var(--panel);
-      border: 1px solid var(--border-subtle);
-      border-radius: var(--radius-5);
-      box-shadow: 0 1px 2px var(--shadow-soft);
-    }
-
-    .table td {
-      display: grid;
-      grid-template-columns: 6.5rem minmax(0, 1fr);
-      align-items: baseline;
-      justify-items: start;
-      gap: var(--space-3);
-      padding: var(--space-2) 0;
-      border-bottom: 1px solid var(--border-subtle);
-    }
-
-    .table td::before {
-      content: attr(data-label);
-      color: var(--text-low);
-      font-size: var(--text-2);
-      font-weight: 600;
-    }
-
-    .table tbody tr:hover td {
-      background: transparent;
-    }
-
-    .table tbody td:last-child {
-      border-bottom: 0;
-    }
-
-    .table td.table__actions {
-      display: flex;
-      flex-wrap: wrap;
-      gap: var(--space-2);
-      padding-top: var(--space-3);
-    }
-
-    .table td.table__actions::before {
-      content: none;
-    }
-
-    .table td.table__actions > * {
-      flex: 1 1 8rem;
-      margin: 0;
     }
   }
 
