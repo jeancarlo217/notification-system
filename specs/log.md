@@ -104,3 +104,9 @@ never appended over.
 ## [2026-08-28] trap | B14 gave the table actions cell `display: flex`. On a `td` that drops the cell out of the table box tree, the browser wraps it in an anonymous cell, and the whole actions column painted a lighter band with a visible vertical seam at every width above the phone layout. Found by screenshot during B16 and confirmed by removing the declaration and re-rendering.
 
 ## [2026-08-28] trap | The theme palette is declared twice by necessity, once inside `@media (prefers-color-scheme: dark)` scoped to `:root:not([data-theme="light"])` and once under `:root[data-theme="dark"]`, because a media query cannot be reopened by an attribute rule and a manual override has to beat the system setting in both directions. `light-dark()` would remove the duplication and was rejected: a custom property carries no parse-time fallback, so an unsupported browser leaves every token invalid and the page loses its colours. A test parses both rule bodies out of the rendered page and compares the declarations, so a value edited in one block only is a red gate.
+
+
+## [2026-08-31] decision | B17 opened and delivered by owner request: the list pages at twenty rows and searches the client name and the catalogue service name. The page size is a module constant in `core/views.py`, not an environment variable, because I4 governs the business values the foundation names and a page size is not one of them.
+
+## [2026-08-31] finding | SQLite `icontains` ignores letter case for ASCII and does not ignore accents, so the B17 search does not match `sao` against `Sao` written with the tilde. Recorded as the known limit of the search; removing it needs a stored normalized column, not a query change.
+

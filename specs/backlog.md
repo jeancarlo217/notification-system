@@ -146,6 +146,19 @@ the admin stylesheet and the logo through gunicorn in the Compose stack with deb
 door has to be usable), section 8, section 12 for the Portuguese interface. Opened by owner request
 on 2026-08-28; the static defect was found while opening it.
 
+**B17. Search and pages in the list.** `done (2026-08-31)`. The list gains a search box over the
+client name and the catalogue service name, and it pages instead of printing every row. The page
+size is a module constant in `core/views.py` and not configuration: I4 governs the business values
+the foundation names (thresholds, number, template, secret segment) and how many rows fill a screen
+is not one of them. A page number that is not a number lands on the first page and one past the end
+lands on the last, so a hand edited or stale link never shows an error screen, and the term rides in
+every page link. Known limit, recorded rather than hidden: `icontains` on SQLite ignores letter case
+for ASCII and does not ignore accents, so `sao` does not find `Sao` written with the tilde. Closing
+that needs a stored normalized column on the record, which is a separate item if the owner asks for
+it. Verified with `just gate` (ruff, `mypy --strict`, 289 tests, gitleaks) on 2026-08-31. Trace:
+foundation section 1 (the employees reach their records through one list), section 8 (the listing
+reads in a constant number of queries whatever the dataset holds), section 12 for the Portuguese
+interface. Opened by owner request on 2026-08-31.
 Delivery order for the four items above, decided on 2026-08-28: B14 runs first because B12 and B13
 consume its widgets; then B12 and B13 together through one pair of windows, because they touch the
 same model, the same form and the same migration sequence, and splitting them would mean two
