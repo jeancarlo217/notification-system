@@ -159,6 +159,21 @@ it. Verified with `just gate` (ruff, `mypy --strict`, 289 tests, gitleaks) on 20
 foundation section 1 (the employees reach their records through one list), section 8 (the listing
 reads in a constant number of queries whatever the dataset holds), section 12 for the Portuguese
 interface. Opened by owner request on 2026-08-31.
+
+**B18. The short shareable link.** `done (2026-08-31)`. Foundation section 6 v0.2 turned the path
+segment from a credential into a short link meant to be sent to people, with nothing replacing it.
+Delivered: the floor in `deadliner/config.py` lowered from sixteen characters to three with its
+tests rewritten around the new reason, and the consequence written wherever somebody will meet it,
+in the README section on the link, in `.env.example`, in `CLAUDE.md`, and in the two ADRs that
+argued from the old premise. The redaction filter is untouched and I7 stays as written, because
+withdrawing an invariant is its own decision and this one did not withdraw it. What it leaves open,
+and it is the owner's to close whenever they want: the application now has no access control at
+all, and the two alternatives offered on 2026-08-31, Cloudflare Access in front of the origin and
+an application login, are both still available and neither needs the rest of the system to change.
+Verified with `just gate` (ruff, `mypy --strict`, 290 tests, gitleaks) on 2026-08-31. Trace:
+foundation section 6 v0.2, `specs/adr/0001-configuration-boundary.md`,
+`specs/adr/0003-secret-path-and-log-redaction.md`.
+
 Delivery order for the four items above, decided on 2026-08-28: B14 runs first because B12 and B13
 consume its widgets; then B12 and B13 together through one pair of windows, because they touch the
 same model, the same form and the same migration sequence, and splitting them would mean two

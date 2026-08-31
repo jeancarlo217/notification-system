@@ -1,7 +1,9 @@
-"""Redaction of the secret path segment on the logging path (I7).
+"""Redaction of the path segment on the logging path (I7).
 
-Request paths reach the logs by default, and the segment is the credential guarding the whole
-application, so it is removed from every record before any handler writes it.
+Request paths reach the logs by default, so the segment is removed from every record before any
+handler writes it. Foundation section 6 v0.2 made the segment a short shareable link rather than a
+credential, which leaves this filter guarding little; I7 was not withdrawn in that decision, so it
+stays until one withdraws it.
 """
 
 import logging

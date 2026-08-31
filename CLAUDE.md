@@ -40,9 +40,12 @@ silently in code.
 An internal tool for Vale Verde Ambiental. A three-field form (client, service, due date) writes
 flat records to SQLite; a daily engine computes which warnings are owed and sends them to the
 company's WhatsApp number through a self-hosted Evolution API instance; every submission is
-audited; the dataset exports to CSV. No login: access is a secret link behind Cloudflare.
-Django's admin, with the framework's standard authentication, sits inside that secret path as a
-maintenance door and is not the employee-facing product.
+audited; the dataset exports to CSV. No login and, since the owner decision of 2026-08-31, no
+secret either: the application is served under a short path segment meant to be sent to people, so
+anyone holding or guessing it can read and write everything (foundation section 6 v0.2). Do not
+write code that assumes the segment is unguessable, and do not add an access control that the
+foundation does not decide. Django's admin, with the framework's standard authentication, sits
+inside that segment as a maintenance door and is not the employee-facing product.
 
 The one idea everything derives from: the truth lives in persisted records. Every run derives
 what is owed from the database and the injected current date, never from process memory, so a
@@ -88,8 +91,9 @@ Each cites its invariant in the foundation; the acceptance test lives there in f
   Test: the CI secret-scan gate passes and the real env file is untracked.
 - **C6** (I6): every form submission emits a structured audit log with IP, Cloudflare country,
   timestamp, record id and submitter id. Test: POST with Cloudflare headers yields that entry.
-- **C7** (I7): the secret path segment is redacted on the logging path. Test: request a
-  secret-path route, assert the segment is absent from captured logs.
+- **C7** (I7): the path segment is redacted on the logging path. It guards little since the
+  segment stopped being secret on 2026-08-31, and it stands until a decision removes it. Test:
+  request a segment route, assert the segment is absent from captured logs.
 - **C8** (I8): one person is one submitter row, however the name is spelled in case, accent or
   spacing, enforced by a uniqueness rule on the normalized name. Test: submit as `José Victor` and
   as `jose  victor`, observe one row and one id in both audit entries.

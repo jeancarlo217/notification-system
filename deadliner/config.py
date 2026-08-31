@@ -19,7 +19,9 @@ MESSAGE_TEMPLATE_FIELDS: frozenset[str] = frozenset(
 )
 """The field names a warning template may reference (foundation section 4)."""
 
-SECRET_PATH_SEGMENT_MIN_LENGTH = 16
+# Three, not sixteen: foundation section 6 v0.2 made the segment a short link meant to be sent to
+# people, so the floor is only what the URL configuration can mount and a person can type.
+SECRET_PATH_SEGMENT_MIN_LENGTH = 3
 WHATSAPP_NUMBER_MIN_DIGITS = 8
 WHATSAPP_NUMBER_MAX_DIGITS = 15
 
@@ -216,8 +218,8 @@ def _read_secret_path_segment(env: Mapping[str, str], problems: list[str]) -> st
 
     value = raw.strip()
     if not _URL_SAFE_SEGMENT.fullmatch(value) or len(value) < SECRET_PATH_SEGMENT_MIN_LENGTH:
-        # Alone among these messages this one omits the offending value. The segment is the
-        # credential guarding the whole application and this text reaches the logs (I7).
+        # Alone among these messages this one omits the offending value, because the text reaches
+        # the logs and I7 still stands (foundation section 6 v0.2 kept it).
         problems.append(
             f"DEADLINER_SECRET_PATH_SEGMENT must be at least {SECRET_PATH_SEGMENT_MIN_LENGTH} "
             "characters of A to Z, a to z, 0 to 9, underscore or hyphen."

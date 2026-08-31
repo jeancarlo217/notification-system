@@ -161,33 +161,41 @@ def test_the_template_contract_is_the_four_fields_the_foundation_names() -> None
     assert {"client", "service", "due_date", "days_remaining"} == MESSAGE_TEMPLATE_FIELDS
 
 
-def test_the_secret_path_segment_is_read_from_the_environment() -> None:
-    """I4, I5: the link is a credential, so it is configuration and never a literal."""
+def test_the_path_segment_is_read_from_the_environment() -> None:
+    """I4: the segment the application is served under is configuration and never a literal."""
     config = load_config(env_with(DEADLINER_SECRET_PATH_SEGMENT="qazwsxedcrfvtgby"))
 
     assert config.deadliner.secret_path_segment == "qazwsxedcrfvtgby"
 
 
-def test_a_segment_of_the_minimum_length_is_accepted() -> None:
-    """B2: sixteen characters is the floor itself, not a value above it."""
-    config = load_config(env_with(DEADLINER_SECRET_PATH_SEGMENT="sixteencharacter"))
+def test_a_short_segment_is_accepted_because_the_link_is_meant_to_be_sent() -> None:
+    """Foundation section 6 v0.2: the owner asked for a link short enough to send and type."""
+    config = load_config(env_with(DEADLINER_SECRET_PATH_SEGMENT="vale"))
 
-    assert config.deadliner.secret_path_segment == "sixteencharacter"
+    assert config.deadliner.secret_path_segment == "vale"
+
+
+def test_a_segment_of_the_minimum_length_is_accepted() -> None:
+    """Foundation section 6 v0.2: three characters is the floor itself, not a value above it."""
+    config = load_config(env_with(DEADLINER_SECRET_PATH_SEGMENT="vvs"))
+
+    assert config.deadliner.secret_path_segment == "vvs"
 
 
 @pytest.mark.parametrize(
     "value",
     [
         "",
-        "fifteencharacte",
+        "vv",
         "with/a/slash/xyz",
         "with a space xyz",
         "with%percent%xyz",
         "segment-with-café-x",
     ],
 )
-def test_a_segment_that_is_not_a_url_safe_credential_is_rejected(value: str) -> None:
-    """I5: a short or unsafe segment is not the credential foundation section 6 assumes."""
+def test_a_segment_that_is_not_a_url_safe_path_element_is_rejected(value: str) -> None:
+    """Foundation section 6 v0.2: the floor is not secrecy any more, it is a value the URL
+    configuration can mount and a person can type."""
     with pytest.raises(ConfigError, match="DEADLINER_SECRET_PATH_SEGMENT"):
         load_config(env_with(DEADLINER_SECRET_PATH_SEGMENT=value))
 
