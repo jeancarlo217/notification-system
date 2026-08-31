@@ -20,7 +20,7 @@ from django.urls import reverse
 
 from core.identity import normalize_person_name
 from core.models import Service, Submitter
-from tests.builders import a_service, a_submitter, registration_payload
+from tests.builders import a_service, a_submitter, edit_payload, registration_payload
 
 pytestmark = pytest.mark.django_db
 
@@ -182,7 +182,7 @@ def test_a_refused_registration_creates_no_record_and_no_submitter(client: Clien
 
     response = client.post(
         reverse("service-create"),
-        registration_payload(submitter="Marina Nogueira", due_date="amanha"),
+        registration_payload(submitter="Marina Nogueira", start_date="amanha"),
     )
 
     assert response.status_code == 200
@@ -335,7 +335,9 @@ def test_editing_a_due_date_leaves_the_record_pointing_at_who_registered_it(
     registrant = a_submitter("Marina Nogueira")
     service = a_service(submitter=registrant)
 
-    client.post(reverse("service-due-date", args=[service.pk]), {"due_date": "2027-01-10"})
+    client.post(
+        reverse("service-due-date", args=[service.pk]), edit_payload(start_date="2027-01-10")
+    )
 
     service.refresh_from_db()
     assert service.due_date == datetime.date(2027, 1, 10)

@@ -26,10 +26,12 @@ from core.engine import run_daily_engine
 from core.models import CatalogService, Service, ServiceCategory
 from deadliner.config import DeadlinerConfig
 from tests.builders import (
+    RETIRED_CATEGORY,
     a_catalog_service,
     a_category,
     a_service,
     a_submitter,
+    edit_payload,
     registration_payload,
 )
 from tests.fakes import FakeProvider
@@ -87,6 +89,10 @@ DECLARED_CATEGORIES = [category for category, _ in DECLARED_CATALOGUE]
 DECLARED_PAIRS = [
     (category, service) for category, services in DECLARED_CATALOGUE for service in services
 ]
+# What the company still performs, after the board retired one heading on 2026-08-31. The
+# declaration above is what the seed writes; this is what the menu is allowed to show.
+OFFERED_CATEGORIES = [name for name in DECLARED_CATEGORIES if name != RETIRED_CATEGORY]
+OFFERED_PAIRS = [pair for pair in DECLARED_PAIRS if pair[0] != RETIRED_CATEGORY]
 
 QueryCounter = Callable[..., AbstractContextManager[Any]]
 
@@ -264,7 +270,8 @@ def test_a_service_is_valid_without_an_observation() -> None:
     candidate = Service(
         client="Fazenda Boa Vista",
         catalog_service=a_catalog_service(),
-        due_date=datetime.date(2026, 12, 25),
+        start_date=datetime.date(2026, 12, 25),
+        term_days=0,
         submitter=a_submitter(),
     )
 
@@ -323,21 +330,22 @@ def test_a_registration_naming_no_catalogue_entry_creates_nothing(client: Client
 
 
 def test_the_registration_page_offers_every_declared_catalogue_service(client: Client) -> None:
-    """Foundation section 3.2: the employee picks from the fifteen the company declares."""
+    """Foundation section 3.2 and the board decision of 2026-08-31: the employee picks from the
+    services the company declares and still performs."""
     page = _page(client, "service-create")
 
-    for _, service in DECLARED_PAIRS:
+    for _, service in OFFERED_PAIRS:
         assert service in page
 
 
-def test_the_registration_page_groups_the_catalogue_under_its_three_categories(
+def test_the_registration_page_groups_the_catalogue_under_its_offered_categories(
     client: Client,
 ) -> None:
     """Foundation section 3.1 rule 1: category is navigation, so it organises the menu the
     employee reads without ever reaching the record."""
     page = _page(client, "service-create")
 
-    for category in DECLARED_CATEGORIES:
+    for category in OFFERED_CATEGORIES:
         assert f'<optgroup label="{category}">' in page
 
 
@@ -386,7 +394,7 @@ def test_a_record_pointing_at_a_deactivated_entry_is_still_editable(client: Clie
     retired.save(update_fields=["is_active"])
 
     response = client.post(
-        reverse("service-due-date", args=[service.pk]), {"due_date": "2027-01-10"}
+        reverse("service-due-date", args=[service.pk]), edit_payload(start_date="2027-01-10")
     )
 
     service.refresh_from_db()
@@ -444,7 +452,7 @@ def test_a_record_under_an_inactive_category_is_still_editable(client: Client) -
     category.save(update_fields=["is_active"])
 
     response = client.post(
-        reverse("service-due-date", args=[service.pk]), {"due_date": "2027-01-10"}
+        reverse("service-due-date", args=[service.pk]), edit_payload(start_date="2027-01-10")
     )
 
     service.refresh_from_db()

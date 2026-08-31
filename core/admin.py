@@ -8,17 +8,19 @@ from typing import TYPE_CHECKING
 
 from django.contrib import admin
 
-from core.models import CatalogService, ServiceCategory, Submitter
+from core.models import CatalogService, Service, ServiceCategory, Submitter
 
 if TYPE_CHECKING:
     ServiceCategoryModelAdmin = admin.ModelAdmin[ServiceCategory]
     CatalogServiceModelAdmin = admin.ModelAdmin[CatalogService]
     SubmitterModelAdmin = admin.ModelAdmin[Submitter]
+    ServiceModelAdmin = admin.ModelAdmin[Service]
 else:
     # The stubs make ModelAdmin generic; the runtime class is not subscriptable.
     ServiceCategoryModelAdmin = admin.ModelAdmin
     CatalogServiceModelAdmin = admin.ModelAdmin
     SubmitterModelAdmin = admin.ModelAdmin
+    ServiceModelAdmin = admin.ModelAdmin
 
 
 @admin.register(ServiceCategory)
@@ -48,3 +50,17 @@ class SubmitterAdmin(SubmitterModelAdmin):
     # accept what an administrator types and then discard it.
     readonly_fields = ("normalized_name", "created_at")
     search_fields = ("display_name", "normalized_name")
+
+
+@admin.register(Service)
+class ServiceAdmin(ServiceModelAdmin):
+    list_display = ("client", "catalog_service", "start_date", "term_days", "due_date", "status")
+    list_filter = ("status", "catalog_service__category")
+    # The catalogue entry prints its category, so the listing reaches both through one join
+    # rather than one query per row (foundation section 8).
+    list_select_related = ("catalog_service__category", "submitter")
+    ordering = ("due_date", "pk")
+    search_fields = ("client", "catalog_service__name")
+    # The model derives the deadline from the start date and the term on every write, so an input
+    # here would accept what an administrator types and then discard it.
+    readonly_fields = ("due_date", "created_at")
