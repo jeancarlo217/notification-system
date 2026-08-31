@@ -172,7 +172,26 @@ border rather than the green.
 | Headless verification | Google Chrome 152.0.7977.64, `--headless=new`, at 360, 768 and 1280 CSS pixels. It reads the desktop colour scheme: `matchMedia("(prefers-color-scheme: dark)")` reported true on this machine, so the light theme could only be reached through the manual override, which is the case worth checking. The stored choice was seeded through a page served from the same origin so the real script and the real `localStorage` ran, rather than by editing the attribute by hand. |
 | Date input format | Chrome renders `input type="date"` in the browser UI locale, not the document `lang`, so the headless screenshots show `mm/dd/yyyy` on a Portuguese page. That is the test environment's locale and not something the page can set. |
 
+## Responsive layout, measured during B21 (2026-08-31)
+
+Google Chrome 152.0.7977.64, `--headless=new`, `--force-device-scale-factor=1`, against the
+Compose stack, at 360, 414, 768, 1024, 1088, 1120, 1280 and 1440 CSS pixels. Measured rather than
+reasoned about, which is the whole point of the item: B15 shipped its layout on reasoning and the
+suite alone and the suite cannot see a column that is off screen.
+
+| Piece | Finding |
+| --- | --- |
+| Where seven columns actually fit | The table needs about 1020 pixels of content with the cell padding at `--space-3`, and `.shell` caps at 66rem with 32 pixels of padding each side, so the window has to be past roughly 1082 pixels before the table has the room. The switch is set at 68rem. Above it the whole table fits with both action buttons; at 1024, where B15 left a table, the actions column was off screen. |
+| Cell padding | Dropping the horizontal cell padding from `--space-4` to `--space-3` takes about 56 pixels off the table's content width across seven columns, which is the difference between fitting inside the 66rem shell and being clipped by the card. |
+| `width: 1%` and a flex row | The table layout algorithm reads `width: 1%` as "shrink to content", and the content minimum of a wrapping flex row is its widest item, so three warning chips stacked into three lines in every row. `flex-wrap: nowrap` inside the cell makes the minimum the whole row; the card layout restores wrapping, where the width is the card and not the column. |
+| `::before` specificity | `.table td::before` is one class and one type, `.table__client::before` is one class, so a `content: none` written against the class loses and the data label keeps printing. Every suppression has to be written `.table td.table__client::before`. |
+| Cards two to a row | `grid-template-columns: repeat(auto-fill, minmax(21rem, 1fr))` on `tbody` gives one card per row on a phone and two from about 700 pixels, with no width named for the tablet case. |
+| Actions inside a card | A wrapping flex row decides from the length of the button label, which is a Portuguese string nobody should be laying out around. `repeat(auto-fit, minmax(8rem, 1fr))` decides from the card width instead: the two buttons sit side by side wherever two fit and stack once they do not. |
+| Contrast | No new pair. The chips reuse the four pairs B15 measured and B16 recorded: green 12 on green 3, red 11 on red 3, sage 12 on sage 3, and sage 11 on the panel. The mark is drawn in `currentColor`, so it carries the contrast of the text beside it. |
+
 ## Log
+
+2026-08-31: B21 added the responsive layout section above; no pin changed and no package was added.
 
 2026-08-28: B16 added whitenoise 6.12.0, the first runtime pin since B1, and the static files section above. Static is served inside the secret path segment.
 

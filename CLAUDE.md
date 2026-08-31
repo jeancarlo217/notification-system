@@ -40,6 +40,9 @@ the two and still stored (new section 3.3,
 `Sustentabilidade e ESG` are withdrawn, so that category is deactivated and nothing is deleted
 (section 3.2's dated note, backlog B20). B19 and B20 were delivered the same day together with
 B15, which finally puts alert state on a screen and closes the gap I2 had been carrying since B7.
+B21 followed on the owner's report that the list scrolled sideways: the list is a table only
+above 68rem and a grid of cards below, the warning cell is one line of short chips, and the form
+lays out in two columns from 48rem.
 What version 1 still owes: B10 (the CSV export), the B8 adapter behind OQ-1 and B11 behind OQ-2.
 Stack, decided in the foundation: Python 3.13, Django 5.2 LTS with server-rendered templates and
 Django Forms, SQLite on a Docker volume, a plain virtualenv with pip and pinned requirements files,
@@ -149,6 +152,9 @@ Each cites its invariant in the foundation; the acceptance test lives there in f
   The admin is inside the segment and keeps Django's own authentication (foundation section 6), and
   so is `STATIC_URL`, because assets at the site root would be a second route outside it.
 - The UI is in Portuguese; code, tests, commits and documents are in English.
+- A layout claim is written only with the screenshot that verified it, the way a state claim is
+  written only with its command. Nothing is reached by scrolling sideways; a table that does not
+  fit becomes cards (B21, `specs/dependencies.md`).
 - Do not resolve OQ-1, OQ-2 or OQ-3 by inference. They are closed only as the foundation says.
 
 ## Testing and TDD

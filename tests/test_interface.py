@@ -316,7 +316,8 @@ def test_a_free_text_field_renders_as_a_labelled_textarea_in_the_form_layout() -
 
     assert "<textarea" in rendered
     assert "Observação" in rendered
-    assert 'class="field"' in rendered
+    # The wrapper also names the field, which is what lets the two column layout place it.
+    assert 'class="field field--observation"' in rendered
 
 
 def test_a_textarea_can_only_be_resized_vertically(client: Client) -> None:
