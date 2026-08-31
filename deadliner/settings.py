@@ -34,6 +34,20 @@ DEBUG = _config.django.debug
 
 ALLOWED_HOSTS = list(_config.django.allowed_hosts)
 
+# TLS ends at the proxy in front of this application, so the connection Django sees is plain HTTP
+# and `request.is_secure()` is false unless the hop is declared. Django 5.2 builds the CSRF origin
+# it expects from that answer, so without this line the browser's `https://host` never matches the
+# `http://host` Django computes and every POST in the application is refused. Trusting the header
+# is only safe because the container publishes on the loopback address alone, so nothing but the
+# proxy can set it (backlog B11).
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+
+# The administration site of foundation section 6 sends a password over that hop, and the segment
+# rides in every request path. Debug is the development server, which speaks plain HTTP, so the
+# flags follow it rather than being switched on by hand and forgotten in the other direction.
+SESSION_COOKIE_SECURE = not DEBUG
+CSRF_COOKIE_SECURE = not DEBUG
+
 # The business configuration, reached from application code through config.get_config() (I4).
 DEADLINER = _config.deadliner
 

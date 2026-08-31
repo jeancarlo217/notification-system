@@ -104,7 +104,18 @@ gitleaks) and `just manage makemigrations --check` on 2026-08-31. It grew again 
 start date and the term in days sit beside the due date, which is derived from them and stays in the
 row because it is what the warnings measure against (B19).
 
-**B11. Deployment.** `todo`, unblocked on 2026-08-31 when OQ-2 closed. The VPS, `cloudflared` in
+**B11. Deployment.** `doing`, unblocked on 2026-08-31 when OQ-2 closed. Two pieces of it landed
+that day, both found by reading the host rather than by planning against an imagined one. The web
+container publishes on the loopback address with a host side port the deployment chooses, because
+8000 on that machine belongs to Portainer and every other container there binds to loopback behind
+nginx. And the settings module declares the proxy hop: TLS ends at nginx, so Django sees plain HTTP
+and `request.is_secure()` is false, and Django 5.2 builds the CSRF origin it expects from that
+answer, so without `SECURE_PROXY_SSL_HEADER` the browser's `https://host` never matches the
+`http://host` Django computes and **every POST in the application is refused**. Confirmed by
+reading `_origin_verified` in the pinned 5.2.17 source, and the test that covers it was mutation
+checked by removing the setting and watching the POST come back 403. The session and CSRF cookies
+follow debug, because the administration site sends a password over that hop. The nginx virtual
+host and its ordering are in the README. The VPS, `cloudflared` in
 the Compose stack fronting it by Tunnel, and the production env file created on the host and never
 in the repository. The final message wording (OQ-3) is no longer a precondition: the owner decision
 of 2026-08-31 ships this in two phases and the first one carries no WhatsApp delivery at all, so
