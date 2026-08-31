@@ -14,6 +14,9 @@ from zoneinfo import ZoneInfo
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
 
+LANGUAGE_CODE = "pt-br"
+USE_I18N = True
+
 MESSAGE_TEMPLATE_FIELDS: frozenset[str] = frozenset(
     {"client", "service", "due_date", "days_remaining"}
 )
