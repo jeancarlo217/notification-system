@@ -17,4 +17,10 @@ because the script reads its ISO value and writes the Brazilian order back into 
   </button>
   <input class="dateinput__native" type="date" tabindex="-1" aria-hidden="true"
          data-dateinput-native>
+  {% comment %}
+  Read aloud with the control and never drawn: the mask makes the format self evident to anybody
+  who can see the field fill in, so a printed hint would be a line of text buying nothing and
+  costing the row its alignment.
+  {% endcomment %}
+  <span class="visually-hidden" id="id_{{ widget.name }}_help">Formato dia, mês e ano.</span>
 </div>

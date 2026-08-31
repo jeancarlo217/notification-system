@@ -802,8 +802,12 @@ Measured ratios: specs/dependencies.md, B16 section.
     font-size: var(--text-4);
   }
 
+  /* `start` and not the default `stretch`: a cell that grows to the tallest of its row drags its
+     control's height with it, so one field with an error beside one without would sit on two
+     baselines. */
   .form {
     display: grid;
+    align-items: start;
     gap: var(--space-5);
   }
 
