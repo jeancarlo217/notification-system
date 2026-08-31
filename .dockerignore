@@ -5,6 +5,11 @@ venv
 .env.*
 *.sqlite3
 *.sqlite
+# Nested paths need their own pattern: a plain *.sqlite3 matches one path segment only, so the
+# database copies under backups/ were being baked into the image (I5).
+**/*.sqlite3
+**/*.sqlite
+backups
 __pycache__
 *.py[cod]
 .mypy_cache

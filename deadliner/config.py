@@ -28,6 +28,7 @@ WHATSAPP_NUMBER_MAX_DIGITS = 15
 _URL_SAFE_SEGMENT = re.compile(r"[A-Za-z0-9_-]+")
 _NUMBER_SEPARATORS = re.compile(r"[\s()+.-]")
 _DEFAULT_DATABASE_PATH = "db.sqlite3"
+_DEFAULT_BACKUP_DIRECTORY = "backups"
 _FALLBACK_TIMEZONE = ZoneInfo("UTC")
 
 
@@ -43,14 +44,15 @@ class ConfigError(ImproperlyConfigured):
 class DjangoConfig:
     """The infrastructure values the Django settings module consumes.
 
-    ``database_path`` is verbatim from the environment; resolving a relative one against the
-    project directory belongs to the settings module.
+    ``database_path`` and ``backup_directory`` are verbatim from the environment; resolving a
+    relative one against the project directory belongs to the settings module.
     """
 
     secret_key: str
     debug: bool
     allowed_hosts: tuple[str, ...]
     database_path: Path
+    backup_directory: Path
 
 
 @dataclass(frozen=True, slots=True)
@@ -89,6 +91,7 @@ def load_config(env: Mapping[str, str]) -> Config:
         debug=debug,
         allowed_hosts=_read_allowed_hosts(env, problems, debug=debug),
         database_path=_read_database_path(env),
+        backup_directory=_read_backup_directory(env),
     )
     deadliner_config = DeadlinerConfig(
         alert_thresholds=_read_thresholds(env, problems),
@@ -111,6 +114,14 @@ def get_config() -> DeadlinerConfig:
     if not isinstance(config, DeadlinerConfig):
         raise ConfigError("settings.DEADLINER is missing or is not a DeadlinerConfig.")
     return config
+
+
+def get_backup_directory() -> Path:
+    """The directory the database copies land in, typed for callers of Django settings."""
+    directory = getattr(settings, "BACKUP_DIRECTORY", None)
+    if not isinstance(directory, Path):
+        raise ConfigError("settings.BACKUP_DIRECTORY is missing or is not a Path.")
+    return directory
 
 
 def _read_secret_key(env: Mapping[str, str], problems: list[str]) -> str:
@@ -143,6 +154,10 @@ def _read_allowed_hosts(
 
 def _read_database_path(env: Mapping[str, str]) -> Path:
     return Path(env.get("DJANGO_DATABASE_PATH", "").strip() or _DEFAULT_DATABASE_PATH)
+
+
+def _read_backup_directory(env: Mapping[str, str]) -> Path:
+    return Path(env.get("DJANGO_BACKUP_DIRECTORY", "").strip() or _DEFAULT_BACKUP_DIRECTORY)
 
 
 def _read_thresholds(env: Mapping[str, str], problems: list[str]) -> tuple[int, ...]:

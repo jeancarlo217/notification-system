@@ -59,6 +59,18 @@ up:
 down:
     docker compose down
 
+# Copy the database now, from the stack's own image and volume, into ./backups
+backup:
+    docker compose run --rm --no-deps -T backup python manage.py backup_database
+
+# Put a copy back, for example: just restore db-2026-08-31T14-05-00.sqlite3
+# Stops the writers first, because a file replaced under a live connection is a corrupt database.
+# The journal files go with it: a stale one beside a restored file is replayed over it.
+restore file:
+    docker compose stop web scheduler backup
+    docker compose run --rm --no-deps -T backup sh -c "cp /backups/{{file}} /data/db.sqlite3 && rm -f /data/db.sqlite3-wal /data/db.sqlite3-shm"
+    @echo "Restored {{file}}. Bring the stack back with: docker compose up -d web backup"
+
 # Evolution API spike (B8, closes OQ-1). Needs Docker, curl, jq and the EVOLUTION_* keys in .env.
 
 # Start only Evolution API with its Postgres and Redis
