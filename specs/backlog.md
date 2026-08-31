@@ -111,6 +111,18 @@ of 2026-08-31 ships this in two phases and the first one carries no WhatsApp del
 the alert `scheduler` service does not deploy and the template stays a placeholder until phase two.
 Trace: foundation section 8, section 6, I5, I6.
 
+**The host is shared, confirmed by the owner on 2026-08-31.** The VPS is the same machine that runs
+Ecobalance and the company's institutional site, `103.199.184.160`, reverse `srv722493.hstgr.cloud`,
+a Hostinger VPS. Three consequences follow and none of them is optional. Adding this application
+must not touch that machine's existing web server: no new virtual host, no port, no certificate, no
+reload, because a bad reload takes down both of the systems that cannot go down, and it would be
+taking that risk for an internal tool. Cloudflare Tunnel is what makes that possible, since
+`cloudflared` opens an outbound connection and needs no inbound port and no change to whatever
+serves the other two today. And the backups of B22 sit on the same disk as the systems they would
+be needed to recover beside, so losing that disk loses Ecobalance, the institutional site, this
+application and every copy of its database at once; carrying copies off the host stops being a
+refinement at that point.
+
 The step that carries the risk is not ours and has to be written down before anybody runs it. The
 domain already serves another production system of the company and its DNS is not on Cloudflare
 today, so a Tunnel hostname means moving the whole zone's nameservers, which puts a live system

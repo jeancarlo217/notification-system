@@ -165,3 +165,5 @@ never appended over.
 
 ## [2026-08-31] decision | The two phase deployment is now written where a deployer meets it: the README's production command starts `web backup` and says in one paragraph why `scheduler` is absent, rather than leaving the reader to run a service that fails hourly by design until the B8 adapter exists.
 
+## [2026-08-31] finding | Owner answer: the VPS that will run this application is the same Hostinger machine that runs Ecobalance and the institutional site, `103.199.184.160`. So the deployment must add no virtual host, no port and no certificate to that machine, which is what Cloudflare Tunnel buys, and B22's backups share a disk with the two systems they would be recovered beside, which is what makes an off host copy a real decision rather than a refinement. Recorded in backlog B11.
+
