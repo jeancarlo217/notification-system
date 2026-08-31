@@ -387,11 +387,19 @@ native date input because the browser drew it in its own locale and a date typed
 read month first. What replaced it is a bare text field, and the owner reported the cost the same
 day: no mask, no picker, and a format hint that lives only in the placeholder, which disappears
 the moment somebody starts typing and is not reliably announced by a screen reader. Three things
-close it: the format as real help text, associated with the field so assistive technology reads
-it and it stays on screen while the person types; a mask that inserts the slashes as digits
-arrive, without fighting paste; and a calendar the person can open, driven by a hidden native
-input read through its ISO value, so the picker's own display locale cannot decide what the date
-means.
+close it: the format described to assistive technology and associated with the control; a mask
+that inserts the slashes as digits arrive, without fighting paste; and a calendar the person can
+open, driven by a hidden native input read through its ISO value, so the picker's own display
+locale cannot decide what the date means.
+
+**The first attempt printed that description on the page and the owner rejected it the same
+hour**, on both counts and correctly. It was redundant, because once the mask exists the format is
+impossible to get wrong and self evident as the field fills in. And it broke the row: a printed
+paragraph under one of two fields in a grid makes that cell the tallest, and the default `stretch`
+dragged the control beside it to the same height, so two inputs on one row sat on two baselines.
+The description is now spoken and never drawn, and `.form` pins `align-items: start` so no cell
+ever grows to the tallest of its row again, which also fixes the same defect for a field showing
+an error beside one that is not.
 
 The owner also asked for basic validation on the fields, naming letters typed into a date. Worth
 stating precisely, because it changes the urgency and not the work: **the server already refuses
