@@ -81,5 +81,7 @@ class BrazilianDateWidget(forms.DateInput):
 
     def get_context(self, name: str, value: Any, attrs: dict[str, Any] | None) -> dict[str, Any]:
         context = super().get_context(name, value, attrs)
-        _add_class(context["widget"]["attrs"], "dateinput__typed")
+        widget: dict[str, Any] = context["widget"]
+        _add_class(widget["attrs"], "dateinput__typed")
+        widget["attrs"]["aria-describedby"] = f"id_{name}_help"
         return context

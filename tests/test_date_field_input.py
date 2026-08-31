@@ -29,11 +29,18 @@ def _start_date_input(page: str) -> str:
     return found.group(0)
 
 
-def test_the_format_is_help_text_and_not_only_a_placeholder() -> None:
-    """B24: a placeholder vanishes at the first keystroke, which is when the format is needed."""
+def test_the_format_is_described_to_a_reader_without_being_drawn() -> None:
+    """B24: spoken, never printed.
+
+    A placeholder vanishes at the first keystroke, so it cannot be the only statement of the
+    format for somebody who cannot see the field fill in. A printed hint would say it, and would
+    also cost the row its alignment for everybody who can, so the description is carried where
+    only assistive technology reads it. The mask is what tells the sighted person.
+    """
     page = _page()
 
-    assert "dia/mês/ano" in page
+    assert re.search(r'<span class="visually-hidden" id="id_start_date_help">', page) is not None
+    assert '<p class="field__help"' not in page
 
 
 def test_the_help_text_is_associated_with_the_field_it_describes() -> None:
