@@ -238,6 +238,28 @@ and the submitters intact; the transcript is in the pull request. Verified with 
 `mypy --strict`, 395 tests with B10 merged beside it, gitleaks with two real backup files present
 in the tree) and `just manage makemigrations --check` on 2026-08-31.
 
+**B23. The date in the order this country writes it.** `done (2026-08-31)`. The registration and
+edit screens stop using `input type="date"` and take the start date as typed text in `dd/mm/aaaa`,
+with a placeholder saying so, `inputmode="numeric"` for a phone keypad, and the stored value read
+back in the same order. Trace: foundation section 3.3 (the start date is one of the two facts the
+whole schedule derives from), section 12.
+
+Opened by owner report from production on 2026-08-31 and delivered the same day, because the
+failure is silent and the product exists against silent failure. The native widget is drawn in the
+browser's interface locale and never in the document's, so an employee on an English browser is
+shown `mm/dd/yyyy`, types the day first as anybody here does, and the browser reads it as the
+month: the deadline is stored months from where the person meant, the screen agrees with itself,
+and nothing errors. `specs/dependencies.md` had recorded the display as "not something the page can
+set" since B16, which was true of that widget and false of the page, and that row is corrected in
+the same pass.
+
+The server side was never at fault and was confirmed rather than assumed: under pt-BR
+`DATE_INPUT_FORMATS` already resolves to `['%d/%m/%Y', '%d/%m/%y', '%Y-%m-%d']`, so day first wins
+and the ISO form still parses, which is what keeps anything still posting ISO working. Two existing
+assertions expected the ISO value in the bound form, which was the old requirement stated
+correctly, and both moved. Verified with `just gate` (ruff, `mypy --strict`, 404 tests, gitleaks)
+and by screenshot of the running container at 390 and 900 pixels on 2026-08-31.
+
 **B16. Brand, theme control and the static pipeline.** `done (2026-08-28)`. The company's own
 logo replacing B14's placeholder mark, the header reading `Controle de Serviços`, a light and dark
 control whose default follows the operating system, the registration form centred, and another pass

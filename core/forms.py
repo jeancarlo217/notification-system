@@ -29,8 +29,28 @@ else:
 TERM_LABELS = {"start_date": "Data de início", "term_days": "Prazo (dias)"}
 
 
+BRAZILIAN_DATE_FORMAT = "%d/%m/%Y"
+"""How a date is written and read on every screen, which is how the country writes it."""
+
+
 def _date_input() -> forms.DateInput:
-    return forms.DateInput(format="%Y-%m-%d", attrs={"type": "date"})
+    """A date the employee types, never one the browser draws.
+
+    Deliberately not ``type="date"``: that widget is rendered in the browser's own interface
+    locale and never in the document's, so an employee on an English browser is shown
+    ``mm/dd/yyyy``, types the day first as anybody here would, and the browser reads it as the
+    month. Nothing errors and the deadline lands months away (B23). Parsing is unaffected either
+    way, because the pt-BR locale already puts ``%d/%m/%Y`` ahead of the ISO form.
+    """
+    return forms.DateInput(
+        format=BRAZILIAN_DATE_FORMAT,
+        attrs={
+            "inputmode": "numeric",
+            "placeholder": "dd/mm/aaaa",
+            "autocomplete": "off",
+            "maxlength": "10",
+        },
+    )
 
 
 def _term_widgets() -> dict[str, object]:
