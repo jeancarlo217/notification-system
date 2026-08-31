@@ -24,8 +24,18 @@ else:
     CatalogServiceIterator = ModelChoiceIterator
 
 
+# The board has not settled the final wording, so the two labels live here and the two forms
+# that show them read this one copy.
+TERM_LABELS = {"start_date": "Data de início", "term_days": "Prazo (dias)"}
+
+
 def _date_input() -> forms.DateInput:
     return forms.DateInput(format="%Y-%m-%d", attrs={"type": "date"})
+
+
+def _term_widgets() -> dict[str, object]:
+    """The inputs for the start date and the term, one set of instances per form class."""
+    return {"start_date": _date_input(), "term_days": forms.NumberInput(attrs={"min": 0})}
 
 
 def offered_catalog_services() -> QuerySet[CatalogService]:
@@ -103,16 +113,22 @@ class ServiceRegistrationForm(ServiceModelForm):
         # ``submitter`` is a declared field and never a Meta one: what the employee posts is a
         # name, and letting the model form build the record from it would assign a string to a
         # foreign key. ``save`` resolves it.
-        fields: ClassVar[list[str]] = ["client", "catalog_service", "notes", "due_date"]
+        fields: ClassVar[list[str]] = [
+            "client",
+            "catalog_service",
+            "notes",
+            "start_date",
+            "term_days",
+        ]
         labels: ClassVar[dict[str, str]] = {
             "client": "Cliente",
             "notes": "Observação",
-            "due_date": "Data de vencimento",
+            **TERM_LABELS,
         }
         widgets: ClassVar[dict[str, object]] = {
             "client": forms.TextInput,
             "notes": forms.Textarea(attrs={"rows": 6}),
-            "due_date": _date_input(),
+            **_term_widgets(),
         }
 
     def clean_submitter(self) -> str:
@@ -144,10 +160,14 @@ class ServiceRegistrationForm(ServiceModelForm):
 
 
 class DueDateForm(ServiceModelForm):
-    """The one-field edit of foundation section 3: a human moves the due date."""
+    """The due date edit of foundation section 3: a human moves the deadline.
+
+    It asks for the start date and the term because the due date is derived from them on every
+    write, so an input for the due date itself would be undone by the next save.
+    """
 
     class Meta:
         model = Service
-        fields: ClassVar[list[str]] = ["due_date"]
-        labels: ClassVar[dict[str, str]] = {"due_date": "Data de vencimento"}
-        widgets: ClassVar[dict[str, object]] = {"due_date": _date_input()}
+        fields: ClassVar[list[str]] = ["start_date", "term_days"]
+        labels: ClassVar[dict[str, str]] = dict(TERM_LABELS)
+        widgets: ClassVar[dict[str, object]] = _term_widgets()

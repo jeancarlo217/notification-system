@@ -1,9 +1,9 @@
 # Deadline Notification System
 
-An internal tool for Vale Verde Ambiental. A three field form records the services the company
-owes a client and when they are due; once a day an engine works out which warnings are owed and
-sends them to the company WhatsApp number. Every submission is audited and no warning is ever
-sent twice.
+An internal tool for Vale Verde Ambiental. A form records the services the company owes a client,
+each with the date it starts and the term in days that gives it its deadline; once a day an engine
+works out which warnings are owed and sends them to the company WhatsApp number. Every submission
+is audited and no warning is ever sent twice.
 
 The canon lives in `specs/foundation.md`, which every other document derives from and loses to.
 `CLAUDE.md` is the working digest. This file is only about running the thing.
@@ -33,8 +33,8 @@ docker compose up -d --build web
 
 Open `http://localhost:8000/<your-secret-segment>/` in a browser. That is the whole application.
 
-The first boot applies the migrations, which seed the fifteen catalogue services and the two known
-submitters, so the form is usable immediately.
+The first boot applies the migrations, which seed the fifteen catalogue services, ten of which the
+company still offers, and the two known submitters, so the form is usable immediately.
 
 ### Why the URL has a segment in it, and why that segment is not a password
 
@@ -121,8 +121,10 @@ docker compose exec web python manage.py createsuperuser
 
 That is where the service catalogue is edited. The fifteen services arrive by migration once and
 are the company's responsibility from then on; adding, renaming or deactivating one is a form,
-never a code change. Deactivate, never delete: tracked deadlines point at those rows and the
-foreign key will refuse.
+never a schema change. Deactivate, never delete: tracked deadlines point at those rows and the
+foreign key will refuse. The five services under `Sustentabilidade e ESG` are deactivated in the
+seed since 2026-08-31, because the company stopped performing them; anything already registered
+against one still lists, still gets edited and still earns its warnings.
 
 ## Running it
 

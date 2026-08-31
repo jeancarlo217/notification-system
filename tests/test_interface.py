@@ -222,13 +222,21 @@ def test_the_due_date_screen_names_its_action_and_its_way_back(client: Client) -
     assert "Cancelar" in page
 
 
-def test_the_list_screen_names_its_five_columns_in_portuguese(client: Client) -> None:
+def test_the_list_screen_names_its_columns_in_portuguese(client: Client) -> None:
     """Foundation section 12: the dataset the company works from is labelled in its language."""
     _registered()
 
     page = _page(client, "service-list")
 
-    for heading in ("Cliente", "Serviço", "Vencimento", "Status", "Ações"):
+    for heading in (
+        "Cliente",
+        "Serviço",
+        "Vencimento",
+        "Responsável",
+        "Status",
+        "Avisos",
+        "Ações",
+    ):
         assert heading in page
 
 
@@ -480,7 +488,7 @@ def test_the_registration_column_is_centred(client: Client) -> None:
 
 
 def test_the_list_screen_keeps_the_full_width_the_form_gives_up(client: Client) -> None:
-    """B16: five columns and a narrow column of fields want different widths."""
+    """B16: a wide table and a narrow column of fields want different widths."""
     page = _page(client, "service-list")
 
     assert 'class="shell"' in page

@@ -87,7 +87,9 @@ of the service on 2026-08-28; merged to `main` by pull request #8.
 **B10. CSV export.** `todo`. One button, one streamed query, one row per record. Trace: foundation
 section 7, the performance rule in section 8. The row grew on 2026-08-28: it now carries the
 category, the catalogue service, the observation and the submitter display name, reached through
-`select_related` so the constant-query promise holds (B12, B13).
+`select_related` so the constant-query promise holds (B12, B13). It grew again on 2026-08-31: the
+start date and the term in days sit beside the due date, which is derived from them and stays in the
+row because it is what the warnings measure against (B19).
 
 **B11. Deployment.** `blocked on OQ-2`. The always-on host, Cloudflare in front, the production env
 file created on the host and never in the repository. Also needs the final message wording (OQ-3),
@@ -123,12 +125,19 @@ Portuguese interface. Delivered on branch `b14-interface-refactor`; verified wit
 the pytest configuration section, which was `[tool.pytest]` and read by nothing, so
 `--strict-markers` had been inert since B1.
 
-**B15. Alert state in the interface.** `todo`. The list shows, per service, which warnings were
+**B15. Alert state in the interface.** `done (2026-08-31)`. The list shows, per service, which warnings were
 sent and which failed, and it gains the submitter column that ADR 0006 promised and no other item
 delivers. Trace: I2, whose acceptance test in the foundation reads "the interface
 lists the alert as failed" and which B7 satisfied only at the persisted-state layer, as
 `tests/test_engine_run.py` shows; no screen displays an alert today. Opened on 2026-08-28 as a
-found gap in delivered work, not as new scope.
+found gap in delivered work, not as new scope. Delivered on 2026-08-31 on branch
+`b15-b19-b20-alerts-term-and-catalogue`, alongside B19 and B20 in their own worktrees. The
+list gained a `Responsável` column and an `Avisos` cell carrying one badge per configured
+threshold, in four states named by a word and never by colour alone: `enviado`, `falhou`,
+`pendente` for an alert row that reported nothing, and `aguardando` for a threshold with no
+row yet. The reading costs one prefetch, so the list is three constant queries and not two,
+and the bound in `tests/test_registration.py` moved by one with the constant-query promise
+of section 8 asserted more strictly beside it. Verified on the merged tree with `just gate` (ruff, `mypy --strict`, 343 tests, gitleaks) and `just manage makemigrations --check` on 2026-08-31.
 
 **B16. Brand, theme control and the static pipeline.** `done (2026-08-28)`. The company's own
 logo replacing B14's placeholder mark, the header reading `Controle de Serviços`, a light and dark
@@ -173,6 +182,39 @@ an application login, are both still available and neither needs the rest of the
 Verified with `just gate` (ruff, `mypy --strict`, 290 tests, gitleaks) on 2026-08-31. Trace:
 foundation section 6 v0.2, `specs/adr/0001-configuration-boundary.md`,
 `specs/adr/0003-secret-path-and-log-redaction.md`.
+
+**B19. The service term.** `done (2026-08-31)`. The registration form stops asking for a due date and asks for
+the date the service starts and a term in days. `Service` gains `start_date` and `term_days`, the
+due date stays a stored column derived on every write by `Service.save` from the pure
+`due_date_from` in a new `core/terms.py`, the administration site shows it read only, and rows
+written before the term existed are backfilled with the start date set to their due date and a term
+of zero, so no due date moves and no alert changes state. Trace: foundation section 3.3, I1 and I3
+(the backfill has to leave every owed warning exactly where it was), section 8 (the due date stays a
+column because the daily run, the I1 uniqueness rule, the list ordering and B17's paging all decide
+on it in the database, and a Python property cannot be filtered on without reading a row at a time).
+Shape in `specs/adr/0007-service-term-and-derived-due-date.md`. The Portuguese labels shipping are
+`Data de início` and `Prazo (dias)` and the owner has not settled that wording, which is recorded
+rather than treated as settled because a label is one line to change and a field name is not. Opened
+by owner decision on 2026-08-31 and delivered the same day on branch
+`b15-b19-b20-alerts-term-and-catalogue`, in migrations `0014` to `0016`. Verified on the merged tree with `just gate` (ruff, `mypy --strict`, 343 tests, gitleaks) and `just manage makemigrations --check` on 2026-08-31. The
+backfill carries no automated test and a measurement instead: the four migrations were run
+against a copy of the Compose volume database and every one of the six due dates came out
+identical, with the catalogue and the alert table unchanged. A gate for it would need
+`django-test-migrations` in `requirements-dev.txt`, which is a dependency decision nobody has
+taken.
+
+**B20. The ESG services withdrawn.** `done (2026-08-31)`. The company no longer performs the five services under
+`Sustentabilidade e ESG`, so a data migration sets `is_active = False` on the category, which per
+ADR 0005 hides its services from the registration form and hides nothing else. Nothing is deleted:
+rule 3 of foundation section 3.1 deactivates a withdrawn service, both catalogue foreign keys are
+`PROTECT`, and a tracked record already points at `Inventário de GEE`, so a delete would either fail
+loudly or take a tracked deadline with it. Records pointing at an ESG service keep listing, keep
+being editable and keep earning their warnings. It ships as a migration rather than as an
+administration edit because an administration edit lives in one database, and a database created
+after this decision has to come up in the same state as the one already running. Trace: foundation
+sections 3.1 and 3.2 with its note of 2026-08-31, `specs/adr/0005-service-catalogue.md`. Opened by
+owner decision on 2026-08-31 and delivered the same day on branch
+`b15-b19-b20-alerts-term-and-catalogue`, in migration `0017`. Verified on the merged tree with `just gate` (ruff, `mypy --strict`, 343 tests, gitleaks) and `just manage makemigrations --check` on 2026-08-31.
 
 Delivery order for the four items above, decided on 2026-08-28: B14 runs first because B12 and B13
 consume its widgets; then B12 and B13 together through one pair of windows, because they touch the
@@ -291,3 +333,24 @@ interface that does not exist yet.
 `core/engine.py` and the `send_alerts` command to bind the run correlation keys the item asks for,
 which is engine track territory; developer B rebases the B8 adapter on it. The screens and safety
 track continues at B10.
+
+2026-08-31: the list routes lost their `servicos/` prefix by owner request, so the screens are
+`/novo/`, `/<pk>/vencimento/` and `/<pk>/concluir/` under the segment. Nothing changed in a
+template or a test, because every caller reverses the route name.
+
+2026-08-31: B17 opened and delivered by owner request: search over the client name and the
+catalogue service name, and pages of twenty rows.
+
+2026-08-31: B18 opened and delivered after the owner's revision of foundation section 6 to v0.2:
+the path segment is a short shareable link and the configuration floor drops to three characters.
+The application now has no access control at all, which is the owner's decision to revisit.
+B10 and B15 are what version 1 still owes beyond the two blocked items.
+
+2026-08-31: B19 and B20 opened by two owner decisions that took foundation section 3 to v0.3, the
+service term with its derived due date (new section 3.3, ADR 0007) and the withdrawal of the five
+ESG services (section 3.2's dated note). Both started the same day on branch
+`b15-b19-b20-alerts-term-and-catalogue`, and B15 started on that branch beside them, each in its own
+worktree, so the three land together. None of the three is verified: the canon fan-out ran first and
+the gate line goes into each item when it is green.
+
+2026-08-31: B10's exported row grew again, by the start date and the term in days B19 adds.

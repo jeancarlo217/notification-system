@@ -1,6 +1,6 @@
 # Deadline Notification System, foundation
 
-Status: active. Version 0.2, 2026-08-31.
+Status: active. Version 0.3, 2026-08-31.
 
 This document is the single source of truth for this project. Every other document, including
 `CLAUDE.md`, the ADRs and any future task spec, derives from it and loses to it on any disagreement.
@@ -46,12 +46,13 @@ someone gets warned about, exactly once per warning.**
 
 ## 1. What it is
 
-A small web application. A form with three fields (client, service, due date) writes flat records
-into a local database. Once a day, an engine looks at every active record, decides which warnings
-are owed, and sends them to the company's WhatsApp number through a self-hosted Evolution API
-instance. Every submission is audited, every send attempt is recorded, and the whole dataset
-exports to a spreadsheet in one click. The audience is the employees of one company, reachable
-through a private link with no login.
+A small web application. A form writes flat records into a local database: who the client is,
+which service from the catalogue of section 3.1, when it starts and how many days it runs, an
+optional observation, and who is entering it. Once a day, an engine looks at every active record,
+decides which warnings are owed, and sends them to the company's WhatsApp number through a
+self-hosted Evolution API instance. Every submission is audited, every send attempt is recorded,
+and the whole dataset exports to a spreadsheet in one click. The audience is the employees of one
+company, reachable through a short shared link with no login.
 
 ## 2. The core thesis
 
@@ -79,8 +80,9 @@ place where truth lives), sending at registration time for future delivery (same
 ## 3. Data model and its frontier
 
 **Decision.** One flat record per service: client name (text), the service chosen from the
-catalogue of section 3.1, an optional free text observation, due date, status (active or
-completed), created timestamp, and the submitter of section 6. The client is still a bare string,
+catalogue of section 3.1, an optional free text observation, the start date and the term in days of
+section 3.3 with the due date derived from them, status (active or completed), created timestamp,
+and the submitter of section 6. The client is still a bare string,
 so there is still no client table. The only foreign keys a service record carries point at the two
 reference entities, the catalogue entry and the submitter; no service record points at another.
 Alongside it, one alert record per warning attempt, carrying the service it belongs to, which
@@ -96,8 +98,9 @@ employee-facing WhatsApp query feature will likely want a real client entity; th
 paying for version 1's simplicity, and it is the right direction to defer.
 
 Status is the whole lifecycle in version 1. A renewed or delivered service is marked completed by
-a human, or its due date is edited by a human. Warnings are computed only for active services.
-Recurrence and automatic renewal are non-goals (see section 10).
+a human, or its deadline is moved by a human editing the start date or the term of section 3.3.
+Warnings are computed only for active services. Recurrence and automatic renewal are non-goals
+(see section 10).
 
 ### 3.1. The service catalogue
 
@@ -161,7 +164,53 @@ This table is the business declaration of July 2026, not a production table: Eco
 `catalog/` package does not exist yet and its 1.0 list lives only in a production database that by
 rule is not on any development disk. Its question SRV-1, asking the business to confirm the current
 categories and services, is still open there. So this table is what to build against, and a later
-correction from the business is an edit through the administration site, never a code change.
+correction from the business is an edit through the administration site, never a schema migration.
+When the company adds or withdraws a service for good, the seeding of section 3.1 is amended by a
+data migration in the same pass, so a database created afterwards comes up in the same state as the
+one already running.
+
+**Note, 2026-08-31 (owner).** The company no longer performs the five services under
+`Sustentabilidade e ESG`, so that category is deactivated. The rows stay in the table above because
+the table is the July 2026 declaration and a withdrawal is not recorded by rewriting what the
+business said in July. Rule 3 of section 3.1 governs what happens in the database: a service the
+company stops offering is deactivated and never deleted, both catalogue foreign keys are `PROTECT`,
+and a tracked record already points at `Inventário de GEE`, so a delete would either fail loudly or
+take a deadline with it. Deactivating the category hides its five services from the registration
+form and hides nothing else, so records already pointing at one keep listing, keep being editable
+and keep earning their warnings. Delivery is backlog B20.
+
+### 3.3. The service term
+
+**Decision (owner, 2026-08-31).** A service is no longer registered by typing the date it is due.
+The employee types the date it starts and a term in days, and the deadline is the first plus the
+second: a service starting on the 5th with a term of twenty days is due twenty days after the 5th.
+Both facts are stored on the record. The due date survives as a stored field, derived from those
+two on every write, and it stays what the thresholds of section 5 and the warnings of section 4
+measure against, so nothing downstream of the record learns a new rule.
+
+*What this buys:* the way the business already thinks about a deadline. A term counted from a date
+is what the contract says and what the employee has in front of them; the due date was arithmetic
+they were doing in their head at the keyboard, and a system that makes a person compute a value it
+could compute itself is eventually handed a wrong one. Two facts the employee holds become two
+facts the record holds, so a term that turns out to be wrong is corrected as a term rather than
+reverse engineered out of a date.
+
+*What this costs:* a value derived into a column can disagree with the inputs it came from, which a
+value computed on the way out never can. The rule that keeps them in step now lives on the write
+path, so every door into the record, the form, the administration site, a migration, an import, has
+to go through it, and the administration site shows the due date read only for that reason.
+Existing rows also carry a term the system does not know: they are backfilled with the start date
+set to the due date they already had and a term of zero, which preserves every due date exactly, so
+no alert changes state and no warning fires twice or goes missing (I1, I3). The price of that is a
+stored term that is honestly wrong for those rows until a human corrects it, and the alternative,
+inventing a plausible term, would be a guess wearing the clothes of a fact.
+
+The field names in code are `start_date` and `term_days`. The Portuguese labels the interface shows
+are `Data de início` and `Prazo (dias)`, and the owner has not settled that wording; a label is one
+line to change and a field name is not, which is the same distinction this project recorded on
+2026-08-28 for the B12 and B13 fields. Code shape, including why the due date stays a column and
+does not become a computed attribute, is `specs/adr/0007-service-term-and-derived-due-date.md`.
+Delivery is backlog B19.
 
 ## 4. The WhatsApp integration
 
@@ -473,3 +522,23 @@ configuration floor drops from sixteen characters to three, recorded in
 `specs/adr/0003-secret-path-and-log-redaction.md`. I7 stays as written. What this buys: the short
 address management asked for. What this costs: the application has no access control at all.
 Delivery is backlog B18.
+
+2026-08-31, revision, owner decision, foundation v0.3. Section 3 stops asking the employee for a due
+date and asks for the date the service starts and a term in days, with the due date derived from the
+two and still stored; the new section 3.3 carries the decision, and sections 1 and 3 are reworded in
+the same pass wherever they said the form asks for a due date. Rows written before the term existed
+are backfilled with the start date set to their due date and a term of zero, so no due date moves
+and therefore no alert changes state (I1, I3). What this buys: the record holds the two facts the
+business actually has, instead of the one number an employee computed from them in their head. What
+this costs: a derived column that every write path has to keep true, and a stored term that is wrong
+for the backfilled rows until a human corrects it. Shape in
+`specs/adr/0007-service-term-and-derived-due-date.md`; delivery is backlog B19.
+
+2026-08-31, revision, owner decision, in the same v0.3 pass. The company withdrew the five services
+under `Sustentabilidade e ESG`, so the category is deactivated and section 3.2 carries a dated note
+saying so. Rule 3 of section 3.1 governs: a withdrawn service is deactivated and never deleted, both
+catalogue foreign keys are `PROTECT`, and a tracked record already points at one of the five. The
+table of section 3.2 keeps all fifteen rows because it is the July 2026 declaration and not a
+production table. What this buys: the registration form stops offering work the company does not do.
+What this costs: nothing the existing records notice, since a deactivated category hides its
+services from the form and hides nothing else. Delivery is backlog B20.
