@@ -84,18 +84,45 @@ branch `b9-scheduler` by developer B, shape in `specs/adr/0002-scheduler-contain
 with `just gate` (ruff, `mypy --strict`, 106 tests, gitleaks) and a one-shot `docker compose run`
 of the service on 2026-08-28; merged to `main` by pull request #8.
 
-**B10. CSV export.** `todo`. One button, one streamed query, one row per record. Trace: foundation
-section 7, the performance rule in section 8. The row grew on 2026-08-28: it now carries the
-category, the catalogue service, the observation and the submitter display name, reached through
-`select_related` so the constant-query promise holds (B12, B13). It grew again on 2026-08-31: the
+**B10. CSV export.** `done (2026-08-31)`. One button, one streamed query, one row per record.
+Trace: foundation section 7, the performance rule in section 8. The row grew twice: on 2026-08-28
+it took the category, the catalogue service, the observation and the submitter display name (B12,
+B13), and on 2026-08-31 the start date and the term (B19), reached through `select_related` so the
+constant-query promise holds. The shaping of one record into one row is a pure function in
+`core/export.py` with no Django import, which is the shape `specs/testing.md` names for a decision.
+Measured at **one** query for the whole file, proved by consuming `streaming_content` inside the
+counter, because a lazy generator runs no query during the request itself and a naive test would
+assert nothing; the window that wrote it also removed `select_related` and watched the test fail
+before restoring the line. The file is UTF-8 with a byte order mark and semicolon separated, which
+is a module constant and not configuration on B17's precedent, chosen so it opens correctly in both
+Excel under a Portuguese locale and Google Sheets; **that last claim is reasoned and not measured**,
+because no Excel exists on any machine this was built on, and one double click settles it. Exports
+the whole dataset and not the current page or search, which is what foundation section 7 decides
+and which is worth an owner sentence, since an employee who searched and then exported receives
+every record the company owns. Verified with `just gate` (ruff, `mypy --strict`, 375 tests,
+gitleaks) and `just manage makemigrations --check` on 2026-08-31. It grew again on 2026-08-31: the
 start date and the term in days sit beside the due date, which is derived from them and stays in the
 row because it is what the warnings measure against (B19).
 
-**B11. Deployment.** `blocked on OQ-2`. The always-on host, Cloudflare in front, the production env
-file created on the host and never in the repository. Also needs the final message wording (OQ-3),
-which can land as a config change at any point before go-live. Trace: foundation section 8, I5, I6.
-It stays the last item to run whatever else enters version 1, and B12's deleting data migration
-assumes it has not run yet.
+**B11. Deployment.** `todo`, unblocked on 2026-08-31 when OQ-2 closed. The VPS, `cloudflared` in
+the Compose stack fronting it by Tunnel, and the production env file created on the host and never
+in the repository. The final message wording (OQ-3) is no longer a precondition: the owner decision
+of 2026-08-31 ships this in two phases and the first one carries no WhatsApp delivery at all, so
+the alert `scheduler` service does not deploy and the template stays a placeholder until phase two.
+Trace: foundation section 8, section 6, I5, I6.
+
+The step that carries the risk is not ours and has to be written down before anybody runs it. The
+domain already serves another production system of the company and its DNS is not on Cloudflare
+today, so a Tunnel hostname means moving the whole zone's nameservers, which puts a live system
+behind a change made for this one. Two things break silently in that move and neither is visible
+from this repository: a record that Cloudflare's import scan did not find, email above all, since
+missing `MX`, `SPF`, `DKIM` or `DMARC` records fail quietly for days rather than loudly at once;
+and DNSSEC left enabled at the registrar while the nameservers change, which breaks resolution for
+the whole domain until the old `DS` record is withdrawn. The existing system's records go in as
+proxy off, so nothing about how it is served changes, only who answers the queries.
+
+B12's deleting data migration still assumes this item has not run, and the moment it does that
+precondition is spent.
 
 **B12. Service catalogue.** `done (2026-08-28)`. The two reference tables, `ServiceCategory` and
 `CatalogService`, seeded from the July 2026 declaration by a data migration and registered in the
