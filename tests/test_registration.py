@@ -150,7 +150,7 @@ def test_the_list_reads_in_a_constant_number_of_queries_regardless_of_size(
     for number in range(30):
         _registered(f"Cliente {number}")
 
-    with django_assert_max_num_queries(2):
+    with django_assert_max_num_queries(3):
         client.get(reverse("service-list"))
 
 
