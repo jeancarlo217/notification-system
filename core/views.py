@@ -1,13 +1,22 @@
-from collections.abc import Iterable, Sequence
+import datetime
+from collections.abc import Iterable, Iterator, Sequence
 from dataclasses import dataclass
 
 from django.core.paginator import Page, Paginator
 from django.db.models import Q, QuerySet
-from django.http import HttpRequest, HttpResponse
+from django.http import HttpRequest, HttpResponse, StreamingHttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
 from core.audit import log_service_submission
+from core.export import (
+    BYTE_ORDER_MARK,
+    EXPORT_HEADER,
+    ExportedService,
+    csv_line,
+    export_filename,
+    export_row,
+)
 from core.forms import DueDateForm, ServiceRegistrationForm
 from core.models import Alert, Service
 from deadliner.config import get_config
@@ -131,6 +140,61 @@ def service_complete(request: HttpRequest, pk: int) -> HttpResponse:
     service.save(update_fields=["status"])
     log_service_submission(service.pk, service.submitter_id)
     return redirect("service-list")
+
+
+def service_export(request: HttpRequest) -> StreamingHttpResponse:
+    """Every service record as one CSV row, streamed (foundation section 7).
+
+    The whole dataset and never the page or the search on screen: B17 narrows how the list is
+    read, never what the company owns.
+    """
+    timezone = get_config().timezone
+    taken_on = datetime.datetime.now(tz=timezone).date()
+    return StreamingHttpResponse(
+        _export_lines(timezone),
+        content_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{export_filename(taken_on)}"'},
+    )
+
+
+def _export_lines(timezone: datetime.tzinfo) -> Iterator[str]:
+    """The file one line at a time, so no run of it ever holds the whole table in memory."""
+    yield BYTE_ORDER_MARK + csv_line(EXPORT_HEADER)
+    for service in _exportable():
+        yield csv_line(export_row(_exported(service), timezone))
+
+
+def _exportable() -> Iterator[Service]:
+    """Every record with the two references it names, read in one query (foundation section 8).
+
+    ``iterator`` is what keeps the rows off the heap: the query streams in chunks whatever the
+    table holds, and the deadline order is the one the list already shows.
+    """
+    return (
+        Service.objects.select_related("catalog_service__category", "submitter")
+        .order_by("due_date", "pk")
+        .iterator()
+    )
+
+
+def _exported(service: Service) -> ExportedService:
+    """One persisted record as the plain data the row decision takes.
+
+    The catalogue entry and the submitter resolve to columns here, which is what keeps the
+    flatness promise of foundation section 3 true through two foreign keys.
+    """
+    return ExportedService(
+        client=service.client,
+        category=service.catalog_service.category.name,
+        service=service.catalog_service.name,
+        notes=service.notes,
+        start_date=service.start_date,
+        term_days=service.term_days,
+        due_date=service.due_date,
+        status=service.get_status_display(),
+        submitter=service.submitter.display_name,
+        created_at=service.created_at,
+    )
 
 
 def health(request: HttpRequest) -> HttpResponse:
