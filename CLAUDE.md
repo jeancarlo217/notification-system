@@ -57,10 +57,11 @@ VPS behind its nginx, with `web` and `backup` running and `scheduler` deliberate
 colliding with Portainer, every POST refused until the proxy hop was declared, a backup that could
 not write because the repository was cloned by root, and a date read month first by a browser in
 another locale (B23). Three were invisible to the suite.
-What version 1 still owes: B8 behind OQ-1, which is the whole of phase two; B24, the date field's
-mask, picker and help text; and the rest of B11, whose Cloudflare Tunnel waits on the zone
-migration that travels with Ecobalance 2.0, so the audit trail carries no IP and no country until
-then.
+What version 1 still owes: B8 behind OQ-1, which is the whole of phase two; the rest of B11, whose
+Cloudflare Tunnel waits on the zone migration that travels with Ecobalance 2.0, so the audit trail
+carries no IP and no country until then; and B25, opened by owner request on 2026-09-01 and `todo`,
+which turns the deadline edit into one screen editing every field of the record, split between a
+backend half and a frontend half. B24, the date field's mask, picker and help text, is done.
 Stack, decided in the foundation: Python 3.13, Django 5.2 LTS with server-rendered templates and
 Django Forms, SQLite on a Docker volume, a plain virtualenv with pip and pinned requirements files,
 `mypy --strict` with django-stubs, ruff, pytest with pytest-django, Docker Compose from the first

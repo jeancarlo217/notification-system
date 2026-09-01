@@ -432,6 +432,130 @@ pasting `05-09-2026`, overflowing past ten characters, deleting mid entry, and t
 which comes back empty. If that is wanted as a gate rather than a measurement, it needs a runner in
 `requirements-dev.txt` or its equivalent, and that is a decision, not an oversight.
 
+**B25. One edit screen for the whole record.** `todo`. Opened by owner request on 2026-09-01. The
+list's `Editar vencimento` becomes `Editar`, and the screen behind it stops being the two field
+deadline edit: it shows every field the record holds, filled with what it holds today, and saving
+writes all of them. Trace: foundation section 3 (the record and the human actions on it), section
+3.3 with `specs/adr/0007-service-term-and-derived-due-date.md` (the due date is derived from the
+start date and the term and is never an input), section 3.1 with
+`specs/adr/0005-service-catalogue.md` (what a service is comes from the catalogue), section 10 (an
+edit does not ask the submitter again), section 12 for the Portuguese interface.
+
+**This item was opened as B23 and is renumbered here, because both the number and the text were
+lost.** B23 was already the date item delivered on 2026-08-31, so the file carried two items under
+one identifier for as long as the text existed at all; and the text did not survive, because
+`6c373a9` merged `main` into `b23-open-full-edit-item` and resolved this file to main's side,
+deleting the block while the log line at the end of the file kept pointing at it. The same merge
+dropped the paragraph the pass had written into `CLAUDE.md`. Recovered from `8a82607` on
+2026-09-01 and renumbered to the next free identifier; the log line and `CLAUDE.md` are corrected
+in the same pass.
+
+The fields the screen edits are the five the registration form asks for: client, catalogue service,
+observation, start date, term in days. Four things stay outside it, written here so that nobody
+widens the item silently. Status stays out, because completing a service is the `Concluir` button
+of foundation section 3. The submitter stays out, both as an input and as a line of text, because
+section 10 decides that the submitter belongs to the record and an edit does not ask again, and
+`tests/test_submitter.py` already asserts that the edit screen carries neither the field nor the
+word `Responsável`; that test stays green untouched, which is the check that this item did not
+reopen section 10. The due date stays out, because it is derived by `Service.save` on every write
+and an input for it would be undone by the next save. And nothing here records who changed what or
+when, because editing history is a non-goal of section 10; the audit entry every submission already
+writes (I6) stays the whole record of the change.
+
+What an edit means to the warnings does not change either: a deadline moved forward keeps the alert
+rows it already has, so a threshold already sent is not sent again, which is I1 as written and not a
+defect this item introduces.
+
+**Developer 1, the backend.** Owns `core/urls.py`, `core/views.py`, `core/forms.py`,
+`tests/builders.py` and the behaviour tests under `tests/test_registration.py`.
+
+1. The route, the view and the form take the name of what they now do: `/<pk>/vencimento/` becomes
+   `/<pk>/editar/`, the route name `service-due-date` becomes `service-edit`, `service_due_date`
+   becomes `service_edit`, and `DueDateForm` becomes `ServiceEditForm`. Every caller reverses the
+   route name, as the prefix change of 2026-08-31 showed, so the sixteen call sites across the
+   suite move with the name and nothing else does.
+2. The form asks for the five fields with the same labels, the same widgets and the same two
+   combobox widgets the registration form uses, and the part the two forms share is one base class
+   and not a second copy, because two copies of a label drift apart on the first rename.
+3. **The trap that would otherwise lose a record.** `offered_catalog_services()` returns only active
+   entries under active categories, and B20 deactivated the five ESG services while a tracked record
+   still points at `Inventário de GEE`. An edit form built on that queryset alone refuses to
+   validate that record or renders it with the field empty, so a record the item promised stays
+   editable becomes uneditable, or is saved onto a different service by whoever picks the first
+   entry in the menu. The edit form's queryset is the offered catalogue plus the entry the record
+   currently holds, and the behaviour test for it is exactly that record: the screen shows the
+   deactivated entry, saving without touching the field keeps it, and the registration form still
+   does not offer it to anybody.
+4. `edit_payload` in `tests/builders.py` grows the three fields the form now requires, so the
+   existing edit tests in five files keep posting something a browser could have posted.
+5. The audit entry keeps firing on the edit with the record's own `submitter_id` (I6), and the due
+   date keeps being derived on save from the two inputs (ADR 0007), asserted by a test that changes
+   the term and reads the new due date out of the database.
+
+**Developer 2, the frontend.** Owns `core/templates/core/service_list.html`,
+`core/templates/core/service_form.html`, `_styles.html` and the tests under
+`tests/test_interface.py` and `tests/test_responsive_layout.py`.
+
+1. The list's action reads `Editar` in both layouts B21 delivered, the table above 68rem and the
+   cards below it, with `Concluir` beside it as today.
+2. The edit screen reuses the registration layout rather than inheriting the narrow one: two columns
+   from 48rem with the start date and the term side by side, the observation box at three rows, and
+   the head reading `Editar serviço` over the line that already names the client and the service.
+3. The two comboboxes render with the record's current value selected. This is the failure mode of a
+   widget written for an empty form: the hidden input carries the value and the visible box shows
+   the placeholder, so the employee sees an empty field over a filled record and picks again.
+4. The interface test asserting `Editar vencimento` is rewritten around the new word, and the layout
+   claim is written only with the screenshot that verified it, at the widths B21 measured: 360, 414,
+   768, 1024, 1088 and 1280 CSS pixels.
+
+**Three rules that make the split safe.** The route name `service-edit` is agreed before either
+developer starts, so both write against it and the wait between them is a merge and never a design.
+Developer 1's branch merges first, since a template cannot reverse a name that does not exist yet,
+and developer 2 rebases on it. And neither developer edits the other's test file: a rename that
+breaks a test on the other side is reported, not repaired in place, because a window that repairs a
+test it does not own is how a red test becomes a silently weakened one.
+
+Both halves are delivered test first through the two windows of `specs/testing.md`, and the item is
+done when the gate is green on the merged tree and the fan-out has run.
+
+**The backend half merged on 2026-09-01** by pull request #27, under the old number, with the five
+field `ServiceRecordForm` shared by both screens, `editable_catalog_services` widening the menu by
+the entry the record holds, and the head already reading `Editar serviço`. It left one red test
+behind on purpose, `test_interface.py` asserting the old word, which is the third rule of the split
+working rather than failing.
+
+**The frontend half is written and the gate is green**, and two of its four points cost nothing,
+which is worth writing down rather than claiming as work. Point 1 is the button, now `Editar` in
+the one template both layouts render. Point 2 was almost entirely already true: `.form` has been
+two columns from 48rem since B21 and the pair of section 3.3 has been sitting on one row since
+then, so the only change it needed was the observation box, which opened at six rows and now opens
+at three, because six empty rows under a five field form is scrolling bought with nothing and the
+script grows the box past three the moment there is text to hold. **Point 3 was a defect that did
+not happen.** The prediction was a filled record under an empty box; the test written for it passed
+before any change, because Django marks the option `selected` and the enhancement script reads that
+option to fill the visible input, which the widget of B14 got right the first time. The test stays,
+since what it guards is real even though it never caught anything.
+
+**Point 4 is not finished, and the item is not done because of it.** The interface test is
+rewritten around the new word and three more were added, but the six screenshots B21 measured at
+have not been taken: no browser tooling was reachable in the session that wrote this, and this
+project has never had a headless one, so adding it would be a dependency decision nobody has taken,
+the same shape as B24's missing JavaScript runner. No layout claim above is written on a
+screenshot, which is why each one names the CSS rule or the rendered attribute a test reads
+instead. The screenshots are what closes this item.
+
+Verified with `just gate` (ruff, `mypy --strict`, 422 tests, gitleaks) and
+`just manage makemigrations --check` on 2026-09-01, and then **against a running server rather
+than the test client alone**, because a green suite says the code answers its own tests and not
+that an employee can save a record. Loading `/<pk>/editar/` rendered the five fields carrying the
+record's values, the start date in Brazilian order and the catalogue option marked `selected`;
+posting all five wrote all five, the due date derived to the day the term asks for, status and
+submitter stayed untouched, and the audit entry fired with the record's own submitter (I6). The
+retired entry case was exercised on the record the item names, `Sitio Santa Fe` pointing at
+`Inventário de GEE`: its edit screen renders the deactivated option selected, saving keeps it, and
+the registration screen offers it to nobody. The refusals were checked too, a date reading
+`amanha` and an empty client both coming back as the form with its message and nothing written.
+
 Delivery order for the four items above, decided on 2026-08-28: B14 runs first because B12 and B13
 consume its widgets; then B12 and B13 together through one pair of windows, because they touch the
 same model, the same form and the same migration sequence, and splitting them would mean two
@@ -571,9 +695,14 @@ the gate line goes into each item when it is green.
 
 2026-08-31: B10's exported row grew again, by the start date and the term in days B19 adds.
 
-2026-09-01: B23 opened by owner request: the list button becomes `Editar` and the screen behind it
+2026-09-01: B25 opened by owner request: the list button becomes `Editar` and the screen behind it
 edits every field of the record instead of the deadline alone, split between a backend half (the
 route rename, the widened form, the catalogue queryset that has to include a deactivated entry a
 record already holds) and a frontend half (the button word, the form layout, the comboboxes filled
 with current values). Status, the submitter, the due date and any editing history stay outside it,
 which is foundation sections 3, 3.3 and 10 unchanged.
+
+2026-09-01: that item was opened as B23, under a number the date item had held since 2026-08-31,
+and the merge `6c373a9` then deleted its text from this file while leaving the log line above
+pointing at it. Recovered from `8a82607`, renumbered B25, and the paragraph the same merge dropped
+from `CLAUDE.md` restored beside it. Nothing about the item changed; it was unreadable, not wrong.

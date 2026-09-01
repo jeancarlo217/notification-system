@@ -178,7 +178,7 @@ class ServiceRecordForm(ServiceModelForm):
         }
         widgets: ClassVar[dict[str, object]] = {
             "client": forms.TextInput,
-            "notes": forms.Textarea(attrs={"rows": 6}),
+            "notes": forms.Textarea(attrs={"rows": 3}),
             **_term_widgets(),
         }
 

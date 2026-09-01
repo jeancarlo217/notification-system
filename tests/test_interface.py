@@ -10,6 +10,7 @@ The widgets are exercised through the throwaway forms defined here, never by edi
 ``core/forms.py``: B14 delivers the widget, the next task assigns it to a field.
 """
 
+import datetime
 import re
 
 import pytest
@@ -211,15 +212,50 @@ def test_the_registration_screen_names_its_action_and_its_way_back(client: Clien
     assert f'href="{reverse("service-list")}"' in page
 
 
-def test_the_due_date_screen_names_its_action_and_its_way_back(client: Client) -> None:
-    """Foundation section 3: the due date edit is its own screen, with its own verb."""
+def test_the_edit_screen_names_its_action_and_its_way_back(client: Client) -> None:
+    """Foundation section 3: the record edit is its own screen, with its own verb (B25)."""
     service = _registered()
 
     page = _page(client, "service-edit", service.pk)
 
-    assert "Editar vencimento" in page
+    assert "Editar serviço" in page
     assert "Salvar" in page
     assert "Cancelar" in page
+
+
+def test_the_edit_screen_shows_every_field_filled_with_what_the_record_holds(
+    client: Client,
+) -> None:
+    """B25: a screen that edits the whole record starts from the whole record, or it blanks it."""
+    service = a_service(
+        client="Fazenda Santa Rita",
+        notes="Renovação bienal",
+        start_date=datetime.date(2027, 3, 14),
+        term_days=45,
+    )
+
+    page = _page(client, "service-edit", service.pk)
+
+    assert 'value="Fazenda Santa Rita"' in page
+    assert "Renovação bienal" in page
+    assert 'value="14/03/2027"' in page
+    assert 'value="45"' in page
+
+
+def test_the_edit_screen_marks_the_catalogue_entry_the_record_already_holds(
+    client: Client,
+) -> None:
+    """B25: an unselected menu over a filled record is an employee picking the service again.
+
+    The value lives on the native ``select``, which is what the form posts and what the
+    enhancement script reads to fill the visible box, so an option missing ``selected`` shows an
+    empty field over a record that is not empty.
+    """
+    service = _registered()
+
+    page = _page(client, "service-edit", service.pk)
+
+    assert f'<option value="{service.catalog_service.pk}" selected>' in page
 
 
 def test_the_list_screen_names_its_columns_in_portuguese(client: Client) -> None:
@@ -240,9 +276,7 @@ def test_the_list_screen_names_its_columns_in_portuguese(client: Client) -> None
         assert heading in page
 
 
-def test_a_listed_service_links_to_its_due_date_edit_and_to_its_completion(
-    client: Client,
-) -> None:
+def test_a_listed_service_links_to_its_edit_and_to_its_completion(client: Client) -> None:
     """Foundation section 3: both lifecycle actions are reachable from the row they act on."""
     service = _registered()
 
@@ -251,6 +285,16 @@ def test_a_listed_service_links_to_its_due_date_edit_and_to_its_completion(
     assert f'href="{reverse("service-edit", args=[service.pk])}"' in page
     assert f'action="{reverse("service-complete", args=[service.pk])}"' in page
     assert "Concluir" in page
+
+
+def test_the_list_action_offers_the_record_and_not_only_its_deadline(client: Client) -> None:
+    """B25: the button promises what the screen behind it now does, which is the whole record."""
+    _registered()
+
+    page = _page(client, "service-list")
+
+    assert ">Editar</a>" in page
+    assert "Editar vencimento" not in page
 
 
 def test_the_list_screen_offers_the_registration_screen(client: Client) -> None:
