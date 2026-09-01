@@ -802,8 +802,12 @@ Measured ratios: specs/dependencies.md, B16 section.
     font-size: var(--text-4);
   }
 
+  /* `start` and not the default `stretch`: a cell that grows to the tallest of its row drags its
+     control's height with it, so one field with an error beside one without would sit on two
+     baselines. */
   .form {
     display: grid;
+    align-items: start;
     gap: var(--space-5);
   }
 
@@ -828,7 +832,6 @@ Measured ratios: specs/dependencies.md, B16 section.
      wins on order alone instead of needing a heavier selector to beat this one. */
   :where(
     .field input[type="text"],
-    .field input[type="date"],
     .field input[type="number"],
     .field input[type="email"],
     .field select,
@@ -863,6 +866,51 @@ Measured ratios: specs/dependencies.md, B16 section.
     min-height: calc(3 * 1.6em + 2 * var(--space-2) + 2px);
     line-height: 1.6;
     resize: vertical;
+  }
+
+  /* The typed date and the button that opens a calendar for it, on one line. The native input
+     beside them is the picker's anchor and is never seen: hidden with `display: none` would stop
+     `showPicker()` from having anywhere to open. */
+  .dateinput {
+    display: flex;
+    align-items: stretch;
+    gap: var(--space-2);
+  }
+
+  .dateinput__typed {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .dateinput__open {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    width: var(--touch);
+    min-height: var(--touch);
+    padding: 0;
+    background: var(--panel);
+    border: 1px solid var(--control-border);
+    border-radius: var(--radius-3);
+    color: var(--text-low);
+    cursor: pointer;
+    transition: border-color 120ms ease, color 120ms ease;
+  }
+
+  .dateinput__open:hover {
+    border-color: var(--control-border-hover);
+    color: var(--text-high);
+  }
+
+  .dateinput__native {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    border: 0;
+    opacity: 0;
+    pointer-events: none;
   }
 
   .field--invalid input,

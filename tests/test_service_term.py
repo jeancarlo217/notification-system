@@ -259,7 +259,7 @@ def test_the_edit_screen_offers_the_stored_start_date_and_term(client: Client) -
 
     page = _page(client, "service-due-date", service.pk)
 
-    assert 'value="2026-09-05"' in page
+    assert 'value="05/09/2026"' in page
     assert 'value="20"' in page
 
 

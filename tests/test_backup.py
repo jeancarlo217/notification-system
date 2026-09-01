@@ -12,6 +12,7 @@ shell that wires the two together (specs/testing.md).
 
 import dataclasses
 import datetime
+import os
 import sqlite3
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -121,6 +122,26 @@ def test_retention_refuses_to_keep_nothing() -> None:
     """Foundation section 0.5: a limit that would delete the copy just taken fails loudly."""
     with pytest.raises(ValueError):
         copies_to_discard([backup_filename(a_moment())], keep=0)
+
+
+def test_a_directory_the_process_cannot_write_is_named_as_the_reason(tmp_path: Path) -> None:
+    """Foundation section 0.5: a permission problem says so, in the words of the problem.
+
+    Found on the first real deployment, which the drill could not have found: the repository was
+    cloned by root there, so the bind mounted directory belonged to root while the container runs
+    as another user, and SQLite answered `unable to open database file`, which sends the reader
+    hunting a corrupt database instead of a directory mode.
+    """
+    if os.geteuid() == 0:
+        pytest.skip("root writes whatever the mode says, so this behaviour cannot be exercised")
+    source = a_database(tmp_path / "live.sqlite3", "Fazenda Boa Vista")
+    directory = tmp_path / "unwritable"
+    directory.mkdir(mode=0o500)
+
+    with pytest.raises(BackupError, match="not writable"):
+        copy_database(source, directory / backup_filename(a_moment()))
+
+    source.close()
 
 
 def test_a_copy_opens_as_a_database_and_carries_the_rows_that_were_there(tmp_path: Path) -> None:

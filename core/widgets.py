@@ -67,3 +67,21 @@ class CreatableComboboxWidget(forms.TextInput):
         widget["attrs"].setdefault("autocomplete", "off")
         _add_class(widget["attrs"], "combobox__input")
         return context
+
+
+class BrazilianDateWidget(forms.DateInput):
+    """A typed date in `dd/mm/aaaa`, with a calendar the script can open beside it.
+
+    Never ``type="date"``: that control is drawn in the browser's interface locale, so a date
+    typed day first is read month first and stored months away with no error (B23). The posted
+    value comes from the text input alone, so the form behaves identically with the script blocked.
+    """
+
+    template_name = "core/widgets/date.html"
+
+    def get_context(self, name: str, value: Any, attrs: dict[str, Any] | None) -> dict[str, Any]:
+        context = super().get_context(name, value, attrs)
+        widget: dict[str, Any] = context["widget"]
+        _add_class(widget["attrs"], "dateinput__typed")
+        widget["attrs"]["aria-describedby"] = f"id_{name}_help"
+        return context

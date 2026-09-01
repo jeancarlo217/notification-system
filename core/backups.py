@@ -7,6 +7,7 @@ a connection rather than a path, so a test drives it with any sqlite3 database (
 """
 
 import datetime
+import os
 import re
 import sqlite3
 from collections.abc import Iterable
@@ -57,6 +58,18 @@ def copy_database(source: sqlite3.Connection, destination: Path) -> None:
         raise BackupError(
             "The database connection is inside a transaction, and a copy taken from it would "
             "wait forever on a lock that connection holds itself."
+        )
+
+    # Checked before the attempt so the failure names the directory rather than arriving as
+    # SQLite's `unable to open database file`, which reads like a corrupt database and is not one.
+    # A repository cloned by root leaves a bind mounted directory owned by root while the container
+    # runs as another user, which is how the first real deployment met this (foundation 0.5).
+    directory = destination.parent
+    if not os.access(directory, os.W_OK | os.X_OK):
+        raise BackupError(
+            f"The backup directory {directory} is not writable by the user this process runs as "
+            f"(uid {os.geteuid()}), so no copy can be taken. Give that directory to that user on "
+            f"the host; a repository cloned by root leaves it owned by root."
         )
 
     # Written beside the destination and named only once it is whole, because a half written file

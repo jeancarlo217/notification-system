@@ -11,7 +11,7 @@ from django.forms.models import ModelChoiceIterator
 
 from core.identity import normalize_person_name
 from core.models import CatalogService, Service, Submitter
-from core.widgets import ComboboxWidget, CreatableComboboxWidget
+from core.widgets import BrazilianDateWidget, ComboboxWidget, CreatableComboboxWidget
 
 if TYPE_CHECKING:
     ServiceModelForm = forms.ModelForm[Service]
@@ -29,8 +29,35 @@ else:
 TERM_LABELS = {"start_date": "Data de início", "term_days": "Prazo (dias)"}
 
 
+BRAZILIAN_DATE_FORMAT = "%d/%m/%Y"
+"""How a date is written and read on every screen, which is how the country writes it."""
+
+DATE_HELP_TEXT = "Formato dia, mês e ano, por exemplo 05/09/2026."
+"""The tooltip a browser shows when it refuses the pattern; the widget carries the spoken one."""
+
+
 def _date_input() -> forms.DateInput:
-    return forms.DateInput(format="%Y-%m-%d", attrs={"type": "date"})
+    """A date the employee types, never one the browser draws.
+
+    Deliberately not ``type="date"``: that widget is rendered in the browser's own interface
+    locale and never in the document's, so an employee on an English browser is shown
+    ``mm/dd/yyyy``, types the day first as anybody here would, and the browser reads it as the
+    month. Nothing errors and the deadline lands months away (B23). Parsing is unaffected either
+    way, because the pt-BR locale already puts ``%d/%m/%Y`` ahead of the ISO form.
+    """
+    return BrazilianDateWidget(
+        format=BRAZILIAN_DATE_FORMAT,
+        attrs={
+            "inputmode": "numeric",
+            "placeholder": "dd/mm/aaaa",
+            "autocomplete": "off",
+            "maxlength": "10",
+            # One or two digits for the day and the month, because `%d/%m/%Y` parses `5/9/2026`
+            # and a browser refusing what the server accepts is a worse lie than no refusal.
+            "pattern": r"\d{1,2}/\d{1,2}/\d{4}",
+            "title": DATE_HELP_TEXT,
+        },
+    )
 
 
 def _term_widgets() -> dict[str, object]:

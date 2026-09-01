@@ -51,10 +51,16 @@ database backup with a restore that was actually executed, since the registry ph
 is then the only asset the company owns. OQ-2 closed the same day, Cloudflare by Tunnel, and the
 zone migration was then deferred to the pass that carries Ecobalance 2.0, because the two systems
 that cannot go down gain nothing from moving the zone now for an internal tool.
-What version 1 still owes: the B8 adapter behind OQ-1, B11, unblocked in decision and waiting on
-that zone migration for its hostname, and B23, opened by owner request on 2026-09-01 and `todo`,
-which turns the deadline edit into one screen editing every field of the record, split between a
-backend half and a frontend half.
+**Phase one went live on 2026-08-31** at `avisos.valeverdeambiental.com.br`, on the company's own
+VPS behind its nginx, with `web` and `backup` running and `scheduler` deliberately absent (B11
+`doing`). The first real deployment found four defects nothing else could have: a published port
+colliding with Portainer, every POST refused until the proxy hop was declared, a backup that could
+not write because the repository was cloned by root, and a date read month first by a browser in
+another locale (B23). Three were invisible to the suite.
+What version 1 still owes: B8 behind OQ-1, which is the whole of phase two; B24, the date field's
+mask, picker and help text; and the rest of B11, whose Cloudflare Tunnel waits on the zone
+migration that travels with Ecobalance 2.0, so the audit trail carries no IP and no country until
+then.
 Stack, decided in the foundation: Python 3.13, Django 5.2 LTS with server-rendered templates and
 Django Forms, SQLite on a Docker volume, a plain virtualenv with pip and pinned requirements files,
 `mypy --strict` with django-stubs, ruff, pytest with pytest-django, Docker Compose from the first
@@ -168,7 +174,11 @@ Each cites its invariant in the foundation; the acceptance test lives there in f
 - A layout claim is written only with the screenshot that verified it, the way a state claim is
   written only with its command. Nothing is reached by scrolling sideways; a table that does not
   fit becomes cards (B21, `specs/dependencies.md`).
-- Do not resolve OQ-1, OQ-2 or OQ-3 by inference. They are closed only as the foundation says.
+- OQ-2 closed on 2026-08-31 (Tunnel). Do not resolve OQ-1 or OQ-3 by inference; they are closed
+  only as the foundation says, and both gate phase two rather than going live.
+- Turning phase two on collides with I3's catch-up rule: no alert row exists, so the first
+  successful run owes every warning whose trigger date has passed and sends them at once. Decide a
+  cutoff before switching it on, or the company learns to ignore the warning in week one.
 
 ## Testing and TDD
 
