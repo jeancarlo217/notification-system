@@ -99,3 +99,26 @@ def test_the_two_halves_of_the_deadline_sit_where_the_layout_can_pair_them() -> 
 
     assert 'class="field field--start_date"' in page
     assert 'class="field field--term_days"' in page
+
+
+def test_the_edit_screen_is_laid_out_by_the_same_grid_as_the_registration() -> None:
+    """B25: the edit screen writes the same five fields, so it is placed by the same rules.
+
+    The grid puts a cell where its class says, so a field arriving without one falls into the
+    next free column and the pair of foundation section 3.3 stops sitting on one row.
+    """
+    service = a_service()
+
+    page = Client().get(reverse("service-edit", args=[service.pk])).content.decode()
+
+    for field in ("client", "catalog_service", "notes", "start_date", "term_days"):
+        assert f'class="field field--{field}"' in page
+
+
+def test_the_observation_box_opens_at_the_height_the_row_can_afford() -> None:
+    """B25: six empty rows under a five field form is scrolling bought with nothing.
+
+    The script grows the box as it is typed into and an edit arrives already grown to its text,
+    so the attribute is the floor and never the ceiling.
+    """
+    assert 'rows="3"' in _page("service-create")

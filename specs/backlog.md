@@ -517,6 +517,45 @@ test it does not own is how a red test becomes a silently weakened one.
 
 Both halves are delivered test first through the two windows of `specs/testing.md`, and the item is
 done when the gate is green on the merged tree and the fan-out has run.
+
+**The backend half merged on 2026-09-01** by pull request #27, under the old number, with the five
+field `ServiceRecordForm` shared by both screens, `editable_catalog_services` widening the menu by
+the entry the record holds, and the head already reading `Editar serviço`. It left one red test
+behind on purpose, `test_interface.py` asserting the old word, which is the third rule of the split
+working rather than failing.
+
+**The frontend half is written and the gate is green**, and two of its four points cost nothing,
+which is worth writing down rather than claiming as work. Point 1 is the button, now `Editar` in
+the one template both layouts render. Point 2 was almost entirely already true: `.form` has been
+two columns from 48rem since B21 and the pair of section 3.3 has been sitting on one row since
+then, so the only change it needed was the observation box, which opened at six rows and now opens
+at three, because six empty rows under a five field form is scrolling bought with nothing and the
+script grows the box past three the moment there is text to hold. **Point 3 was a defect that did
+not happen.** The prediction was a filled record under an empty box; the test written for it passed
+before any change, because Django marks the option `selected` and the enhancement script reads that
+option to fill the visible input, which the widget of B14 got right the first time. The test stays,
+since what it guards is real even though it never caught anything.
+
+**Point 4 is not finished, and the item is not done because of it.** The interface test is
+rewritten around the new word and three more were added, but the six screenshots B21 measured at
+have not been taken: no browser tooling was reachable in the session that wrote this, and this
+project has never had a headless one, so adding it would be a dependency decision nobody has taken,
+the same shape as B24's missing JavaScript runner. No layout claim above is written on a
+screenshot, which is why each one names the CSS rule or the rendered attribute a test reads
+instead. The screenshots are what closes this item.
+
+Verified with `just gate` (ruff, `mypy --strict`, 422 tests, gitleaks) and
+`just manage makemigrations --check` on 2026-09-01, and then **against a running server rather
+than the test client alone**, because a green suite says the code answers its own tests and not
+that an employee can save a record. Loading `/<pk>/editar/` rendered the five fields carrying the
+record's values, the start date in Brazilian order and the catalogue option marked `selected`;
+posting all five wrote all five, the due date derived to the day the term asks for, status and
+submitter stayed untouched, and the audit entry fired with the record's own submitter (I6). The
+retired entry case was exercised on the record the item names, `Sitio Santa Fe` pointing at
+`Inventário de GEE`: its edit screen renders the deactivated option selected, saving keeps it, and
+the registration screen offers it to nobody. The refusals were checked too, a date reading
+`amanha` and an empty client both coming back as the form with its message and nothing written.
+
 Delivery order for the four items above, decided on 2026-08-28: B14 runs first because B12 and B13
 consume its widgets; then B12 and B13 together through one pair of windows, because they touch the
 same model, the same form and the same migration sequence, and splitting them would mean two
