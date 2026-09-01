@@ -570,3 +570,10 @@ worktree, so the three land together. None of the three is verified: the canon f
 the gate line goes into each item when it is green.
 
 2026-08-31: B10's exported row grew again, by the start date and the term in days B19 adds.
+
+2026-09-01: B23 opened by owner request: the list button becomes `Editar` and the screen behind it
+edits every field of the record instead of the deadline alone, split between a backend half (the
+route rename, the widened form, the catalogue queryset that has to include a deactivated entry a
+record already holds) and a frontend half (the button word, the form layout, the comboboxes filled
+with current values). Status, the submitter, the due date and any editing history stay outside it,
+which is foundation sections 3, 3.3 and 10 unchanged.
