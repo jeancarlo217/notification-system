@@ -322,7 +322,7 @@ def test_the_due_date_screen_asks_nobody_for_a_name(client: Client) -> None:
     two click action and per action attribution is editing history, deferred in section 10."""
     service = a_service()
 
-    page = _page(client, "service-due-date", service.pk)
+    page = _page(client, "service-edit", service.pk)
 
     assert 'name="submitter"' not in page
     assert "Responsável" not in page
@@ -335,9 +335,7 @@ def test_editing_a_due_date_leaves_the_record_pointing_at_who_registered_it(
     registrant = a_submitter("Marina Nogueira")
     service = a_service(submitter=registrant)
 
-    client.post(
-        reverse("service-due-date", args=[service.pk]), edit_payload(start_date="2027-01-10")
-    )
+    client.post(reverse("service-edit", args=[service.pk]), edit_payload(start_date="2027-01-10"))
 
     service.refresh_from_db()
     assert service.due_date == datetime.date(2027, 1, 10)

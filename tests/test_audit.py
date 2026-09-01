@@ -152,7 +152,7 @@ def test_an_edit_is_audited_against_the_submitter_who_registered_the_record(
     service = a_service(submitter=registrant)
 
     client.post(
-        reverse("service-due-date", args=[service.pk]),
+        reverse("service-edit", args=[service.pk]),
         edit_payload(start_date="2027-01-10"),
         headers=CLOUDFLARE_HEADERS,
     )
@@ -182,7 +182,7 @@ def test_a_due_date_edit_is_audited_against_the_record_it_touched(
     service = _registered()
 
     client.post(
-        reverse("service-due-date", args=[service.pk]),
+        reverse("service-edit", args=[service.pk]),
         edit_payload(start_date="2027-01-10"),
         headers=CLOUDFLARE_HEADERS,
     )

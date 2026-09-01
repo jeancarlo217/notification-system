@@ -79,6 +79,6 @@ def test_a_stored_date_is_shown_back_in_the_order_it_was_typed() -> None:
     """B23: a screen that reads a date back differently from how it took it teaches distrust."""
     service = a_service(start_date=datetime.date(2026, 9, 5), term_days=30)
 
-    page = _page("service-due-date", service.pk)
+    page = _page("service-edit", service.pk)
 
     assert 'value="05/09/2026"' in page
