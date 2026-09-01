@@ -51,8 +51,10 @@ database backup with a restore that was actually executed, since the registry ph
 is then the only asset the company owns. OQ-2 closed the same day, Cloudflare by Tunnel, and the
 zone migration was then deferred to the pass that carries Ecobalance 2.0, because the two systems
 that cannot go down gain nothing from moving the zone now for an internal tool.
-What version 1 still owes: the B8 adapter behind OQ-1, and B11, unblocked in decision and waiting on
-that zone migration for its hostname.
+What version 1 still owes: the B8 adapter behind OQ-1, B11, unblocked in decision and waiting on
+that zone migration for its hostname, and B23, opened by owner request on 2026-09-01 and `todo`,
+which turns the deadline edit into one screen editing every field of the record, split between a
+backend half and a frontend half.
 Stack, decided in the foundation: Python 3.13, Django 5.2 LTS with server-rendered templates and
 Django Forms, SQLite on a Docker volume, a plain virtualenv with pip and pinned requirements files,
 `mypy --strict` with django-stubs, ruff, pytest with pytest-django, Docker Compose from the first
