@@ -215,7 +215,7 @@ def test_the_due_date_screen_names_its_action_and_its_way_back(client: Client) -
     """Foundation section 3: the due date edit is its own screen, with its own verb."""
     service = _registered()
 
-    page = _page(client, "service-due-date", service.pk)
+    page = _page(client, "service-edit", service.pk)
 
     assert "Editar vencimento" in page
     assert "Salvar" in page
@@ -248,7 +248,7 @@ def test_a_listed_service_links_to_its_due_date_edit_and_to_its_completion(
 
     page = _page(client, "service-list")
 
-    assert f'href="{reverse("service-due-date", args=[service.pk])}"' in page
+    assert f'href="{reverse("service-edit", args=[service.pk])}"' in page
     assert f'action="{reverse("service-complete", args=[service.pk])}"' in page
     assert "Concluir" in page
 

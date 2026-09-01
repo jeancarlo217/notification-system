@@ -394,12 +394,14 @@ def test_a_record_pointing_at_a_deactivated_entry_is_still_editable(client: Clie
     retired.save(update_fields=["is_active"])
 
     response = client.post(
-        reverse("service-due-date", args=[service.pk]), edit_payload(start_date="2027-01-10")
+        reverse("service-edit", args=[service.pk]),
+        edit_payload(catalog_service=str(retired.pk), start_date="2027-01-10"),
     )
 
     service.refresh_from_db()
     assert response.status_code == 302
     assert service.due_date == datetime.date(2027, 1, 10)
+    assert service.catalog_service == retired
 
 
 @override_settings(DEADLINER=TEST_DEADLINER)
@@ -452,12 +454,14 @@ def test_a_record_under_an_inactive_category_is_still_editable(client: Client) -
     category.save(update_fields=["is_active"])
 
     response = client.post(
-        reverse("service-due-date", args=[service.pk]), edit_payload(start_date="2027-01-10")
+        reverse("service-edit", args=[service.pk]),
+        edit_payload(catalog_service=str(entry.pk), start_date="2027-01-10"),
     )
 
     service.refresh_from_db()
     assert response.status_code == 302
     assert service.due_date == datetime.date(2027, 1, 10)
+    assert service.catalog_service == entry
 
 
 @override_settings(DEADLINER=TEST_DEADLINER)

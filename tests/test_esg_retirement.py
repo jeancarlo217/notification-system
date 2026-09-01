@@ -123,13 +123,59 @@ def test_a_deadline_pointing_at_a_retired_esg_service_is_still_editable(client: 
     service = _tracked_deadline()
 
     response = client.post(
-        reverse("service-due-date", args=[service.pk]),
-        edit_payload(start_date="2026-09-30", term_days="10"),
+        reverse("service-edit", args=[service.pk]),
+        edit_payload(
+            catalog_service=str(service.catalog_service_id),
+            start_date="2026-09-30",
+            term_days="10",
+        ),
     )
 
     service.refresh_from_db()
     assert response.status_code == 302
     assert service.due_date == datetime.date(2026, 10, 10)
+
+
+def test_the_edit_screen_shows_the_retired_entry_the_record_already_holds(client: Client) -> None:
+    """B23: `offered_catalog_services` returns active entries under active categories, and a
+    record points at one of the five the company retired. An edit form built on that queryset
+    alone renders the field empty, so the employee sees a blank menu over a filled record and
+    the next save moves the deadline onto whatever they pick."""
+    service = _tracked_deadline()
+
+    page = _page(client, "service-edit", service.pk)
+
+    assert TRACKED_SERVICE in page
+    assert f'value="{service.catalog_service_id}" selected' in page
+
+
+def test_saving_the_edit_screen_untouched_keeps_the_retired_entry(client: Client) -> None:
+    """B23 with foundation section 3.1 rule 3: a record the item promises stays editable must
+    survive being saved, or deactivation reaches a tracked deadline after all."""
+    service = _tracked_deadline()
+
+    response = client.post(
+        reverse("service-edit", args=[service.pk]),
+        edit_payload(
+            client=service.client,
+            catalog_service=str(service.catalog_service_id),
+            start_date="28/08/2026",
+        ),
+    )
+
+    service.refresh_from_db()
+    assert response.status_code == 302
+    assert service.catalog_service.name == TRACKED_SERVICE
+
+
+def test_the_edit_screen_widens_the_menu_for_nobody_but_the_record_that_holds_it(
+    client: Client,
+) -> None:
+    """B23: the edit form carries the entry its own record holds, and that is the whole of the
+    widening. The registration form still offers the retired services to nobody."""
+    _tracked_deadline()
+
+    assert TRACKED_SERVICE not in _page(client, "service-create")
 
 
 @override_settings(DEADLINER=TEST_DEADLINER)

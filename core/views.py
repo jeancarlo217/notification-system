@@ -17,7 +17,7 @@ from core.export import (
     export_filename,
     export_row,
 )
-from core.forms import DueDateForm, ServiceRegistrationForm
+from core.forms import ServiceEditForm, ServiceRegistrationForm
 from core.models import Alert, Service
 from deadliner.config import get_config
 
@@ -122,14 +122,20 @@ def service_create(request: HttpRequest) -> HttpResponse:
     return render(request, "core/service_form.html", context)
 
 
-def service_due_date(request: HttpRequest, pk: int) -> HttpResponse:
-    service = get_object_or_404(Service, pk=pk)
-    form = DueDateForm(request.POST or None, instance=service)
+def service_edit(request: HttpRequest, pk: int) -> HttpResponse:
+    """One screen for the whole record (B23): every field it holds, edited together.
+
+    The audit entry carries the record's own submitter and never one asked for here, because
+    attribution is per record and not per edit (ADR 0006, I6).
+    """
+    # The head names the catalogue entry, so it rides in on the record's own query.
+    service = get_object_or_404(Service.objects.select_related("catalog_service"), pk=pk)
+    form = ServiceEditForm(request.POST or None, instance=service)
     if request.method == "POST" and form.is_valid():
         form.save()
         log_service_submission(service.pk, service.submitter_id)
         return redirect("service-list")
-    context = {"form": form, "title": "Editar vencimento", "action": "Salvar", "service": service}
+    context = {"form": form, "title": "Editar serviço", "action": "Salvar", "service": service}
     return render(request, "core/service_form.html", context)
 
 

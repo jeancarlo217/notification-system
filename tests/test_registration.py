@@ -1,8 +1,9 @@
-"""B4, registration and lifecycle: the registration form, the list, a due date edit, completion.
+"""B4, registration and lifecycle: the registration form, the list, the record edit, completion.
 
 Traces: foundation section 1 (a form with three fields writes flat records and the audience is
 employees of one company), section 3 (status is the whole lifecycle; completing a service or
-editing its due date is a human action through the form), section 12 (the interface is in
+editing the record behind a deadline is a human action through the form), section 12 (the
+interface is in
 Portuguese) and the performance rule of section 8 (a listing reads in a constant number of
 queries, never one per row).
 """
@@ -16,10 +17,11 @@ import pytest
 from django.test import Client
 from django.urls import reverse
 
-from core.forms import ServiceRegistrationForm
+from core.forms import ServiceEditForm, ServiceRegistrationForm
 from core.models import Service
 from tests.builders import (
     DEFAULT_CATALOG_SERVICE,
+    a_catalog_service,
     a_service,
     edit_payload,
     registration_payload,
@@ -214,7 +216,7 @@ def test_editing_the_due_date_persists_the_new_date(client: Client) -> None:
     service = _registered()
 
     response = client.post(
-        reverse("service-due-date", args=[service.pk]), edit_payload(start_date="2027-01-10")
+        reverse("service-edit", args=[service.pk]), edit_payload(start_date="2027-01-10")
     )
 
     service.refresh_from_db()
@@ -223,50 +225,97 @@ def test_editing_the_due_date_persists_the_new_date(client: Client) -> None:
     assert response.headers["Location"] == reverse("service-list")
 
 
-def test_the_due_date_form_changes_the_date_and_nothing_else(client: Client) -> None:
-    """Foundation section 3: the due date edit is one field, so the rest cannot drift through it."""
-    service = _registered()
+def test_the_edit_form_asks_for_every_field_the_record_holds() -> None:
+    """B23: one screen edits the whole record, so the five fields registration asks for are the
+    five this one asks for. Status is the `Concluir` button of foundation section 3, the
+    submitter belongs to the record and not to the edit (section 10), and the due date is derived
+    on every write (ADR 0007), so none of the three is an input here."""
+    assert set(ServiceEditForm().fields) == {
+        "client",
+        "catalog_service",
+        "notes",
+        "start_date",
+        "term_days",
+    }
 
-    client.post(
-        reverse("service-due-date", args=[service.pk]),
+
+def test_editing_a_record_writes_every_field_the_screen_showed(client: Client) -> None:
+    """B23: the screen behind `Editar` stops being the two field deadline edit, so a client
+    renamed, a service corrected and an observation added are saved with the deadline."""
+    service = _registered()
+    corrected = a_catalog_service("Georreferenciamento", category="Geotecnologias", position=1)
+
+    response = client.post(
+        reverse("service-edit", args=[service.pk]),
         edit_payload(
-            start_date="2027-01-10",
-            client="Outro",
-            notes="Outro",
-            status="completed",
+            client="Fazenda Santa Rita",
+            catalog_service=str(corrected.pk),
+            notes="Renovacao pedida pelo cliente",
+            start_date="10/01/2027",
+            term_days="5",
         ),
     )
 
     service.refresh_from_db()
-    assert service.client == "Fazenda Boa Vista"
-    assert service.notes == ""
+    assert response.status_code == 302
+    assert service.client == "Fazenda Santa Rita"
+    assert service.catalog_service == corrected
+    assert service.notes == "Renovacao pedida pelo cliente"
+    assert service.due_date == datetime.date(2027, 1, 15)
+
+
+def test_the_edit_screen_offers_what_the_record_holds(client: Client) -> None:
+    """Foundation section 12: the employee sees what was entered before changing it, which is
+    what makes an edit a correction rather than a retyping."""
+    service = a_service(client="Ceramica Sao Jorge", notes="Renovacao anual")
+
+    page = _page(client, "service-edit", service.pk)
+
+    assert 'value="Ceramica Sao Jorge"' in page
+    assert "Renovacao anual" in page
+    assert f'value="{service.catalog_service_id}" selected' in page
+
+
+def test_an_edit_cannot_complete_a_service(client: Client) -> None:
+    """Foundation section 3: completion is the `Concluir` action, so status is not an input and
+    a posted one is ignored rather than obeyed."""
+    service = _registered()
+
+    client.post(
+        reverse("service-edit", args=[service.pk]),
+        edit_payload(start_date="2027-01-10", status="completed"),
+    )
+
+    service.refresh_from_db()
     assert service.status == "active"
 
 
-def test_the_due_date_form_offers_the_stored_date_as_a_person_here_writes_it(
+def test_the_edit_form_offers_the_stored_date_as_a_person_here_writes_it(
     client: Client,
 ) -> None:
     """Foundation section 12: read back in the order it was typed (B23 replaced the ISO form)."""
     service = _registered()
 
-    assert 'value="25/12/2026"' in _page(client, "service-due-date", service.pk)
+    assert 'value="25/12/2026"' in _page(client, "service-edit", service.pk)
 
 
-def test_an_unreadable_due_date_edit_changes_nothing(client: Client) -> None:
+def test_an_unreadable_edit_changes_nothing(client: Client) -> None:
     """B4: a refused edit leaves the record as it was and shows the form again."""
     service = _registered()
 
     response = client.post(
-        reverse("service-due-date", args=[service.pk]), edit_payload(start_date="x")
+        reverse("service-edit", args=[service.pk]),
+        edit_payload(start_date="x", client="Outro"),
     )
 
     service.refresh_from_db()
     assert response.status_code == 200
     assert service.due_date == datetime.date(2026, 12, 25)
+    assert service.client == "Fazenda Boa Vista"
 
 
-def test_the_due_date_page_of_an_unknown_service_is_not_found(client: Client) -> None:
+def test_the_edit_page_of_an_unknown_service_is_not_found(client: Client) -> None:
     """B4: an identifier that matches no record is a 404."""
-    response = client.get(reverse("service-due-date", args=[9999]))
+    response = client.get(reverse("service-edit", args=[9999]))
 
     assert response.status_code == 404

@@ -18,7 +18,7 @@ from django.test import Client, override_settings
 from django.urls import reverse
 
 from core.engine import run_daily_engine
-from core.forms import DueDateForm
+from core.forms import ServiceEditForm
 from core.models import Service
 from deadliner.config import DeadlinerConfig
 from tests.builders import (
@@ -231,10 +231,14 @@ def test_a_registration_with_no_term_creates_nothing(client: Client) -> None:
     assert Service.objects.count() == 0
 
 
-def test_the_edit_form_asks_for_the_start_date_and_the_term() -> None:
-    """Owner decision, 2026-08-31: the screen that moved a due date now moves the two the
-    deadline derives from, because editing the derived column directly would be undone."""
-    assert set(DueDateForm().fields) == {"start_date", "term_days"}
+def test_the_edit_form_asks_for_the_start_date_and_the_term_and_never_the_due_date() -> None:
+    """Owner decision, 2026-08-31: the screen that moved a due date moves the two the deadline
+    derives from, because editing the derived column directly would be undone by the next save.
+    B23 widened that screen to the whole record and left this unchanged."""
+    fields = set(ServiceEditForm().fields)
+
+    assert {"start_date", "term_days"} <= fields
+    assert "due_date" not in fields
 
 
 def test_editing_the_start_date_and_the_term_recomputes_the_stored_due_date(
@@ -244,7 +248,7 @@ def test_editing_the_start_date_and_the_term_recomputes_the_stored_due_date(
     service = a_service(start_date=datetime.date(2026, 9, 5), term_days=20)
 
     response = client.post(
-        reverse("service-due-date", args=[service.pk]),
+        reverse("service-edit", args=[service.pk]),
         edit_payload(start_date="2026-10-01", term_days="10"),
     )
 
@@ -257,7 +261,7 @@ def test_the_edit_screen_offers_the_stored_start_date_and_term(client: Client) -
     """Foundation section 12: the employee sees what was entered before changing it."""
     service = a_service(start_date=datetime.date(2026, 9, 5), term_days=20)
 
-    page = _page(client, "service-due-date", service.pk)
+    page = _page(client, "service-edit", service.pk)
 
     assert 'value="05/09/2026"' in page
     assert 'value="20"' in page

@@ -95,7 +95,7 @@
                 </ul>
               </td>
               <td role="cell" class="table__actions" data-label="Ações">
-                <a class="btn btn--ghost btn--sm" href="{% url 'service-due-date' row.service.pk %}">Editar vencimento</a>
+                <a class="btn btn--ghost btn--sm" href="{% url 'service-edit' row.service.pk %}">Editar vencimento</a>
                 {% if row.service.status == "active" %}
                   <form class="inline" method="post" action="{% url 'service-complete' row.service.pk %}">
                     {% csrf_token %}

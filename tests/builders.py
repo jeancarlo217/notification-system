@@ -101,8 +101,17 @@ def registration_payload(**overrides: Any) -> dict[str, Any]:
 
 
 def edit_payload(**overrides: Any) -> dict[str, Any]:
-    """What a browser posts to move a deadline, valid unless a caller breaks one field."""
+    """What a browser posts to edit a record, valid unless a caller breaks one field.
+
+    Every field the screen shows and not only the ones a caller changes, because a browser posts
+    the whole form and a payload carrying less would blank what it left out (B23). A caller
+    editing a record that points at a catalogue entry the company retired passes that entry, or
+    the default here moves the record onto another service.
+    """
     payload: dict[str, Any] = {
+        "client": DEFAULT_CLIENT,
+        "catalog_service": str(a_catalog_service().pk),
+        "notes": "",
         "start_date": DEFAULT_START_DATE.isoformat(),
         "term_days": str(DEFAULT_TERM_DAYS),
     }
