@@ -51,6 +51,10 @@ CSRF_COOKIE_SECURE = not DEBUG
 # The business configuration, reached from application code through config.get_config() (I4).
 DEADLINER = _config.deadliner
 
+# The WhatsApp gateway, reached through config.get_evolution_config(), and None where no address
+# for one is configured: phase one runs with no WhatsApp at all (backlog B26).
+EVOLUTION = _config.django.evolution
+
 
 # Application definition
 
