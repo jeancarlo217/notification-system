@@ -82,3 +82,28 @@ longer argues from unguessability. Two things did not change and are worth stati
 look wrong now: the error message still omits the offending value, and the segment is still
 redacted before any line is written (I7). Both are cheap, both are what an invariant asks for while
 it stands, and neither is evidence that the segment is still secret.
+
+Changed 2026-09-02 by the two owner decisions of foundation section 4, v0.4. Three things move in
+this boundary, and the delivery is backlog B26 and B27.
+
+The `Number` row above becomes a destination row. `DEADLINER_WHATSAPP_NUMBER` becomes
+`DEADLINER_WHATSAPP_DESTINATION` and its canonical form is either the digits-only number it already
+accepted or a group identifier, the vendor's `<digits>@g.us`, kept verbatim. The reason column's
+hedge about OQ-1 is answered for this field: the Evolution source at tag `2.3.7` returns any string
+already carrying `@g.us` untouched from `createJid`, and the send body's `number` field is an
+unconstrained string, so one field carries both forms and the loader validates rather than
+transforms. One variable and not two, because two would need a rule about which destination wins
+and foundation section 10 keeps the product at one destination.
+
+`MESSAGE_TEMPLATE_FIELDS` keeps its four names, and `DEADLINER_MESSAGE_TEMPLATE` keeps its meaning
+narrowed to one line of the list. Beside it `DEADLINER_MESSAGE_HEADER` carries what heads the list,
+validated the same way over its own field set, which is the count of warnings and the date. The
+count is a field and not a sentence in code for the same reason every other business string is
+configuration (I4).
+
+The Evolution adapter's own values, the base URL, the API key and the instance name, enter through
+this boundary too rather than through a second reader, because ADR 0001 says nothing else in the
+project reads `os.environ`. They are infrastructure and not business values, so they sit beside
+`DJANGO_DATABASE_PATH` in `DjangoConfig` rather than in `DeadlinerConfig`, and the API key is a
+credential: it never appears in a `ConfigError` message, the same rule the secret path segment
+already carries and for the same reason (I5, I7).

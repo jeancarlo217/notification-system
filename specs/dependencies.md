@@ -56,13 +56,36 @@ Docker Hub tags API, and the source at git tag `2.3.7`. The documentation site m
 | Environment | see `compose.yaml` | official `.env.example`, env reference page | Set in `compose.yaml` under the `evolution` service, only the secrets come from `.env`: `EVOLUTION_API_KEY` (becomes `AUTHENTICATION_API_KEY`, the `apikey` header of every call) and `EVOLUTION_DB_PASSWORD`. `EVOLUTION_SERVER_URL` defaults to `http://localhost:8080`. Telemetry off, `DEL_INSTANCE=false` so a disconnected instance is kept, `LANGUAGE=pt-BR`, `CONFIG_SESSION_PHONE_CLIENT` is the name shown on the phone. Sessions persist in the `evolution_instances` volume. |
 | Endpoints | git tag `2.3.7` | `src/api/dto/sendMessage.dto.ts`, `src/validate/message.schema.ts`, `src/api/routes/sendMessage.router.ts`, doc pages for instance create, connect and connectionState | `POST /instance/create` body `{instanceName, integration: "WHATSAPP-BAILEYS", qrcode: true}`; `GET /instance/connect/{name}` returns `base64` (PNG data URI) and `pairingCode`; `GET /instance/connectionState/{name}` returns `instance.state` in `open`, `close`, `connecting`; `POST /message/sendText/{name}` body `{number, text}` with optional `delay`, `linkPreview`, and the response carries `key.id` and `status`. Trap: the send-text documentation page still shows the v1 body (`textMessage.text`); the 2.3.7 source is the authority and takes top-level `text`. |
 
-Exit criterion of OQ-1 (one real message delivered to the company number) is not yet met. Done on
+Exit criterion of OQ-1, since the owner decision of 2026-09-02 one real message delivered to the
+destination group and not to a number, is not yet met. Done on
 2026-08-28, verified on the owner's machine: `just evolution-up` boots the three services, the
 Prisma migrations run at container start, `GET /` answers `version 2.3.7` and names the manager UI
 at `http://localhost:8080/manager` (login with the API key), `POST /instance/create` created
 `valeverde` in state `connecting`, and `GET /instance/connect/valeverde` returned a QR code that
 `just evolution-qr` saved as a PNG. Not done: pairing the phone (a human scans the QR, which
 rotates every few seconds up to `QRCODE_LIMIT`, so generate it right before scanning) and the send.
+
+Group destination, confirmed 2026-09-02 against the source at git tag `2.3.7`, for the owner
+decision of foundation section 4 v0.4. Three findings, none of them from memory:
+
+| Question | Source consulted | Finding |
+| --- | --- | --- |
+| How a group is addressed | `src/utils/createJid.ts` | `createJid` returns any string already containing `@g.us`, `@s.whatsapp.net` or `@lid` untouched, so a group identifier travels in the same `number` field as a phone number. There is no separate group send endpoint and no second code path in the adapter. |
+| Whether the field validates a shape | `src/validate/message.schema.ts` | `numberDefinition` is `{type: 'string'}` with no pattern, so the vendor accepts anything and the validation that matters is ours, at the configuration boundary (ADR 0001). |
+| How the identifier is obtained | `src/api/routes/group.router.ts` | `GET /group/fetchAllGroups/{instance}` with the optional `getParticipants` query, and `GET /group/findGroupInfos/{instance}?groupJid=...`. The identifier is read from the vendor after the group exists; it is never typed or guessed. |
+
+The official Meta Cloud API was considered as the alternative to the Baileys pairing and rejected
+for this product, from the Meta developer documentation on 2026-09-02: group messaging requires an
+Official Business Account, caps a group at eight participants, and is not offered to numbers
+running on the WhatsApp Business app, which is what this company has. The pairing path in
+`compose.yaml` stays, with the cost written down rather than discovered: it is the unofficial
+protocol, the session lives in the `evolution_instances` volume, and nothing copies that volume, so
+losing it means pairing again with the phone in hand.
+
+No HTTP package was added and none is planned. The adapter of B8 uses `urllib.request` from the
+standard library by the owner decision of 2026-09-02, so the runtime stays at django, gunicorn and
+whitenoise. One POST a day against a service on the same Docker network needs a timeout and an
+error mapping, both of which the adapter writes itself, and nothing a client library adds.
 
 Trap met on the way: after the disk-full incident the locally cached image had zero-byte files
 (`dist/main.js`, `Docker/scripts/*.sh`), so the container exited 0 in silence and restarted in a
@@ -227,3 +250,7 @@ added.
 uv lock was deleted, nothing had been committed with it.
 
 2026-08-28: B2 added the runtime environment section above. No pin changed and no package was added.
+
+2026-09-02: the Evolution section gained the group destination findings, read from the source at git
+tag 2.3.7, and the note that the adapter uses the standard library. No pin changed and no package
+was added.

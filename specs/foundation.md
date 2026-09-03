@@ -1,6 +1,6 @@
 # Deadline Notification System, foundation
 
-Status: active. Version 0.3, 2026-08-31.
+Status: active. Version 0.4, 2026-09-02.
 
 This document is the single source of truth for this project. Every other document, including
 `CLAUDE.md`, the ADRs and any future task spec, derives from it and loses to it on any disagreement.
@@ -226,8 +226,8 @@ runs as a neighboring service in the same Docker Compose stack, opaque to the ap
 its own internal dependencies belonging to it and not to us (OQ-1 covers its exact footprint).
 
 **Decision.** The application talks to a notification provider through a narrow interface sized by
-what the product needs, which is one operation: deliver this text to the configured company
-number, and tell me whether you accepted it. Evolution API is one adapter behind that interface.
+what the product needs, which is one operation: deliver this text to the configured destination,
+and tell me whether you accepted it. Evolution API is one adapter behind that interface.
 Tests use a fake of the interface, never a mock of the vendor.
 
 *What this buys:* the entire alert engine is testable without a network, and if Evolution API is
@@ -241,9 +241,36 @@ into a failed state that a human can see in the interface. The next daily run pi
 never-attempted alerts alike, because both are simply alerts that are owed and not sent. There is
 no silent terminal state (I2), and no alert is delivered twice (I1).
 
-The company's destination number already exists and is configuration, never a literal (I4). The
-message template, Portuguese text with the client, service, due date and days remaining, is also
-configuration; its exact wording is OQ-3.
+**Decision, owner, 2026-09-02: the destination is a WhatsApp group, held in one configuration
+variable.** The warnings land in a group the company's own people are in, not in one person's
+chat, and the variable that names it is the single destination the product has (I4). It accepts
+either a group identifier or a plain number, because the two differ only in the string that goes
+into the same field, and one variable cannot be ambiguous about which destination wins.
+
+*What this buys:* the people who act on a deadline see it at the same moment, and nobody is the
+single point of failure for reading the phone. *What this costs:* everyone in the group sees every
+client name and service, which is a disclosure inside the company and has to be an accepted one;
+and the group identifier is not typed by a human, it is read from the vendor once and pasted into
+configuration, so a group that is deleted and recreated is a configuration change.
+
+The sender is the company's own WhatsApp Business account, paired to the self-hosted instance, and
+it has to be a member of the group. Section 8's stack owns that pairing; OQ-1 covers it.
+
+**Decision, owner, 2026-09-02: one run sends one message, a list of what is expiring.** The daily
+run does not send one message per warning. It renders every warning owed today as one line
+carrying the client, the service and the days remaining, and delivers the whole list as a single
+message. A run that owes nothing sends nothing. When one service owes more than one threshold in
+the same run, which the catch-up rule of section 5 makes possible, it takes one line and every
+owed pair behind it is recorded as sent, so no service is listed twice in one message.
+
+*What this buys:* a person reads one message and sees the whole day, which is what a warning is
+for, and the burst the two phase decision predicted becomes one long message instead of fifty
+short ones. *What this costs:* a failed send fails the whole list rather than one warning, which
+I2 already handles by retrying every unsent warning in the next run's list, and the message can
+grow long enough to be scrolled on the first run after a backlog of deadlines.
+
+The destination and the templates are configuration, never literals (I4). The Portuguese text,
+both the line and whatever heads the list, is still the owner's voice and still OQ-3.
 
 ## 5. Timing and scheduling
 
@@ -267,8 +294,9 @@ in days.
 *What this costs:* nothing intraday can be sent. For this product that is not a loss.
 
 Catch-up rule: at each run, for every active service and every configured threshold whose trigger
-date is on or before today, with no sent alert for that pair, one alert is sent, with the message
-computed at send time from the current record. If runs were missed, warnings arrive late rather
+date is on or before today, with no sent alert for that pair, one alert is owed, and every alert
+owed by that run is delivered together as the single message of section 4, its text computed at
+send time from the current records. If runs were missed, warnings arrive late rather
 than never (I3). "Today" is computed in the America/Campo_Grande timezone from an injected clock.
 
 ## 6. Access, identity and audit
@@ -385,18 +413,21 @@ vendor is chosen in application code.
 
 ## 9. Non-negotiable invariants
 
-**I1. One warning, one message.** For a given service and threshold, at most one WhatsApp message
-is ever delivered, by construction of a uniqueness rule on the persisted alert, never by the
-engine remembering. Acceptance test: run the daily engine twice on the same day against the same
-records; the provider fake records exactly one delivery per owed warning. Scar (design
-reasoning): a retry after a partial failure, or an operator running the command by hand while the
-scheduler also fires, would otherwise message the company phone twice and teach everyone to
-ignore it.
+**I1. One warning, one delivery.** A given service and threshold is carried by at most one
+delivered WhatsApp message, ever, by construction of a uniqueness rule on the persisted alert,
+never by the engine remembering. Since the digest decision of section 4 a message carries many
+warnings, so the guarantee is about the warning and not about the message: no warning appears in
+two delivered messages, and no service appears twice in one. Acceptance test: run the daily engine
+twice on the same day against the same records; the provider fake records one message on the first
+run, listing each owed warning once, and no message at all on the second. Scar (design reasoning):
+a retry after a partial failure, or an operator running the command by hand while the scheduler
+also fires, would otherwise warn the group twice and teach everyone to ignore it.
 
 **I2. Nothing fails silently.** A send attempt that does not succeed leaves the alert in a failed
 state visible in the interface, and the state machine has no terminal state that a human cannot
-see. Acceptance test: with the provider fake rejecting, run the engine; the interface lists the
-alert as failed, and the next run attempts it again. Scar (from the brief): the product exists
+see. A rejected message fails every warning it carried, since none of them reached anybody.
+Acceptance test: with the provider fake rejecting, run the engine; the interface lists every alert
+the message carried as failed, and the next run lists them again. Scar (from the brief): the product exists
 because silent forgetting is the failure mode of the current spreadsheet.
 
 **I3. The schedule survives death.** Which warnings are owed is computed from persisted records
@@ -406,7 +437,7 @@ advance the injected clock past two thresholds with no runs, run once; both warn
 once each. Scar (design reasoning): a host that is off over a weekend, or a crashed container,
 must cost lateness at most, never a lost warning.
 
-**I4. Business values are data.** Thresholds, the destination number, the message template and
+**I4. Business values are data.** Thresholds, the alert destination, the message templates and
 the secret path live in versioned configuration, never as literals in code. Acceptance test: a
 unit test computes the owed warnings under two different threshold configurations and observes
 different schedules with no code change. Scar (prior art): a threshold buried in a function is
@@ -456,9 +487,10 @@ revision that must argue against this line, never a quiet commit.
 **OQ-1. Evolution API self-hosting footprint.** Which image, which version, and which internal
 dependencies (its own database, its own cache) the instance needs. Open because the method
 forbids choosing this from memory. Closed by a spike whose exit criterion is a running Compose
-stack that delivers one real message to the company number, with findings recorded in
-`specs/dependencies.md`. Blocks the Compose entries for the Evolution service and the adapter's
-integration test.
+stack that delivers one real message to the destination group of section 4, with findings recorded
+in `specs/dependencies.md`. Since the destination decision of 2026-09-02 the criterion names the
+group and not a number, because a send that works to a person proves nothing about a send to a
+group. Blocks the Compose entries for the Evolution service and the adapter's integration test.
 
 **OQ-2. Deployment host and Cloudflare mechanism.** **Closed 2026-08-31 by owner decision.** The
 host is a VPS the owner already runs, named on 2026-08-28, reachable over SSH. Cloudflare fronts it
@@ -471,11 +503,13 @@ The application is reached at a subdomain of a domain the company already uses f
 production system, which is what makes the DNS move of B11 a change to something already live and
 not a greenfield step. Delivery is backlog B11.
 
-**OQ-3. Message wording.** The Portuguese template text for each warning. Open because it is the
-owner's voice, not a technical choice. Closed by the owner writing or approving the template.
-Blocks nothing structural; a placeholder template satisfies every test. Since the two phase
-decision of 2026-08-31 it does not gate going live either, because phase one sends no message at
-all; it gates phase two, beside OQ-1.
+**OQ-3. Message wording.** The Portuguese text of the daily list. Open because it is the
+owner's voice, not a technical choice. Its shape stopped being open on 2026-09-02, when the owner
+decided the message is a list whose line carries the client, the service and the days remaining
+(section 4); what is still open is the exact wording of that line and of whatever heads the list.
+Closed by the owner writing or approving both. Blocks nothing structural; a placeholder satisfies
+every test. Since the two phase decision of 2026-08-31 it does not gate going live either, because
+phase one sends no message at all; it gates phase two, beside OQ-1.
 
 ## 12. Development method
 
@@ -578,3 +612,29 @@ table of section 3.2 keeps all fifteen rows because it is the July 2026 declarat
 production table. What this buys: the registration form stops offering work the company does not do.
 What this costs: nothing the existing records notice, since a deactivated category hides its
 services from the form and hides nothing else. Delivery is backlog B20.
+
+2026-09-02, revision, owner decision, foundation v0.4, section 4. The alert destination is a
+WhatsApp group and not one person's chat, held in one configuration variable that accepts a group
+identifier or a plain number. What this buys: everyone who acts on a deadline reads it at the same
+moment. What this costs: every member of the group sees every client name, an internal disclosure
+the owner accepts, and the group identifier is read from the vendor rather than typed, so
+recreating the group is a configuration change. I4's list and OQ-1's exit criterion follow the new
+wording. Delivery is backlog B26.
+
+2026-09-02, revision, owner decision, in the same v0.4 pass, sections 4 and 5 and I1. One run sends
+one message: the day's owed warnings are rendered as one list, one line per service carrying the
+client, the service and the days remaining, and a run that owes nothing sends nothing. I1 now reads
+one warning, one delivery, because a message carries many warnings and the guarantee was always
+about the warning. What this buys: a person reads the whole day in one message, and the burst the
+two phase decision predicted becomes one long message instead of fifty short ones, which is the
+cheapest answer that question has had. What this costs: a rejected send fails every warning it
+carried, which I2 already retries, and the first message after a backlog is long. OQ-3 keeps only
+the wording. Delivery is backlog B27.
+
+2026-09-02, decision, owner, code shape. The Evolution adapter speaks HTTP through the standard
+library and adds no dependency. What this buys: one POST a day against a pinned local service does
+not justify a package, its pin, its research and its supply chain, and the project's runtime stays
+at three packages. What this costs: no connection pooling and no retry helper, neither of which
+this product wants, and the adapter carries its own timeout and its own error mapping by hand.
+Recorded here because it is the kind of choice a later session would otherwise reopen from habit;
+its shape belongs to the ADR that lands with backlog B8.
