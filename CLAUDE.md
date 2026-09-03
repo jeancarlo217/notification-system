@@ -57,11 +57,15 @@ VPS behind its nginx, with `web` and `backup` running and `scheduler` deliberate
 colliding with Portainer, every POST refused until the proxy hop was declared, a backup that could
 not write because the repository was cloned by root, and a date read month first by a browser in
 another locale (B23). Three were invisible to the suite.
-What version 1 still owes: B8 behind OQ-1, which is the whole of phase two; the rest of B11, whose
-Cloudflare Tunnel waits on the zone migration that travels with Ecobalance 2.0, so the audit trail
-carries no IP and no country until then; and B25, opened by owner request on 2026-09-01 and `todo`,
-which turns the deadline edit into one screen editing every field of the record, split between a
-backend half and a frontend half. B24, the date field's mask, picker and help text, is done.
+On 2026-09-02 the owner took two decisions that move foundation section 4 and take the document to
+v0.4: the alert destination is a WhatsApp group held in one configuration variable (backlog B26),
+and one run sends one message listing client, service and days remaining instead of one message per
+warning (backlog B27, I1 reworded to one warning, one delivery). A third decision, code shape, is
+that the Evolution adapter speaks HTTP through the standard library and adds no dependency.
+What version 1 still owes: phase two, which is now B26 and B27, neither blocked, and then B8 behind
+OQ-1; the rest of B11, whose Cloudflare Tunnel waits on the zone migration that travels with
+Ecobalance 2.0, so the audit trail carries no IP and no country until then; and B25, the one screen
+that edits every field of the record, opened on 2026-09-01. B24 is done, on 2026-08-31.
 Stack, decided in the foundation: Python 3.13, Django 5.2 LTS with server-rendered templates and
 Django Forms, SQLite on a Docker volume, a plain virtualenv with pip and pinned requirements files,
 `mypy --strict` with django-stubs, ruff, pytest with pytest-django, Docker Compose from the first
@@ -74,14 +78,14 @@ silently in code.
 
 An internal tool for Vale Verde Ambiental. A form (client, catalogue service, observation, start
 date, term in days, submitter) writes flat records to SQLite; a daily engine computes which
-warnings are owed and sends them to the company's WhatsApp number through a self-hosted Evolution
-API instance; every submission is audited; the dataset exports to CSV. No login and, since the
-owner decision of 2026-08-31, no secret either: the application is served under a short path
-segment meant to be sent to people, so anyone holding or guessing it can read and write everything
-(foundation section 6 v0.2). Do not write code that assumes the segment is unguessable, and do not
-add an access control that the foundation does not decide. Django's admin, with the framework's
-standard authentication, sits inside that segment as a maintenance door and is not the
-employee-facing product.
+warnings are owed and sends them, as one message listing them, to a company WhatsApp group through
+a self-hosted Evolution API instance; every submission is audited; the dataset exports to CSV. No
+login and, since the owner decision of 2026-08-31, no secret either: the application is served
+under a short path segment meant to be sent to people, so anyone holding or guessing it can read
+and write everything (foundation section 6 v0.2). Do not write code that assumes the segment is
+unguessable, and do not add an access control that the foundation does not decide. Django's admin,
+with the framework's standard authentication, sits inside that segment as a maintenance door and is
+not the employee-facing product.
 
 The one idea everything derives from: the truth lives in persisted records. Every run derives
 what is owed from the database and the injected current date, never from process memory, so a
@@ -117,15 +121,17 @@ Do not create folders for anything not yet decided.
 
 Each cites its invariant in the foundation; the acceptance test lives there in full.
 
-- **C1** (I1): at most one WhatsApp message per (service, threshold), enforced by a uniqueness
-  rule on the persisted alert. Test: run the engine twice, observe one delivery per warning.
+- **C1** (I1): a (service, threshold) is carried by at most one delivered message, enforced by a
+  uniqueness rule on the persisted alert. A message carries many warnings since the digest decision
+  of 2026-09-02, so the guarantee is about the warning. Test: run the engine twice, observe one
+  message listing each owed warning once, then no message at all.
 - **C2** (I2): a failed send lands in a visible failed state and is retried next run; no silent
   terminal state exists. Test: failing provider fake, then the interface shows the failure.
 - **C3** (I3): owed warnings are computed from persisted records plus an injected clock; a run
   after missed days sends every never-sent warning once. Test: skip days, run once, each owed
   warning delivered exactly once.
-- **C4** (I4): thresholds (30/7/0 days), destination number, message template and secret path are
-  configuration, never literals. Test: two configs, two schedules, no code change.
+- **C4** (I4): thresholds (30/7/0 days), the alert destination, the message templates and the secret
+  path are configuration, never literals. Test: two configs, two schedules, no code change.
 - **C5** (I5): no secret in the repository, no production credential or data outside production.
   Test: the CI secret-scan gate passes and the real env file is untracked.
 - **C6** (I6): every form submission emits a structured audit log with IP, Cloudflare country,
@@ -142,8 +148,16 @@ Each cites its invariant in the foundation; the acceptance test lives there in f
 - "Today" is computed in America/Campo_Grande from an injected clock. A test that sleeps or reads
   the real clock inside a decision is a defect.
 - The catch-up rule: for every active service and every configured threshold whose trigger date is
-  on or before today, with no sent alert for that pair, send exactly one message, its text
-  computed at send time from the current record. Late beats never.
+  on or before today, with no sent alert for that pair, one warning is owed, and the run delivers
+  every warning it owes as one message, its text computed at send time from the current records.
+  Late beats never.
+- One run, one message (foundation section 4, 2026-09-02). The message is a list, one line per
+  service carrying the client, the service and the days remaining, ordered by due date; a service
+  owing several thresholds at once takes one line and all its owed pairs are written together; a
+  run that owes nothing sends nothing; a rejected message fails every warning it carried.
+- The destination is one WhatsApp group in one configuration variable, which accepts a group
+  identifier (`<digits>@g.us`) or a plain number. The group identifier is read from the vendor,
+  never typed. Inside Compose the gateway is `http://evolution:8080`, not `localhost`.
 - Warnings are computed only for services with status active. Completing a service or moving its
   deadline is a human action through the form.
 - A deadline is a start date plus a term in days, and `due_date` stays a stored column derived by
@@ -178,8 +192,9 @@ Each cites its invariant in the foundation; the acceptance test lives there in f
 - OQ-2 closed on 2026-08-31 (Tunnel). Do not resolve OQ-1 or OQ-3 by inference; they are closed
   only as the foundation says, and both gate phase two rather than going live.
 - Turning phase two on collides with I3's catch-up rule: no alert row exists, so the first
-  successful run owes every warning whose trigger date has passed and sends them at once. Decide a
-  cutoff before switching it on, or the company learns to ignore the warning in week one.
+  successful run owes every warning whose trigger date has passed. Since 2026-09-02 that arrives as
+  one long message rather than fifty, which is most of the problem gone; whether the older warnings
+  are sent or recorded as handled is still an owner decision and belongs to phase two.
 
 ## Testing and TDD
 

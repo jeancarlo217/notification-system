@@ -2,8 +2,8 @@
 
 An internal tool for Vale Verde Ambiental. A form records the services the company owes a client,
 each with the date it starts and the term in days that gives it its deadline; once a day an engine
-works out which warnings are owed and sends them to the company WhatsApp number. Every submission
-is audited and no warning is ever sent twice.
+works out which warnings are owed and sends them, as one message listing them, to a company
+WhatsApp group. Every submission is audited and no warning is ever sent twice.
 
 The canon lives in `specs/foundation.md`, which every other document derives from and loses to.
 `CLAUDE.md` is the working digest. This file is only about running the thing.
@@ -75,7 +75,7 @@ message naming it, rather than failing at three in the morning during a send.
 | --- | --- |
 | `DJANGO_SECRET_KEY` | Django's signing key. Any long random string. |
 | `DEADLINER_SECRET_PATH_SEGMENT` | The URL segment above. At least 3 characters of `A-Za-z0-9_-`. It is not a password; read the section above before choosing it. |
-| `DEADLINER_WHATSAPP_NUMBER` | The company number, digits only, country code first, no plus sign. |
+| `DEADLINER_WHATSAPP_NUMBER` | The company number, digits only, country code first, no plus sign. Backlog B26 renames it to `DEADLINER_WHATSAPP_DESTINATION` and widens it to accept the group identifier the warnings now go to (foundation section 4 v0.4); until that lands the code reads the name in this row. |
 | `EVOLUTION_API_KEY` and `EVOLUTION_DB_PASSWORD` | Yours to invent. Compose refuses to parse the file without them even when you only start `web`. |
 
 Generate the two random ones with:
@@ -405,7 +405,9 @@ optional.
   that pretends to send. Spike steps are the `just evolution-*` recipes, findings in
   `specs/dependencies.md`.
 - **OQ-2, the Cloudflare mechanism**, as above.
-- **OQ-3, the exact warning wording**, which is the owner's voice and not a technical choice. The
+- **OQ-3, the exact warning wording**, whose shape was decided on 2026-09-02 (one message, a list
+  of client, service and days remaining) and whose text is the owner's voice and not a technical
+  choice. The
   template in `.env.example` is a placeholder that satisfies every test.
 
 ## Troubleshooting

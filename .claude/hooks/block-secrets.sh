@@ -3,7 +3,7 @@
 #
 # Foundation I5 makes this permanent: no secret in the repository, no production data outside
 # production. In this project the concrete shapes are an env file carrying real values (the
-# Evolution API key, the destination number, the secret access path) and the SQLite database,
+# Evolution API key, the alert destination, the secret access path) and the SQLite database,
 # whose rows are real client data the moment the system is used. Once either reaches a remote
 # it is permanent and external; reverting the commit does not undo it.
 #
