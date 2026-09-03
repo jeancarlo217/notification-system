@@ -32,7 +32,7 @@ CLOUDFLARE_HEADERS = {"cf-connecting-ip": "203.0.113.7", "cf-ipcountry": "BR"}
 
 TEST_DEADLINER = DeadlinerConfig(
     alert_thresholds=(30, 7, 0),
-    whatsapp_number="5567999998888",
+    whatsapp_destination="5567999998888",
     message_template="{client}|{service}|{due_date}|{days_remaining}",
     secret_path_segment="fake-segment-for-tests",
     timezone=ZoneInfo("America/Campo_Grande"),
