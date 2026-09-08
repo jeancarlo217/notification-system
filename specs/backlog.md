@@ -21,13 +21,15 @@ are live at `avisos.valeverdeambiental.com.br`, on the company's own VPS behind 
 registry can start being filled today. Nothing sends a WhatsApp message, by decision and not by
 accident.
 
-**Phase two is one item, B8**, and it starts with a human and the company phone in the same room:
-pairing the instance closes OQ-1, and then the adapter behind the provider interface can be
-written. Two things have to be settled before it is switched on. OQ-3, the wording of the warning
-the company's clients effectively cause, is the owner's voice and nobody else's. And the catch-up
-rule of I3 means the first successful run owes every warning whose trigger date has already passed,
-so a registry built over weeks becomes a burst of messages in one minute unless phase two decides a
-cutoff; that is the difference between a system people trust and one they mute in the first week.
+**Phase two is B26, B27 and B8**, and only the last of the three needs a human and the company phone
+in the same room: pairing the instance and creating the destination group closes OQ-1, and then the
+adapter behind the provider interface can be written. B26 and B27 are not blocked on it and are
+where the backend starts. Two things still have to be settled before phase two is switched on.
+OQ-3, the wording of the warning the company's clients effectively cause, is the owner's voice and
+nobody else's. And the catch-up rule of I3 means the first successful run owes every warning whose
+trigger date has already passed; the digest decision of 2026-09-02 makes that one long message
+instead of fifty short ones, which is most of the problem gone, but whether the older warnings are
+sent or recorded as handled is still a decision and not an implementation detail.
 
 **Open beside that:** B11 is not finished. Cloudflare fronts nothing yet, so the audit trail
 carries no IP and no country until the zone migration that travels with Ecobalance 2.0.
@@ -103,6 +105,22 @@ keys are in `.env.example`, the steps are `just evolution-up`, `evolution-instan
 `evolution-state`, `evolution-send`; the stack boots on the owner's machine, the instance `valeverde`
 exists and its QR is generated; the pairing (scan) and the real send resume on 2026-08-29, when the
 company phone is in hand.
+
+Revised 2026-09-02 by the owner decisions of foundation v0.4. The spike's exit criterion is now a
+real message delivered **to the destination group**, not to a number: the paired account has to be a
+member of that group, and a send that works to a person proves nothing about a send to a group. Two
+steps join the spike before the send, both of which need the pairing done first: creating the group
+with the paired account inside it, and reading its identifier back from the vendor, which is a new
+`just evolution-groups` recipe over `GET /group/fetchAllGroups/{instance}`, because a group
+identifier is never typed by a human. The adapter itself is unchanged in shape and speaks HTTP
+through the standard library, adding no dependency (foundation section 13, 2026-09-02). It runs
+after B26 and B27, which are not blocked on OQ-1 and can be delivered while the phone is not in
+hand. What the adapter owes beyond one POST: a timeout on every call, every vendor failure mapped
+to `False` and never raised (I2), acceptance read from `key.id` in the response body, the API key
+absent from every log line (I5), and `get_provider` returning it instead of raising. Its shape
+lands as `specs/adr/0008-evolution-adapter.md`. One trap already recorded in
+`specs/dependencies.md`: the vendor's own documentation page still shows the v1 send body
+(`textMessage.text`) and the 2.3.7 source takes a top level `text`.
 
 **B9. Scheduler.** `done (2026-08-28)`. The Compose piece that runs the daily command, with the
 run-twice test proving idempotency end to end. Trace: foundation section 5, I1, I3. Delivered on
@@ -562,6 +580,75 @@ same model, the same form and the same migration sequence, and splitting them wo
 conflicting migration chains over one table; B15 after them, since the list template it edits is
 settled by then.
 
+**B26. The alert destination is a group.** `todo`, backend. Foundation section 4 v0.4 made the
+destination a WhatsApp group held in one configuration variable, and today `deadliner/config.py`
+would refuse one: `_read_whatsapp_number` accepts 8 to 15 digits and a group identifier is
+`<digits>@g.us`. Trace: foundation section 4 v0.4, I4, I5, and the dated note of 2026-09-02 in
+`specs/adr/0001-configuration-boundary.md`, which is where the canonical form lives.
+
+Three changes, one boundary. `DEADLINER_WHATSAPP_NUMBER` becomes `DEADLINER_WHATSAPP_DESTINATION`
+and `DeadlinerConfig.whatsapp_number` becomes `whatsapp_destination`, one field carrying either
+form. The validator accepts the digits it already accepted, or a group identifier, and rejects
+anything else naming the variable. And the Evolution adapter's own values enter `load_config` as
+infrastructure beside `DJANGO_DATABASE_PATH`, since nothing else in this project reads
+`os.environ`: the base URL, the instance name and the API key, which is a credential and never
+appears in a `ConfigError` message.
+
+The trap this item exists to catch before B8 meets it in production: inside the Compose network the
+`web` container reaches the gateway at `http://evolution:8080`, while the `justfile` on the host
+uses `http://localhost:8080`. The same variable name carries both values and only one of them is
+right per environment, so `.env.example` says which is which where a deployer reads it.
+
+Files: `deadliner/config.py`, `.env.example`, `.github/workflows/ci.yml`, the README section on
+configuration, `tests/test_config.py`. Not blocked on OQ-1: no phone, no pairing and no group have
+to exist for this to be delivered and green.
+
+**B27. One run, one message: the daily list.** `todo`, backend, after B26. Foundation section 4
+v0.4 replaced one message per warning with one message per run, a list whose line carries the
+client, the service and the days remaining. Trace: foundation sections 4 and 5 v0.4, I1 as reworded,
+I2, I3, I4.
+
+The decision stays pure and the effect stays thin, which is where this item's tests live. Two
+functions beside `owed_warnings` and `render_message` in `core/engine.py`: one that turns the owed
+warnings plus the current records into the ordered lines of the list, and one that renders header
+and lines into the text. Then `run_daily_engine` calls the provider once instead of once per
+warning, and writes every included alert to `sent` or `failed` from that one answer.
+
+Five rules the list obeys, each of which is a test and none of which the implementer decides:
+
+1. **One line per service, not per warning.** The catch-up rule makes a service owe 30, 7 and 0 at
+   once when the registry is older than its deadlines, and a person reading three lines for one
+   client learns nothing. The line shows the real days remaining, `due_date` minus today, and every
+   owed pair behind it is recorded together.
+2. **Order by due date ascending, then by client.** The most urgent is read first, and the order is
+   a property of the message rather than of the query.
+3. **An empty run sends nothing.** No message, no provider call, no alert row.
+4. **Acceptance writes every included pair, rejection fails every included pair.** A rejected
+   message reached nobody, so nothing in it is sent (I2), and the next run rebuilds the same list
+   plus whatever the day added.
+5. **Run twice, one message.** I1's acceptance test as reworded: the first run delivers one message
+   listing each owed warning once, the second delivers nothing at all.
+
+Configuration: `DEADLINER_MESSAGE_TEMPLATE` keeps its name and its four fields and now means one
+line of the list; `DEADLINER_MESSAGE_HEADER` is added for what heads it, over its own field set,
+the count and the date. Both are placeholders until OQ-3 closes, which this item does not close.
+
+Two things this item hands back rather than deciding. **The sign of the days remaining**: after
+catch-up a line can carry a negative number, and `vence em -3 dias` is wrong Portuguese. The
+default here is that the engine passes the signed integer and the owner's wording deals with it;
+the alternative is a second line template chosen by the sign, which is a configuration variable and
+an owner decision, not an implementer's. And **the burst of the first run**, which this item makes
+much smaller without answering: the first run after phase two still owes every warning whose
+trigger date has passed, but it now sends one long message rather than fifty short ones, so the
+choice between accepting it and recording the older warnings as handled is still the owner's and
+still belongs to phase two.
+
+This item edits tests that are green today, which is unusual here and is the point: `tests/fakes.py`
+records one delivery per warning, and `test_engine_run.py`, `test_engine_message.py`,
+`test_engine_command.py` and `test_scheduler.py` assert against that shape. Window A rewrites them
+to the five rules above before any of them passes. `tests/test_alert_state.py` and the list screen
+it covers do not change, because per alert state is what the digest still writes.
+
 The version 1 items B1 to B11 ran on the parallel plan below, decided by the owner on 2026-08-28
 for two developers.
 
@@ -575,7 +662,7 @@ uncertainty, so it runs as early as possible.
 
 **Wave 0, immediately and in parallel with everything: the B8 spike.** The Evolution services in the
 project's own `compose.yaml` (foundation section 8, one stack) delivering one real message to the
-company number, closing OQ-1. Either developer can run it; it
+destination group of foundation section 4, closing OQ-1. Either developer can run it; it
 touches no application file. The owner's answers to OQ-2 (host) and OQ-3 (wording) also belong to
 this wave, since they gate B11 and cost no code.
 
@@ -706,3 +793,10 @@ which is foundation sections 3, 3.3 and 10 unchanged.
 and the merge `6c373a9` then deleted its text from this file while leaving the log line above
 pointing at it. Recovered from `8a82607`, renumbered B25, and the paragraph the same merge dropped
 from `CLAUDE.md` restored beside it. Nothing about the item changed; it was unreadable, not wrong.
+
+2026-09-02: B26 and B27 opened by two owner decisions that take the foundation to v0.4. The alert
+destination is a WhatsApp group in one configuration variable (section 4, B26), and one run sends
+one message listing client, service and days remaining instead of one message per warning (sections
+4 and 5, I1 reworded, B27). B8 keeps the adapter and gains the group in its exit criterion; its HTTP
+goes through the standard library by the same decision, so no dependency is added. Phase two is now
+three items and the first two are not blocked on OQ-1.

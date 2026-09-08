@@ -52,7 +52,7 @@ until a third repetition. Write code an agent can navigate: distinctive greppabl
 
 Keep the project's own shapes: decisions stay pure (no clock, no network, no ORM inside them), effects
 stay behind their narrow interfaces, "now" arrives as a value, and business values (thresholds, the
-destination number, the template, the secret path) come from configuration, never literals (I4).
+alert destination, the templates, the secret path) come from configuration, never literals (I4).
 
 ## 5. Comments
 

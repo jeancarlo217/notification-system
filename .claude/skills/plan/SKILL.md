@@ -35,7 +35,7 @@ message wording. If the work depends on one, say which and stop rather than inve
 - **Does it send?** Then it needs the idempotency uniqueness (I1) and a visible failure state (I2).
 - **Does it depend on "now"?** The time arrives as a value or an injected clock, in America/Campo_Grande,
   computed from persisted records (I3).
-- **Is the value business data?** Thresholds, the destination number, the template, the secret path are
+- **Is the value business data?** Thresholds, the alert destination, the templates, the secret path are
   configuration, never literals (I4).
 - **Does it handle a request?** The audit entry (I6) and the secret-path redaction (I7) live on shared
   paths (middleware, the logging config), never in each view's diligence.
