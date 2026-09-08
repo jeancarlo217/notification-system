@@ -13,7 +13,7 @@ jobs:
       DJANGO_DEBUG: "0"
       DJANGO_ALLOWED_HOSTS: localhost
       DEADLINER_ALERT_THRESHOLDS: "30,7,0"
-      DEADLINER_WHATSAPP_NUMBER: "5500000000000"
+      DEADLINER_WHATSAPP_DESTINATION: "5500000000000"
       DEADLINER_MESSAGE_TEMPLATE: "{client} {service} {due_date} {days_remaining}"
       DEADLINER_SECRET_PATH_SEGMENT: ci-only-segment-not-a-secret
       DEADLINER_TIMEZONE: America/Campo_Grande

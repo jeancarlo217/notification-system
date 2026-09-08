@@ -155,8 +155,8 @@ Each cites its invariant in the foundation; the acceptance test lives there in f
   service carrying the client, the service and the days remaining, ordered by due date; a service
   owing several thresholds at once takes one line and all its owed pairs are written together; a
   run that owes nothing sends nothing; a rejected message fails every warning it carried.
-- The destination is one WhatsApp group in one configuration variable, which accepts a group
-  identifier (`<digits>@g.us`) or a plain number. The group identifier is read from the vendor,
+- The destination is one WhatsApp group in `DEADLINER_WHATSAPP_DESTINATION`, which accepts a group
+  identifier (`<digits>@g.us`) or a plain number (B26). The group identifier is read from the vendor,
   never typed. Inside Compose the gateway is `http://evolution:8080`, not `localhost`.
 - Warnings are computed only for services with status active. Completing a service or moving its
   deadline is a human action through the form.
@@ -230,8 +230,8 @@ Every test names the constraint or requirement it implements. Full method: `spec
 - Configuration has one boundary: `load_config` in `deadliner/config.py` parses and validates the
   whole environment, the settings module calls it once, nothing else reads `os.environ`, and
   application code takes the business values from `get_config()`. No business value has a default
-  in code (I4), so `.env.example` carries the nine variables of this boundary plus the three
-  `EVOLUTION_*` keys that only Compose reads; `just` loads `.env`, Compose passes it as
+  in code (I4), so `.env.example` carries the nine variables of this boundary, the three
+  `EVOLUTION_*` values the gateway is described by since B26, and the two keys only Compose reads; `just` loads `.env`, Compose passes it as
   `env_file`, CI sets non-secret values. Names, canonical forms and validation rules live in
   `specs/adr/0001-configuration-boundary.md`.
 

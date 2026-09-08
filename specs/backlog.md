@@ -580,7 +580,7 @@ same model, the same form and the same migration sequence, and splitting them wo
 conflicting migration chains over one table; B15 after them, since the list template it edits is
 settled by then.
 
-**B26. The alert destination is a group.** `todo`, backend. Foundation section 4 v0.4 made the
+**B26. The alert destination is a group.** `done (2026-09-03)`. Foundation section 4 v0.4 made the
 destination a WhatsApp group held in one configuration variable, and today `deadliner/config.py`
 would refuse one: `_read_whatsapp_number` accepts 8 to 15 digits and a group identifier is
 `<digits>@g.us`. Trace: foundation section 4 v0.4, I4, I5, and the dated note of 2026-09-02 in
@@ -602,6 +602,26 @@ right per environment, so `.env.example` says which is which where a deployer re
 Files: `deadliner/config.py`, `.env.example`, `.github/workflows/ci.yml`, the README section on
 configuration, `tests/test_config.py`. Not blocked on OQ-1: no phone, no pairing and no group have
 to exist for this to be delivered and green.
+
+Delivered test first on branch `b26-alert-destination`, 23 new behaviour tests in
+`tests/test_config.py` and the field rename rippled through the eight test files that build a
+`DeadlinerConfig`. Two things the item did not pin were decided here and written into
+`specs/adr/0001-configuration-boundary.md` rather than into a comment. **The gateway is declared by
+its address**: `EVOLUTION_BASE_URL` or `EVOLUTION_INSTANCE_NAME` set means all three values are
+required, and an environment holding `EVOLUTION_API_KEY` alone configures none, because Compose has
+demanded that key since the spike and the live phase one host would otherwise refuse to start on
+its next deploy. And `settings.EVOLUTION` is `None` where no gateway is configured, read through
+`get_evolution_config()`, so refusing to send stays the daily run's job (B8) and never this
+boundary's. Verified with `just lint`, `just typecheck`, `just test` (449 tests, 448 passed) and
+`just manage makemigrations --check` on 2026-09-03. The one failure and the two type errors are
+`os.geteuid`, which exists only on Unix, in B22's backup code and its test; they fail on this
+Windows machine and pass on the Linux runner, and they predate this item. The secret scan did not
+run here because Docker was not up, so CI is what proves that gate.
+
+The deployment ripple this item creates, which is the whole of it: the live `.env` on the host
+still says `DEADLINER_WHATSAPP_NUMBER`, and the process refuses to start on a variable it cannot
+find, naming it. Rename that line before the next deploy. Nothing else on the host has to change,
+because leaving the two gateway address variables unset is exactly phase one.
 
 **B27. One run, one message: the daily list.** `todo`, backend, after B26. Foundation section 4
 v0.4 replaced one message per warning with one message per run, a list whose line carries the

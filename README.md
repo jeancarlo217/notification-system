@@ -75,7 +75,7 @@ message naming it, rather than failing at three in the morning during a send.
 | --- | --- |
 | `DJANGO_SECRET_KEY` | Django's signing key. Any long random string. |
 | `DEADLINER_SECRET_PATH_SEGMENT` | The URL segment above. At least 3 characters of `A-Za-z0-9_-`. It is not a password; read the section above before choosing it. |
-| `DEADLINER_WHATSAPP_NUMBER` | The company number, digits only, country code first, no plus sign. Backlog B26 renames it to `DEADLINER_WHATSAPP_DESTINATION` and widens it to accept the group identifier the warnings now go to (foundation section 4 v0.4); until that lands the code reads the name in this row. |
+| `DEADLINER_WHATSAPP_DESTINATION` | Where the warnings are delivered: the identifier of the company WhatsApp group, `<digits>@g.us`, or one number in digits only, country code first, no plus sign. The group identifier is read from Evolution and never typed from memory. **This variable was called `DEADLINER_WHATSAPP_NUMBER` until backlog B26; an existing `.env` has to be renamed or the process refuses to boot, naming it.** |
 | `EVOLUTION_API_KEY` and `EVOLUTION_DB_PASSWORD` | Yours to invent. Compose refuses to parse the file without them even when you only start `web`. |
 
 Generate the two random ones with:
@@ -102,6 +102,23 @@ text, over the fields `client`, `service`, `due_date` and `days_remaining`) and
 
 The two path variables are infrastructure, not business values, so they are the only ones with a
 default in code. Everything named `DEADLINER_` is required and refuses to boot without a value.
+
+### The gateway the warnings go through
+
+`EVOLUTION_BASE_URL` and `EVOLUTION_INSTANCE_NAME` name the Evolution instance the application
+sends through, and `EVOLUTION_API_KEY` is what it presents there. The three are read at the same
+boundary as everything else and are configured together or not at all: leaving both address
+variables unset is phase one, which sends nothing and needs no gateway, and setting either one
+without the API key is refused at startup rather than at send time. An `.env` that carries only
+`EVOLUTION_API_KEY`, which Compose has demanded since the B8 spike, configures no gateway and
+boots exactly as it did before.
+
+The address is not the same string on both sides of the Docker network, and only one of them is
+right per environment. Inside Compose the application reaches the gateway at
+`http://evolution:8080`, the service name; `http://localhost:8080` is what the `just evolution-*`
+recipes on the host call, and what `EVOLUTION_SERVER_URL` tells Evolution to advertise about
+itself. Setting `EVOLUTION_BASE_URL` to `localhost` in a Compose deployment points the application
+at its own container.
 
 Keep `127.0.0.1` in `DJANGO_ALLOWED_HOSTS`. The Compose healthcheck probes the health endpoint on
 the loopback address, and Django answers 400 to a host it does not allow, so dropping it makes a

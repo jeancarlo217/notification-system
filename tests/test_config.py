@@ -2,6 +2,9 @@
 
 Derives from I4 (business values are data, never literals in code), I5 (no credential has a
 default and the real environment file is untracked) and I7 (a secret never reaches the logs).
+
+B26 widened it: the destination is a WhatsApp group or a number in one variable, and the gateway
+the adapter of B8 will speak to enters here too (foundation section 4 v0.4, ADR 0001).
 """
 
 import os
@@ -16,7 +19,9 @@ from deadliner.config import (
     Config,
     ConfigError,
     DeadlinerConfig,
+    EvolutionConfig,
     get_config,
+    get_evolution_config,
     load_config,
 )
 
@@ -28,15 +33,21 @@ VALID_ENV = {
     "DJANGO_ALLOWED_HOSTS": "prazos.example.com",
     "DJANGO_DATABASE_PATH": "db.sqlite3",
     "DEADLINER_ALERT_THRESHOLDS": "30,7,0",
-    "DEADLINER_WHATSAPP_NUMBER": "5567999998888",
+    "DEADLINER_WHATSAPP_DESTINATION": "5567999998888",
     "DEADLINER_MESSAGE_TEMPLATE": "{client}: {service} vence em {days_remaining} dias.",
     "DEADLINER_SECRET_PATH_SEGMENT": "abcdefghijklmnop",
     "DEADLINER_TIMEZONE": "America/Campo_Grande",
 }
 
+EVOLUTION_ENV = {
+    "EVOLUTION_BASE_URL": "http://evolution:8080",
+    "EVOLUTION_INSTANCE_NAME": "valeverde",
+    "EVOLUTION_API_KEY": "placeholder-value-for-tests-only",
+}
+
 BUSINESS_VARIABLES = [
     "DEADLINER_ALERT_THRESHOLDS",
-    "DEADLINER_WHATSAPP_NUMBER",
+    "DEADLINER_WHATSAPP_DESTINATION",
     "DEADLINER_MESSAGE_TEMPLATE",
     "DEADLINER_SECRET_PATH_SEGMENT",
     "DEADLINER_TIMEZONE",
@@ -99,18 +110,49 @@ def test_an_unusable_threshold_list_is_rejected(value: str) -> None:
     "value",
     ["+55 67 99999-8888", "55 (67) 99999.8888", "+5567999998888", "5567999998888"],
 )
-def test_the_destination_number_is_stored_as_digits_only(value: str) -> None:
-    """I4: the company number is configuration, kept in the form every vendor format adds to."""
-    config = load_config(env_with(DEADLINER_WHATSAPP_NUMBER=value))
+def test_a_destination_number_is_stored_as_digits_only(value: str) -> None:
+    """I4: a number destination is kept in the form every vendor format adds to."""
+    config = load_config(env_with(DEADLINER_WHATSAPP_DESTINATION=value))
 
-    assert config.deadliner.whatsapp_number == "5567999998888"
+    assert config.deadliner.whatsapp_destination == "5567999998888"
 
 
-@pytest.mark.parametrize("value", ["", "1234567", "1234567890123456", "55679999a8888", "abc"])
-def test_a_number_that_is_not_an_international_subscriber_number_is_rejected(value: str) -> None:
-    """B2: E.164 allows 8 to 15 digits and nothing else."""
-    with pytest.raises(ConfigError, match="DEADLINER_WHATSAPP_NUMBER"):
-        load_config(env_with(DEADLINER_WHATSAPP_NUMBER=value))
+def test_a_group_identifier_is_kept_verbatim() -> None:
+    """Foundation section 4 v0.4: the warnings go to a group, and its identifier is the vendor's
+    own string, read from Evolution and never typed or reshaped."""
+    config = load_config(env_with(DEADLINER_WHATSAPP_DESTINATION="120363123456789012@g.us"))
+
+    assert config.deadliner.whatsapp_destination == "120363123456789012@g.us"
+
+
+def test_one_variable_carries_either_destination() -> None:
+    """I4: two deployments, two destinations, no code change, and no rule about which wins."""
+    group = load_config(env_with(DEADLINER_WHATSAPP_DESTINATION="120363123456789012@g.us"))
+    number = load_config(env_with(DEADLINER_WHATSAPP_DESTINATION="5567999998888"))
+
+    assert group.deadliner.whatsapp_destination == "120363123456789012@g.us"
+    assert number.deadliner.whatsapp_destination == "5567999998888"
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        "",
+        "1234567",
+        "1234567890123456",
+        "55679999a8888",
+        "abc",
+        "@g.us",
+        "grupo@g.us",
+        "5567999998888@s.whatsapp.net",
+        "120363123456789012@g.us extra",
+    ],
+)
+def test_a_destination_that_is_neither_a_number_nor_a_group_is_rejected(value: str) -> None:
+    """B2: E.164 allows 8 to 15 digits, a group is digits and `@g.us`, and nothing else is a
+    destination the gateway could deliver to."""
+    with pytest.raises(ConfigError, match="DEADLINER_WHATSAPP_DESTINATION"):
+        load_config(env_with(DEADLINER_WHATSAPP_DESTINATION=value))
 
 
 def test_the_message_template_is_read_from_the_environment() -> None:
@@ -295,11 +337,111 @@ def test_the_database_path_is_read_from_the_environment() -> None:
     assert config.django.database_path == Path("/data/db.sqlite3")
 
 
+def test_the_gateway_the_adapter_speaks_to_is_read_from_the_environment() -> None:
+    """B26: the Evolution values are infrastructure and enter through this boundary, because
+    nothing else in this project reads os.environ (ADR 0001)."""
+    config = load_config(env_with(**EVOLUTION_ENV))
+
+    assert config.django.evolution == EvolutionConfig(
+        base_url="http://evolution:8080",
+        instance_name="valeverde",
+        api_key="placeholder-value-for-tests-only",
+    )
+
+
+def test_an_environment_with_no_gateway_loads_and_configures_none() -> None:
+    """B26: phase one runs with no WhatsApp at all, so an unconfigured gateway is a running
+    application without one, never a refusal to start."""
+    config = load_config(env_with())
+
+    assert config.django.evolution is None
+
+
+@pytest.mark.parametrize("missing", sorted(EVOLUTION_ENV))
+def test_a_half_configured_gateway_is_rejected_and_names_what_is_missing(missing: str) -> None:
+    """B26: two of the three values describe a gateway no adapter can reach, and an application
+    that starts on them fails at send time instead of at startup."""
+    present = {name: value for name, value in EVOLUTION_ENV.items() if name != missing}
+
+    with pytest.raises(ConfigError, match=missing):
+        load_config(env_with(**present))
+
+
+@pytest.mark.parametrize(
+    "value",
+    ["", "   ", "evolution:8080", "ftp://evolution:8080", "http://", "//evolution:8080"],
+)
+def test_a_base_url_that_is_not_an_http_gateway_is_rejected(value: str) -> None:
+    """B26: the adapter joins paths onto this value, so a string that is not an http origin is
+    caught at startup rather than at three in the morning."""
+    with pytest.raises(ConfigError, match="EVOLUTION_BASE_URL"):
+        load_config(env_with(**{**EVOLUTION_ENV, "EVOLUTION_BASE_URL": value}))
+
+
+def test_the_base_url_is_stored_without_its_trailing_slash() -> None:
+    """B26: the adapter writes `/message/sendText/...` onto it, and `//` is a different path."""
+    config = load_config(
+        env_with(**{**EVOLUTION_ENV, "EVOLUTION_BASE_URL": "http://evolution:8080/"})
+    )
+
+    assert config.django.evolution is not None
+    assert config.django.evolution.base_url == "http://evolution:8080"
+
+
+@pytest.mark.parametrize("value", ["", "   ", "vale verde", "vale/verde", "vale?verde"])
+def test_an_instance_name_that_is_not_a_url_path_element_is_rejected(value: str) -> None:
+    """B26: the instance name is the last segment of every gateway call."""
+    with pytest.raises(ConfigError, match="EVOLUTION_INSTANCE_NAME"):
+        load_config(env_with(**{**EVOLUTION_ENV, "EVOLUTION_INSTANCE_NAME": value}))
+
+
+def test_a_blank_api_key_is_rejected() -> None:
+    """I5: an empty credential is an unset credential wearing a disguise."""
+    with pytest.raises(ConfigError, match="EVOLUTION_API_KEY"):
+        load_config(env_with(**{**EVOLUTION_ENV, "EVOLUTION_API_KEY": "   "}))
+
+
+def test_the_api_key_is_named_but_never_repeated_in_the_error() -> None:
+    """I5: the error text reaches the logs, and the gateway credential must not ride along."""
+    broken = env_with(
+        **{
+            **EVOLUTION_ENV,
+            "EVOLUTION_BASE_URL": "not-a-url",
+            "EVOLUTION_API_KEY": "placeholder-that-must-not-be-echoed",
+        }
+    )
+
+    with pytest.raises(ConfigError) as raised:
+        load_config(broken)
+
+    assert "EVOLUTION_BASE_URL" in str(raised.value)
+    assert "placeholder-that-must-not-be-echoed" not in str(raised.value)
+
+
+def test_the_gateway_configuration_is_reachable_through_django_settings() -> None:
+    """B26: one boundary loads it, and the adapter of B8 reads it from there."""
+    gateway = EvolutionConfig(
+        base_url="http://evolution:8080",
+        instance_name="valeverde",
+        api_key="placeholder-value-for-tests-only",
+    )
+
+    with override_settings(EVOLUTION=gateway):
+        assert get_evolution_config() == gateway
+
+
+def test_an_unconfigured_gateway_reads_as_none_rather_than_as_an_error() -> None:
+    """B26: phase one has no gateway, and asking for one there is answered, not punished; the
+    loud refusal belongs to the provider the daily run resolves (B8)."""
+    with override_settings(EVOLUTION=None):
+        assert get_evolution_config() is None
+
+
 def test_every_problem_in_an_environment_is_reported_at_once() -> None:
     """B2: filling in a .env is not a game of whack-a-mole."""
     broken = env_with(
         DEADLINER_ALERT_THRESHOLDS="thirty",
-        DEADLINER_WHATSAPP_NUMBER="not-a-number",
+        DEADLINER_WHATSAPP_DESTINATION="not-a-destination",
         DEADLINER_TIMEZONE="Mars/Olympus_Mons",
     )
 
@@ -307,7 +449,7 @@ def test_every_problem_in_an_environment_is_reported_at_once() -> None:
         load_config(broken)
 
     assert "DEADLINER_ALERT_THRESHOLDS" in str(raised.value)
-    assert "DEADLINER_WHATSAPP_NUMBER" in str(raised.value)
+    assert "DEADLINER_WHATSAPP_DESTINATION" in str(raised.value)
     assert "DEADLINER_TIMEZONE" in str(raised.value)
 
 

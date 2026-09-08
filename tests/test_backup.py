@@ -34,7 +34,7 @@ from tests.builders import a_service
 
 TEST_DEADLINER = DeadlinerConfig(
     alert_thresholds=(30, 7, 0),
-    whatsapp_number="5567999998888",
+    whatsapp_destination="5567999998888",
     message_template="{client}|{service}|{due_date}|{days_remaining}",
     secret_path_segment="fake-segment-for-tests",
     timezone=ZoneInfo("America/Campo_Grande"),
@@ -45,7 +45,7 @@ VALID_ENV = {
     "DJANGO_DEBUG": "0",
     "DJANGO_ALLOWED_HOSTS": "prazos.example.com",
     "DEADLINER_ALERT_THRESHOLDS": "30,7,0",
-    "DEADLINER_WHATSAPP_NUMBER": "5567999998888",
+    "DEADLINER_WHATSAPP_DESTINATION": "5567999998888",
     "DEADLINER_MESSAGE_TEMPLATE": "{client}: {service} vence em {days_remaining} dias.",
     "DEADLINER_SECRET_PATH_SEGMENT": "prazos",
     "DEADLINER_TIMEZONE": "America/Campo_Grande",
