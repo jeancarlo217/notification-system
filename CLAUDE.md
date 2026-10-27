@@ -8,8 +8,8 @@ the foundation wins and this file is the one that is wrong. Fix this file, never
 B1 (scaffold), B2 (configuration surface), B3 (data model), B4 (registration and lifecycle), B5
 (secret path and health endpoint), B6 (audit and structured logging), B7 (alert engine) and B9
 (scheduler) are done as of 2026-08-28;
-the B8 spike has Evolution API running in Compose and waits on the owner pairing the phone (OQ-1
-open). Application code so far: the configuration boundary
+the B8 spike is done, with the phone paired and the destination group reached on 2026-10-27, which
+closed OQ-1. Application code so far: the configuration boundary
 (`specs/adr/0001-configuration-boundary.md`), the two models with their generated migrations, the
 registration screens (forms, views, templates) and the admin now served under the secret segment
 with the health endpoint outside it and the segment redacted on the logging path
@@ -62,10 +62,19 @@ v0.4: the alert destination is a WhatsApp group held in one configuration variab
 and one run sends one message listing client, service and days remaining instead of one message per
 warning (backlog B27, I1 reworded to one warning, one delivery). A third decision, code shape, is
 that the Evolution adapter speaks HTTP through the standard library and adds no dependency.
-What version 1 still owes: phase two, which is now B26 and B27, neither blocked, and then B8 behind
-OQ-1; the rest of B11, whose Cloudflare Tunnel waits on the zone migration that travels with
-Ecobalance 2.0, so the audit trail carries no IP and no country until then; and B25, the one screen
-that edits every field of the record, opened on 2026-09-01. B24 is done, on 2026-08-31.
+On 2026-10-27 the last two open questions of the project closed and the foundation went to v0.5.
+OQ-1 closed because the spike met its criterion: the instance `valeverde` paired to the company
+account, the group `Avisos - Vale Verde` read back from the vendor as `120363414307941525@g.us` by
+the new `just evolution-groups`, five messages delivered and confirmed. OQ-3 closed because the
+owner approved the wording on that phone, in that group: a header, one bold line per service, and
+five short phrases the engine picks between by the sign of the days remaining, all seven written in
+foundation section 4. B26 is done.
+What version 1 still owes: phase two, which is B27 and then B8's adapter, neither blocked by
+anything but the work; the rest of B11, whose Cloudflare Tunnel waits on the zone migration that
+travels with Ecobalance 2.0, so the audit trail carries no IP and no country until then, and whose
+`scheduler` also waits on the Evolution service being brought up and paired on the host; and B25,
+the one screen that edits every field of the record, opened on 2026-09-01. B24 is done, on
+2026-08-31.
 Stack, decided in the foundation: Python 3.13, Django 5.2 LTS with server-rendered templates and
 Django Forms, SQLite on a Docker volume, a plain virtualenv with pip and pinned requirements files,
 `mypy --strict` with django-stubs, ruff, pytest with pytest-django, Docker Compose from the first
@@ -158,6 +167,12 @@ Each cites its invariant in the foundation; the acceptance test lives there in f
 - The destination is one WhatsApp group in `DEADLINER_WHATSAPP_DESTINATION`, which accepts a group
   identifier (`<digits>@g.us`) or a plain number (B26). The group identifier is read from the vendor,
   never typed. Inside Compose the gateway is `http://evolution:8080`, not `localhost`.
+- The message text is decided (foundation section 4, 2026-10-27) and is seven configuration values:
+  a header, the line, and five phrases the engine picks between by the sign of the days remaining,
+  so no template ever renders `vence em 0 dias` or a minus sign. A date in a template needs its
+  format spec, `{due_date:%d/%m/%Y}`, or it prints in ISO order.
+- Production records never leave the production host (I5), so the way to read the real message is
+  the preview mode of `send_alerts` run there (B27), never a copy of the database brought local.
 - Warnings are computed only for services with status active. Completing a service or moving its
   deadline is a human action through the form.
 - A deadline is a start date plus a term in days, and `due_date` stays a stored column derived by
@@ -189,8 +204,10 @@ Each cites its invariant in the foundation; the acceptance test lives there in f
 - A layout claim is written only with the screenshot that verified it, the way a state claim is
   written only with its command. Nothing is reached by scrolling sideways; a table that does not
   fit becomes cards (B21, `specs/dependencies.md`).
-- OQ-2 closed on 2026-08-31 (Tunnel). Do not resolve OQ-1 or OQ-3 by inference; they are closed
-  only as the foundation says, and both gate phase two rather than going live.
+- Every open question is closed: OQ-2 on 2026-08-31 (Tunnel), OQ-1 and OQ-3 on 2026-10-27. The
+  rule that closed them stands for whatever reopens next: a question closes by the thing its entry
+  names and never by inference, which is why OQ-1 waited for the owner to see five messages on
+  their own phone and not for a 201 from the gateway.
 - Turning phase two on collides with I3's catch-up rule: no alert row exists, so the first
   successful run owes every warning whose trigger date has passed. Since 2026-09-02 that arrives as
   one long message rather than fifty, which is most of the problem gone; whether the older warnings
@@ -209,7 +226,8 @@ Every test names the constraint or requirement it implements. Full method: `spec
 - Never assert about a document section you did not open in this window.
 - Before using a library or external API, load its current documentation and confirm against the
   pinned version; findings go to `specs/dependencies.md`, never a comment. Never decide from
-  memory (this is what keeps OQ-1 open).
+  memory (this is what kept OQ-1 open for two months, and what made its findings worth reading
+  when it closed).
 - Framework-owned files (apps, migrations) are generated by the framework's CLI, then edited.
   Never hand-write a migration.
 - Structural performance is not optional: the export and the daily run read in a constant number
@@ -254,5 +272,6 @@ All through `just` (it loads `.env` first). `just` with no argument lists them.
 - `just backup`: copy the database now into `./backups`. `just restore <file>`: put one back, which
   stops the writers first because a file replaced under a live connection is a corrupt database.
 - `just evolution-up`, `evolution-status`, `evolution-instance`, `evolution-qr`, `evolution-state`,
-  `evolution-send <number> <text>`: the B8 spike steps, in that order. Findings and pins:
-  `specs/dependencies.md`, Evolution section.
+  `evolution-groups`, `evolution-send <destination> <text>`: the B8 spike steps, in that order.
+  `evolution-groups` is how a group identifier is obtained, because it is never typed. Findings and
+  pins: `specs/dependencies.md`, Evolution section.

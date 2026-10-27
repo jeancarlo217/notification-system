@@ -73,7 +73,7 @@ on purpose (section 2 of the foundation), so hold no transaction open across the
 **The Evolution adapter.** Timeouts, a disconnected instance, an accepted-but-not-delivered response.
 The interface records the outcome it was given; whether Evolution accepted is what I2 tracks, and a
 deeper delivery guarantee is not promised by the foundation. A bug that only reproduces against the real
-instance belongs in the few integration tests, behind OQ-1's spike.
+instance belongs in the few integration tests, which OQ-1 stopped gating on 2026-10-27.
 
 ## Tooling
 

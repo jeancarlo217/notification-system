@@ -32,8 +32,10 @@ operation. If a piece of logic can only be tested with the network or a live Evo
 it was factored wrong.
 
 Do not mock what you do not own: fake the provider interface, never the vendor SDK or its HTTP
-client. Integration tests with the real Evolution adapter are few, exist only to prove the seam
-speaks to the real thing, and are gated on the OQ-1 spike.
+client. Integration tests with the real Evolution adapter are few and exist only to prove the seam
+speaks to the real thing. They were gated on the OQ-1 spike until it closed on 2026-10-27, and
+what gates them now is a reachable instance, so they skip where none is configured rather than
+fail.
 
 ## The clock is an effect
 

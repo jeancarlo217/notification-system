@@ -22,7 +22,8 @@ This is `specs/testing.md`, loaded from disk right now. It is the authority; do 
 
 1. The requirement: the foundation section or invariant (`specs/foundation.md`, I1 to I7) the prompt or
    the task names. **Its acceptance test is your test.** Do not test anything gated behind an open
-   question (OQ-1 to OQ-3); if the task depends on one, stop and report.
+   question; if the task depends on one, stop and report. All three of OQ-1 to OQ-3 are closed as
+   of 2026-10-27, so read section 11 for a question a later revision reopened.
 2. Any ADR the task names, for the code shape you must not invent around.
 3. The code you build on, in full.
 
@@ -57,7 +58,8 @@ rendering, CSV shaping) are pure and carry the bulk of the tests with no Django 
 are faked at their interface: the notification provider (one operation), the clock (injected, never
 `sleep`, never the real time). **If a piece of logic can only be tested with the network or a live
 Evolution instance, it was factored wrong**; report that as a design finding instead of reaching for a
-heavier harness. Integration tests with the real adapter are few and are gated on OQ-1.
+heavier harness. Integration tests with the real adapter are few, and since OQ-1 closed on 2026-10-27 what gates
+them is a reachable instance: they skip where none is configured rather than fail.
 
 ## 4. Mechanics
 

@@ -1,6 +1,6 @@
 # Deadline Notification System, foundation
 
-Status: active. Version 0.4, 2026-09-02.
+Status: active. Version 0.5, 2026-10-27.
 
 This document is the single source of truth for this project. Every other document, including
 `CLAUDE.md`, the ADRs and any future task spec, derives from it and loses to it on any disagreement.
@@ -28,7 +28,8 @@ delivery deadline stated in the brief, so "ship it sooner" is not an architectur
 
 **Version 1 ships in two phases, by owner decision of 2026-08-31.** Phase one is the registration
 form, the audit trail and the CSV export, and it is live. Phase two is the daily alert engine
-reaching WhatsApp, which waits on OQ-1. The reason is the owner's and it is a good one: there is
+reaching WhatsApp, and since OQ-1 and OQ-3 closed on 2026-10-27 it waits on no open question,
+only on the work of backlog B27 and B8. The reason is the owner's and it is a good one: there is
 nothing worth notifying anybody about until the registry has something in it, so the engine is
 built, tested and not deployed rather than deployed and useless. Nothing about the scope of version
 1 changed; only the order in which it arrives.
@@ -221,9 +222,10 @@ Delivery is backlog B19.
 
 ## 4. The WhatsApp integration
 
-Evolution API is the vendor. No instance exists yet, so hosting one is part of this project: it
-runs as a neighboring service in the same Docker Compose stack, opaque to the application, with
-its own internal dependencies belonging to it and not to us (OQ-1 covers its exact footprint).
+Evolution API is the vendor, and hosting it is part of this project: it runs as a neighboring
+service in the same Docker Compose stack, opaque to the application, with its own internal
+dependencies belonging to it and not to us. OQ-1 settled that footprint on 2026-10-27 and
+`specs/dependencies.md` carries it.
 
 **Decision.** The application talks to a notification provider through a narrow interface sized by
 what the product needs, which is one operation: deliver this text to the configured destination,
@@ -254,7 +256,10 @@ and the group identifier is not typed by a human, it is read from the vendor onc
 configuration, so a group that is deleted and recreated is a configuration change.
 
 The sender is the company's own WhatsApp Business account, paired to the self-hosted instance, and
-it has to be a member of the group. Section 8's stack owns that pairing; OQ-1 covers it.
+it has to be a member of the group. Section 8's stack owns that pairing. The pairing is per
+instance and not per project: it lives in the volume of the machine whose stack performed it, so
+the instance that serves production is paired on the production host with the phone in hand, and a
+pairing done anywhere else proves the mechanism without serving it.
 
 **Decision, owner, 2026-09-02: one run sends one message, a list of what is expiring.** The daily
 run does not send one message per warning. It renders every warning owed today as one line
@@ -269,8 +274,30 @@ short ones. *What this costs:* a failed send fails the whole list rather than on
 I2 already handles by retrying every unsent warning in the next run's list, and the message can
 grow long enough to be scrolled on the first run after a backlog of deadlines.
 
-The destination and the templates are configuration, never literals (I4). The Portuguese text,
-both the line and whatever heads the list, is still the owner's voice and still OQ-3.
+The destination and the templates are configuration, never literals (I4).
+
+**Decision, owner, 2026-10-27: the wording, which closes OQ-3.** The message heads with
+`Vencimentos de hoje, {date}. {count} serviços nesta lista.` and carries one line per service
+reading `• *{client}* | {service} | {deadline} ({due_date:%d/%m/%Y})`, the lines joined by a single newline
+with nothing blank between them, ordered by due date ascending and then by client. The asterisks
+around the client are what WhatsApp draws as bold, the due date is written in the order this
+country writes it, and `{deadline}` is the one part the engine chooses rather than the template:
+five short phrases, each configuration like every other business value, picked by the sign of the
+days remaining, `vence em {days} dias` from two days out, `vence amanhã` at one, `vence hoje` at
+zero, `venceu ontem` at one day past and `venceu há {days} dias` beyond that.
+
+*What this buys:* a message a person reads at a glance, and Portuguese that is correct in every
+case the catch-up rule of section 5 can produce, where one template over a signed integer would
+have printed `vence em 0 dias` and `vence em -3 dias` on the days that matter most. The five
+phrases are also why the engine never has to decide wording, which stays the owner's voice.
+*What this costs:* five configuration values instead of one, and a message whose shape is now
+written down in two places, here and in the environment, so changing it is an edit in both.
+
+The owner approved this after comparing five candidates delivered to the real group on a real
+phone, and approved it as the wording for now rather than for good. Two shapes were rejected
+there and are recorded so nobody rebuilds them: a monospace aligned table, which has to truncate
+the client and the service to keep its columns and wraps on a narrow screen anyway, and items
+separated by blank lines, which a phone turns into scrolling.
 
 ## 5. Timing and scheduling
 
@@ -395,7 +422,7 @@ Containerised from the first commit: one command brings up the whole stack, and 
 deployment differ in configuration, never in architecture.
 
 The Compose stack runs the web application, the daily scheduler, and the Evolution API service
-with whatever internal dependencies OQ-1 confirms it needs. Cloudflare fronts the public
+with the internal dependencies OQ-1 confirmed on 2026-10-27, its own Postgres and its own Redis. Cloudflare fronts the public
 hostname; the mechanism is Tunnel, decided on 2026-08-31 when OQ-2 closed, and until that zone
 moves the host's own nginx stands in that place. Configuration comes from the
 environment; no secret enters the repository and no production credential or data exists in a
@@ -484,13 +511,14 @@ revision that must argue against this line, never a quiet commit.
 
 ## 11. Open questions
 
-**OQ-1. Evolution API self-hosting footprint.** Which image, which version, and which internal
-dependencies (its own database, its own cache) the instance needs. Open because the method
-forbids choosing this from memory. Closed by a spike whose exit criterion is a running Compose
-stack that delivers one real message to the destination group of section 4, with findings recorded
-in `specs/dependencies.md`. Since the destination decision of 2026-09-02 the criterion names the
-group and not a number, because a send that works to a person proves nothing about a send to a
-group. Blocks the Compose entries for the Evolution service and the adapter's integration test.
+**OQ-1. Evolution API self-hosting footprint.** **Closed 2026-10-27 by the spike meeting its exit
+criterion.** The footprint is the pinned `evoapicloud/evolution-api:v2.3.7` with its own
+`postgres:15` and `redis:7-alpine`, all three already in `compose.yaml` and all three recorded in
+`specs/dependencies.md`. The criterion was a running Compose stack delivering one real message to
+the destination group of section 4, and it was met: the instance `valeverde` paired by QR to the
+company account, the destination group read back from the vendor rather than typed, five messages
+delivered and their arrival confirmed by the owner on the phone. It no longer blocks the Compose
+entries or the adapter's integration test, and backlog B8 is where the adapter is delivered.
 
 **OQ-2. Deployment host and Cloudflare mechanism.** **Closed 2026-08-31 by owner decision.** The
 host is a VPS the owner already runs, named on 2026-08-28, reachable over SSH. Cloudflare fronts it
@@ -503,13 +531,11 @@ The application is reached at a subdomain of a domain the company already uses f
 production system, which is what makes the DNS move of B11 a change to something already live and
 not a greenfield step. Delivery is backlog B11.
 
-**OQ-3. Message wording.** The Portuguese text of the daily list. Open because it is the
-owner's voice, not a technical choice. Its shape stopped being open on 2026-09-02, when the owner
-decided the message is a list whose line carries the client, the service and the days remaining
-(section 4); what is still open is the exact wording of that line and of whatever heads the list.
-Closed by the owner writing or approving both. Blocks nothing structural; a placeholder satisfies
-every test. Since the two phase decision of 2026-08-31 it does not gate going live either, because
-phase one sends no message at all; it gates phase two, beside OQ-1.
+**OQ-3. Message wording.** **Closed 2026-10-27 by owner approval.** The shape stopped being open
+on 2026-09-02, when the owner decided the message is a list, and the text itself closed on
+2026-10-27, when the owner approved the header, the line and the five deadline phrases now written
+in section 4. It was closed the way it had to be, by the owner reading candidates on their own
+phone in the real group, and not by anybody reasoning about wording in a document.
 
 ## 12. Development method
 
@@ -630,6 +656,18 @@ two phase decision predicted becomes one long message instead of fifty short one
 cheapest answer that question has had. What this costs: a rejected send fails every warning it
 carried, which I2 already retries, and the first message after a backlog is long. OQ-3 keeps only
 the wording. Delivery is backlog B27.
+
+2026-10-27, decision, foundation v0.5. The last two open questions close on the same day, and both
+close the way their entries said they would rather than by inference. OQ-1 closes because the spike
+met its exit criterion: the pinned Evolution 2.3.7 with its own Postgres and Redis booted from this
+project's `compose.yaml`, the instance `valeverde` paired by QR to the company account, the
+destination group of section 4 read back from the vendor as an identifier nobody typed, five
+messages delivered to it and their arrival confirmed by the owner on the phone. OQ-3 closes because
+the owner approved the header, the line and the five deadline phrases now written in section 4,
+after comparing five candidates in that same real group on that same phone. What this buys: phase
+two now waits on no question, only on the work of B27 and B8. What this costs: the pairing that
+proved the mechanism lives in a volume on the machine that performed it, so production is paired
+again on its own host, which section 4 now says. Delivery is backlog B8 and B27.
 
 2026-09-02, decision, owner, code shape. The Evolution adapter speaks HTTP through the standard
 library and adds no dependency. What this buys: one POST a day against a pinned local service does

@@ -13,7 +13,7 @@ cites. An item is done only when the gate is green and the fan-out ran, never wh
 exists. Update the status in place; this file is execution state, and the contract stays in the
 foundation.
 
-## Where this stands, 2026-08-31
+## Where this stands, 2026-10-27
 
 **Phase one is in production.** The registration form, the catalogue, the submitter identity, the
 list with its search, paging and alert state, the CSV export, the audit trail and the daily backup
@@ -21,15 +21,18 @@ are live at `avisos.valeverdeambiental.com.br`, on the company's own VPS behind 
 registry can start being filled today. Nothing sends a WhatsApp message, by decision and not by
 accident.
 
-**Phase two is B26, B27 and B8**, and only the last of the three needs a human and the company phone
-in the same room: pairing the instance and creating the destination group closes OQ-1, and then the
-adapter behind the provider interface can be written. B26 and B27 are not blocked on it and are
-where the backend starts. Two things still have to be settled before phase two is switched on.
-OQ-3, the wording of the warning the company's clients effectively cause, is the owner's voice and
-nobody else's. And the catch-up rule of I3 means the first successful run owes every warning whose
-trigger date has already passed; the digest decision of 2026-09-02 makes that one long message
-instead of fifty short ones, which is most of the problem gone, but whether the older warnings are
-sent or recorded as handled is still a decision and not an implementation detail.
+**Phase two is B26, B27 and B8**, and **B26 is done and both open questions are closed**. On
+2026-10-27 the phone was in the room: the instance paired, the destination group was read back from
+the vendor, five messages reached it and the owner confirmed them, which closed OQ-1; and the owner
+approved the wording on that same phone, which closed OQ-3. So nothing open gates phase two any
+more and what remains is work: B27, the daily list, and then B8, the adapter.
+
+One decision still has to be taken before phase two is switched on, and it is the owner's. The
+catch-up rule of I3 means the first successful run owes every warning whose trigger date has
+already passed. The digest decision of 2026-09-02 makes that one long message instead of fifty
+short ones, which is most of the problem gone, and the preview mode B27 now carries is what turns
+the rest of it into a number the owner can read before anything is sent. Whether those older
+warnings are sent or recorded as handled stays a decision and not an implementation detail.
 
 **Open beside that:** B11 is not finished. Cloudflare fronts nothing yet, so the audit trail
 carries no IP and no country until the zone migration that travels with Ecobalance 2.0.
@@ -93,18 +96,22 @@ foundation sections 2 and 5, I1, I2, I3. Delivered test first on branch `b7-aler
 developer B (19 behaviour tests); verified with `just gate` (ruff, `mypy --strict`, 105 tests,
 gitleaks) on 2026-08-28; merged to `main` by pull request #7.
 
-**B8. Evolution API spike, then adapter.** `spike doing, adapter blocked on OQ-1`. **This is the
-whole of phase two** since the owner decision of 2026-08-31: nothing else stands between the live
-system and the notifications it was built for. It needs a human with the company phone to pair the
-instance, which closes OQ-1, and then the adapter and its integration tests. First the spike:
-a running Evolution instance in Compose delivering one real message to the company number, findings
-recorded in `specs/dependencies.md`, which closes OQ-1. Then the real adapter behind the provider
-interface and the few integration tests. Trace: foundation section 4. Spike state on 2026-08-28,
-branch `b8-evolution-spike`: Evolution v2.3.7 with its Postgres and Redis are in `compose.yaml`, the
-keys are in `.env.example`, the steps are `just evolution-up`, `evolution-instance`, `evolution-qr`,
-`evolution-state`, `evolution-send`; the stack boots on the owner's machine, the instance `valeverde`
-exists and its QR is generated; the pairing (scan) and the real send resume on 2026-08-29, when the
-company phone is in hand.
+**B8. Evolution API spike, then adapter.** `spike done (2026-10-27), adapter todo`. Since the
+owner decision of 2026-08-31 this and B27 are the whole of phase two: nothing else stands between
+the live system and the notifications it was built for. **The spike closed OQ-1 on 2026-10-27**,
+with the phone in the room: the instance paired, the destination group read back from the vendor as
+`120363414307941525@g.us`, five messages delivered to it and their arrival confirmed by the owner.
+The full transcript of what was verified is in `specs/dependencies.md`. What remains is the real
+adapter behind the provider interface and the few integration tests. Trace: foundation section 4. Spike state on 2026-08-28, branch `b8-evolution-spike`: Evolution v2.3.7 with its Postgres and
+Redis are in `compose.yaml`, the keys are in `.env.example`, the steps are `just evolution-up`,
+`evolution-instance`, `evolution-qr`, `evolution-state`, `evolution-send`; the stack boots on the
+owner's machine, the instance `valeverde` exists and its QR is generated. The pairing and the real
+send landed on 2026-10-27, two months later than the note above expected, together with
+`just evolution-groups` and the group identifier it read. Two things that cost time and belong
+here: the QR rotates every few seconds, so it is generated behind something that regenerates it
+rather than saved once and opened later, and a file named with a leading dot is hidden by Windows,
+so the saved PNG would not open for the owner at all. The pairing itself lives in the volume of the
+machine that performed it, so the production host pairs again.
 
 Revised 2026-09-02 by the owner decisions of foundation v0.4. The spike's exit criterion is now a
 real message delivered **to the destination group**, not to a number: the paired account has to be a
@@ -114,8 +121,7 @@ with the paired account inside it, and reading its identifier back from the vend
 `just evolution-groups` recipe over `GET /group/fetchAllGroups/{instance}`, because a group
 identifier is never typed by a human. The adapter itself is unchanged in shape and speaks HTTP
 through the standard library, adding no dependency (foundation section 13, 2026-09-02). It runs
-after B26 and B27, which are not blocked on OQ-1 and can be delivered while the phone is not in
-hand. What the adapter owes beyond one POST: a timeout on every call, every vendor failure mapped
+after B26, which is done, and B27. What the adapter owes beyond one POST: a timeout on every call, every vendor failure mapped
 to `False` and never raised (I2), acceptance read from `key.id` in the response body, the API key
 absent from every log line (I5), and `get_provider` returning it instead of raising. Its shape
 lands as `specs/adr/0008-evolution-adapter.md`. One trap already recorded in
@@ -152,7 +158,8 @@ row because it is what the warnings measure against (B19).
 `avisos.valeverdeambiental.com.br` under a short path segment, served by the host's own nginx with
 a Let's Encrypt certificate, `web` and `backup` running and `scheduler` deliberately absent. What
 remains is the Cloudflare Tunnel of OQ-2, which waits on the zone migration, and phase two's
-`scheduler`, which waits on OQ-1.
+`scheduler`, which since OQ-1 closed on 2026-10-27 waits on the B8 adapter and on the Evolution
+service being brought up on the host, including its own pairing there.
 
 What the first real deployment cost, all of it found by deploying and none of it by planning: the
 published port collided with Portainer on that host, so the container binds loopback on a port the
@@ -180,9 +187,12 @@ checked by removing the setting and watching the POST come back 403. The session
 follow debug, because the administration site sends a password over that hop. The nginx virtual
 host and its ordering are in the README. The VPS, `cloudflared` in
 the Compose stack fronting it by Tunnel, and the production env file created on the host and never
-in the repository. The final message wording (OQ-3) is no longer a precondition: the owner decision
-of 2026-08-31 ships this in two phases and the first one carries no WhatsApp delivery at all, so
-the alert `scheduler` service does not deploy and the template stays a placeholder until phase two.
+in the repository. The final message wording (OQ-3) was never a precondition here: the owner
+decision of 2026-08-31 ships this in two phases and the first one carries no WhatsApp delivery at
+all, so the alert `scheduler` service does not deploy. The template stayed a placeholder until the
+owner approved the wording on 2026-10-27, and what this item still owes for phase two is the host
+side of it, the Evolution service brought up there and paired with the phone, plus the seven
+message values in the production env file.
 Trace: foundation section 8, section 6, I5, I6.
 
 **The host is shared, confirmed by the owner on 2026-08-31.** The VPS is the same machine that runs
@@ -626,7 +636,8 @@ still says `DEADLINER_WHATSAPP_NUMBER`, and the process refuses to start on a va
 find, naming it. Rename that line before the next deploy. Nothing else on the host has to change,
 because leaving the two gateway address variables unset is exactly phase one.
 
-**B27. One run, one message: the daily list.** `todo`, backend, after B26. Foundation section 4
+**B27. One run, one message: the daily list.** `todo`, backend, after B26, which is done. Nothing
+gates it: both open questions closed on 2026-10-27 and its wording is decided. Foundation section 4
 v0.4 replaced one message per warning with one message per run, a list whose line carries the
 client, the service and the days remaining. Trace: foundation sections 4 and 5 v0.4, I1 as reworded,
 I2, I3, I4.
@@ -637,7 +648,7 @@ warnings plus the current records into the ordered lines of the list, and one th
 and lines into the text. Then `run_daily_engine` calls the provider once instead of once per
 warning, and writes every included alert to `sent` or `failed` from that one answer.
 
-Five rules the list obeys, each of which is a test and none of which the implementer decides:
+Six rules the list obeys, each of which is a test and none of which the implementer decides:
 
 1. **One line per service, not per warning.** The catch-up rule makes a service owe 30, 7 and 0 at
    once when the registry is older than its deadlines, and a person reading three lines for one
@@ -651,20 +662,38 @@ Five rules the list obeys, each of which is a test and none of which the impleme
    plus whatever the day added.
 5. **Run twice, one message.** I1's acceptance test as reworded: the first run delivers one message
    listing each owed warning once, the second delivers nothing at all.
+6. **The deadline phrase is chosen by the sign, and the count it is handed is never negative.** Five
+   cases, five tests: two days out or more, tomorrow, today, yesterday, and two days past or more.
+   A line for a service three days overdue reads `venceu há 3 dias` and contains no minus sign.
 
-Configuration: `DEADLINER_MESSAGE_TEMPLATE` keeps its name and its four fields and now means one
-line of the list; `DEADLINER_MESSAGE_HEADER` is added for what heads it, over its own field set,
-the count and the date. Both are placeholders until OQ-3 closes, which this item does not close.
+Configuration, settled on 2026-10-27 when the owner approved the wording and OQ-3 closed, with the
+canonical names and validation in the dated note of that date in
+`specs/adr/0001-configuration-boundary.md`. `DEADLINER_MESSAGE_TEMPLATE` keeps its name, now means
+one line of the list, and gains a fifth allowed field, `deadline`.
+`DEADLINER_MESSAGE_HEADER` is added for what heads it, over the count and the date. And five
+variables carry the phrase that fills `deadline`, each over the single field `days`:
+`DEADLINER_DEADLINE_FUTURE`, `_TOMORROW`, `_TODAY`, `_YESTERDAY` and `_OVERDUE`. The approved
+Portuguese for all seven is in foundation section 4; none of it is a placeholder any more.
 
-Two things this item hands back rather than deciding. **The sign of the days remaining**: after
-catch-up a line can carry a negative number, and `vence em -3 dias` is wrong Portuguese. The
-default here is that the engine passes the signed integer and the owner's wording deals with it;
-the alternative is a second line template chosen by the sign, which is a configuration variable and
-an owner decision, not an implementer's. And **the burst of the first run**, which this item makes
-much smaller without answering: the first run after phase two still owes every warning whose
-trigger date has passed, but it now sends one long message rather than fifty short ones, so the
-choice between accepting it and recording the older warnings as handled is still the owner's and
-still belongs to phase two.
+**The sign of the days remaining is decided and is no longer handed back.** The owner chose the
+five phrase shape over one template on a signed integer, so the engine picks the phrase by the sign
+and hands the phrase a count, never a negative number. `vence em 0 dias` and `vence em -3 dias`
+cannot be produced, which was the whole point: those are the two days a person most needs the
+message to be right. Rule 6 below is the test.
+
+**A sixth rule, and the one the owner asked for by name.** The command gains a mode that renders
+the message and sends nothing, touching no provider at all. It exists because the owner asked
+whether the real records could be read before any message leaves the system, and the honest answer
+is that the real records live on the production host and I5 keeps them there, so the way to read
+the real message is to render it where the data already is. It is also how the burst question below
+stops being a guess: the owner runs it on the host and reads how long the first message would be.
+It writes no alert row, which is what makes it safe to run twice.
+
+**The burst of the first run** is still handed back, and this item makes it much smaller without
+answering it: the first run after phase two owes every warning whose trigger date has passed, now
+as one long message rather than fifty short ones, so the choice between accepting it and recording
+the older warnings as handled is still the owner's and still belongs to phase two. What changed is
+that the preview mode turns it into a number before the decision rather than after it.
 
 This item edits tests that are green today, which is unusual here and is the point: `tests/fakes.py`
 records one delivery per warning, and `test_engine_run.py`, `test_engine_message.py`,
@@ -687,7 +716,8 @@ uncertainty, so it runs as early as possible.
 project's own `compose.yaml` (foundation section 8, one stack) delivering one real message to the
 destination group of foundation section 4, closing OQ-1. Either developer can run it; it
 touches no application file. The owner's answers to OQ-2 (host) and OQ-3 (wording) also belong to
-this wave, since they gate B11 and cost no code.
+this wave, since they gate B11 and cost no code. All three closed, OQ-2 on 2026-08-31 and the
+other two on 2026-10-27.
 
 **Wave 1, one item per developer:** developer A takes **B2**, developer B takes **B3**. Different
 files (the settings boundary versus models and migrations), no conflict.
@@ -823,3 +853,14 @@ one message listing client, service and days remaining instead of one message pe
 4 and 5, I1 reworded, B27). B8 keeps the adapter and gains the group in its exit criterion; its HTTP
 goes through the standard library by the same decision, so no dependency is added. Phase two is now
 three items and the first two are not blocked on OQ-1.
+
+2026-10-27: **OQ-1 and OQ-3 close, the last two open questions of the project.** With the company
+phone in the room the instance paired, `just evolution-groups` read the destination group back from
+the vendor as `120363414307941525@g.us`, five messages reached it and the owner confirmed them,
+which met the spike's exit criterion; and the owner approved the header, the line and the five
+deadline phrases of foundation section 4 after comparing five candidates in that real group on that
+real phone. B8's spike half is done and its adapter is unblocked. B27 gains the decided wording,
+five configuration variables for the deadline phrase, a sixth rule testing the choice by sign, and
+a preview mode that renders the real message without sending, which is the owner's answer to
+reading real records without taking them off the production host (I5). Foundation v0.5.
+

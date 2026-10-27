@@ -25,7 +25,8 @@ from disk rather than from a summary:
 
 Name the invariant I1 to I7 or the foundation section the task derives from. If it traces to nothing,
 that is the finding: surface it rather than inventing a spec. The same holds if it depends on an open
-question (OQ-1 to OQ-3) that is still open.
+question. None of OQ-1 to OQ-3 is open as of 2026-10-27, so what you are checking section 11 for is
+a question a later revision reopened.
 
 ## 3. Explore the codebase
 

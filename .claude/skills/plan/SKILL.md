@@ -22,9 +22,10 @@ nobody ratified is scope creep against foundation section 10.
 
 ## 2. Check the open questions before planning around them
 
-Three are live (foundation section 11): **OQ-1** blocks the Evolution API Compose service and the
-adapter's integration test, **OQ-2** blocks deployment configuration, **OQ-3** blocks only the final
-message wording. If the work depends on one, say which and stop rather than inventing the answer.
+**None is live.** OQ-2 closed on 2026-08-31, OQ-1 and OQ-3 on 2026-10-27, so nothing in foundation
+section 11 blocks a plan today. Read the section anyway rather than trusting this line: a question
+reopened by a logged revision becomes live again, and if the work depends on one, say which and
+stop rather than inventing the answer.
 
 ## 3. Ground it in the shape the foundation decided
 

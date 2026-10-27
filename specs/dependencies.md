@@ -41,7 +41,7 @@ which source, on which date, and what was learned while confirming it. The stand
 | gitleaks-action | v3 | gitleaks/gitleaks-action README | Needs only `GITHUB_TOKEN` on a personal account; an organisation repository needs a `GITLEAKS_LICENSE` secret (free at gitleaks.io). Reads `.gitleaks.toml` at the repository root. |
 | gitleaks (local) | v8.30.1 | GitHub releases API, gitleaks README | `just secret-scan` runs `ghcr.io/gitleaks/gitleaks` in `dir` mode over the working tree, so uncommitted files are scanned before they are staged; `.gitleaks.toml` extends the default rules and allowlists the untracked `.env` and the virtualenv folders. |
 
-## Evolution API (B8 spike, OQ-1 still open)
+## Evolution API (B8 spike, OQ-1 closed 2026-10-27)
 
 Confirmed 2026-08-28 from the official repository (`EvolutionAPI/evolution-api`, now under the
 Evolution Foundation), its `docker-compose.yaml` and `.env.example`, the GitHub releases API, the
@@ -57,13 +57,26 @@ Docker Hub tags API, and the source at git tag `2.3.7`. The documentation site m
 | Endpoints | git tag `2.3.7` | `src/api/dto/sendMessage.dto.ts`, `src/validate/message.schema.ts`, `src/api/routes/sendMessage.router.ts`, doc pages for instance create, connect and connectionState | `POST /instance/create` body `{instanceName, integration: "WHATSAPP-BAILEYS", qrcode: true}`; `GET /instance/connect/{name}` returns `base64` (PNG data URI) and `pairingCode`; `GET /instance/connectionState/{name}` returns `instance.state` in `open`, `close`, `connecting`; `POST /message/sendText/{name}` body `{number, text}` with optional `delay`, `linkPreview`, and the response carries `key.id` and `status`. Trap: the send-text documentation page still shows the v1 body (`textMessage.text`); the 2.3.7 source is the authority and takes top-level `text`. |
 
 Exit criterion of OQ-1, since the owner decision of 2026-09-02 one real message delivered to the
-destination group and not to a number, is not yet met. Done on
-2026-08-28, verified on the owner's machine: `just evolution-up` boots the three services, the
-Prisma migrations run at container start, `GET /` answers `version 2.3.7` and names the manager UI
-at `http://localhost:8080/manager` (login with the API key), `POST /instance/create` created
+destination group and not to a number, **was met on 2026-10-27**. Verified on the owner's machine in
+two sittings. On 2026-08-28: `just evolution-up` boots the three services, the Prisma migrations
+run at container start, `GET /` answers `version 2.3.7` and names the manager UI at
+`http://localhost:8080/manager` (login with the API key), `POST /instance/create` created
 `valeverde` in state `connecting`, and `GET /instance/connect/valeverde` returned a QR code that
-`just evolution-qr` saved as a PNG. Not done: pairing the phone (a human scans the QR, which
-rotates every few seconds up to `QRCODE_LIMIT`, so generate it right before scanning) and the send.
+`just evolution-qr` saved as a PNG. On 2026-10-27, with the phone in hand: the pairing, the group
+and five sends.
+
+| Step | What happened |
+| --- | --- |
+| Pairing | `GET /instance/connect/valeverde` scanned from the phone, `GET /instance/connectionState` then `open`, and `GET /instance/fetchInstances` reports `ownerJid` `556796066163@s.whatsapp.net` and `profileName` `Vale Verde`. The QR rotates, so it was regenerated every ten seconds behind a page that reloaded the image, and the pairing landed on the ninth cycle. |
+| The group | `GET /group/fetchAllGroups/valeverde?getParticipants=false` through the new `just evolution-groups` lists every group the paired account is in with `id`, `subject` and `size`. `Avisos - Vale Verde` is `120363414307941525@g.us`. Read, never typed, which is the rule foundation section 4 states. |
+| The sends | `POST /message/sendText/valeverde` with the group identifier in `number` answered `201` with a `key.id` and `status` `PENDING` five times, and the owner confirmed all five arrived. `201` and `PENDING` are acceptance by the gateway and not delivery, so the owner's eye is what closed this, not the status code. |
+| Accents | A body built by `json.dumps` with its default `ensure_ascii`, which emits non-ASCII as JSON unicode escapes, arrived with its accents intact. An adapter therefore needs no encoding work of its own. |
+
+What this does not prove, written down rather than assumed: the pairing lives in the
+`evolution_instances` volume of the machine that performed it, and nothing copies that volume, so
+the production instance is paired again on the production host with the phone in hand. A
+disconnected instance is kept rather than deleted (`DEL_INSTANCE=false`), which is what makes
+re-pairing cheap.
 
 Group destination, confirmed 2026-09-02 against the source at git tag `2.3.7`, for the owner
 decision of foundation section 4 v0.4. Three findings, none of them from memory:
@@ -126,6 +139,19 @@ package was added.
 | Django logging configuration | `django.utils.log.configure_logging` in 5.2.17 runs `dictConfig(DEFAULT_LOGGING)` first and the project's `LOGGING` second. `DEFAULT_LOGGING` gives the `django` logger a console handler that this project does not filter, so `LOGGING` redefines that logger. Its `django.server` logger is a child of `django`, and `logging.config` resets the children of a reconfigured logger, so the runserver request line propagates into the filtered handler with no entry of its own. |
 | `logging.Filter` placement | A filter on a logger runs only for records created by that exact logger, never for records propagated from a child, so redaction lives on the handler where every record passes. Mutating `record.msg` requires clearing `record.args`, or the handler interpolates a second time against a string that no longer carries the placeholders. |
 | Compose healthcheck | `python:3.13-slim` carries no curl or wget, so the healthcheck probes the endpoint with `python -c` and `urllib.request`. It requests the loopback address, which `DJANGO_ALLOWED_HOSTS` must therefore list or Django answers 400 and the container reads as unhealthy. |
+
+## Message templates, confirmed during the wording decision (2026-10-27)
+
+Confirmed by running each one against the pins, never from memory. No package was added; both
+findings are about `str.format` and both widen what a configured template may carry.
+
+| Piece | Finding |
+| --- | --- |
+| `{due_date}` alone | Renders `2026-11-26`, the ISO order, because that is `date.__str__`. A Portuguese reader needs `{due_date:%d/%m/%Y}`, which reaches `date.__format__` and takes strftime codes. The placeholder in `.env.example` carried the bare field and was therefore wrong for its own audience, the same shape of defect B23 found in the date input. |
+| A format spec and the field validation | `string.Formatter().parse` reports the field name and the spec separately, so the boundary's membership check against its allowed field set never sees the spec and a template may carry any spec the type supports. Width and truncation work for the same reason, and `{client:<18.18}` renders a padded, truncated column. |
+
+The second row is what made the rejected monospace table of foundation section 4 possible to build
+and compare at all, and the first is now in the approved wording.
 
 ## Runtime environment, confirmed during B6 (2026-08-28)
 
@@ -254,3 +280,7 @@ uv lock was deleted, nothing had been committed with it.
 2026-09-02: the Evolution section gained the group destination findings, read from the source at git
 tag 2.3.7, and the note that the adapter uses the standard library. No pin changed and no package
 was added.
+
+2026-10-27: the Evolution section records OQ-1 closing, with the pairing, the group identifier read
+from the vendor and the five delivered messages; a message template section was added for the two
+`str.format` findings behind the approved wording. No pin changed and no package was added.

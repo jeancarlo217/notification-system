@@ -121,3 +121,33 @@ typed accessor `get_evolution_config()` beside `get_config()`, and refusing to s
 the daily run's job (B8) rather than this boundary's. The base URL is stored without its trailing
 slash, since the adapter writes paths onto it, and the instance name is validated as the URL
 segment it becomes.
+
+**Note, 2026-10-27, the wording closes and the destination is proven.** Foundation section 4 now
+carries the approved text, so the message values this boundary owns are settled and B27 delivers
+them rather than deciding them.
+
+`DEADLINER_MESSAGE_TEMPLATE` gains a fifth field, `deadline`, beside the four it already allows,
+and that field is the only one the engine computes instead of the record providing it.
+`DEADLINER_MESSAGE_HEADER` is as the note above describes, over `count` and `date`. Five further
+variables carry the phrase that fills `deadline`, each a `str.format` string over the single field
+`days` and each allowed to use no field at all:
+`DEADLINER_DEADLINE_FUTURE` for two days out or more, `DEADLINER_DEADLINE_TOMORROW`,
+`DEADLINER_DEADLINE_TODAY`, `DEADLINER_DEADLINE_YESTERDAY` and `DEADLINER_DEADLINE_OVERDUE` for two
+days past or more. `days` is handed to them as a count and never as a signed integer, because the
+sign is what chose the phrase, so no phrase has to render a minus sign. All five are required and
+have no default in code, exactly like the five values this ADR opens with (I4), which takes the
+required business block from six variables to twelve.
+
+Twelve required strings for one message is the cost of this shape and it is worth naming rather
+than discovering. The alternative was one template over a signed integer, which costs one variable
+and prints `vence em 0 dias` on the due date and `vence em -3 dias` after it, in the two cases a
+person most needs to read. Portuguese inflects and a template cannot, so either the engine chooses
+among phrases the owner wrote or the owner writes a phrase that is wrong some days.
+
+Two behaviours of `str.format` were confirmed by running them on 2026-10-27 and are recorded in
+`specs/dependencies.md`, because both widen what a template may contain: a format spec such as
+`{due_date:%d/%m/%Y}` reaches `date.__format__` and renders the Brazilian order, and
+`string.Formatter().parse` reports only the field name, so the spec passes the field validation
+untouched. The destination rule is also no longer reasoned from source alone: the group identifier
+of the real destination group loaded through this boundary and was accepted on 2026-10-27, when
+OQ-1 closed.
