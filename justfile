@@ -93,6 +93,11 @@ evolution-qr name="valeverde":
 evolution-state name="valeverde":
     curl -s {{evolution_url}}/instance/connectionState/{{name}} -H "apikey: $EVOLUTION_API_KEY" | jq .
 
+# Groups the paired account is in, with the identifier the destination variable takes
+# (foundation section 4 v0.4: a group identifier is read from the vendor, never typed)
+evolution-groups name="valeverde":
+    curl -s "{{evolution_url}}/group/fetchAllGroups/{{name}}?getParticipants=false" -H "apikey: $EVOLUTION_API_KEY" | jq '[.[] | {id, subject, size}]'
+
 # Send one text message, for example: just evolution-send 5567999999999 "teste"
 evolution-send number text name="valeverde":
     curl -s -X POST {{evolution_url}}/message/sendText/{{name}} -H "apikey: $EVOLUTION_API_KEY" -H "Content-Type: application/json" -d '{"number":"{{number}}","text":"{{text}}"}' | jq '{id: .key.id, status}'
