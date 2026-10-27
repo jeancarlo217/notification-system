@@ -600,8 +600,11 @@ uses `http://localhost:8080`. The same variable name carries both values and onl
 right per environment, so `.env.example` says which is which where a deployer reads it.
 
 Files: `deadliner/config.py`, `.env.example`, `.github/workflows/ci.yml`, the README section on
-configuration, `tests/test_config.py`. Not blocked on OQ-1: no phone, no pairing and no group have
-to exist for this to be delivered and green.
+configuration, `tests/test_config.py`, and `Dockerfile`, which this list missed until 2026-10-27:
+the image build sets the whole required block as build time placeholders so `collectstatic` can
+run, so a renamed variable stops the build at `docker compose build` while every gate stays green.
+Not blocked on OQ-1: no phone, no pairing and no group have to exist for this to be delivered and
+green.
 
 Delivered test first on branch `b26-alert-destination`, 23 new behaviour tests in
 `tests/test_config.py` and the field rename rippled through the eight test files that build a
