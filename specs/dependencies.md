@@ -119,6 +119,12 @@ open services and 65536 near 700. The engine logs the length of every message it
 is read on the production host rather than argued about here. The vendor's own documentation page
 for this call still shows the v1 body, the trap already recorded above.
 
+The standard library client, confirmed by running it on Python 3.13 for B8 on 2026-11-12:
+`urlopen` raises `HTTPError` for a 4xx or 5xx instead of returning it, a refused connection is
+`URLError` and a read timeout is `TimeoutError`, all three being `OSError`; the `timeout` argument
+bounds the connection and each read. The adapter therefore catches `HTTPError` for the status and
+`OSError` for everything else, and needs nothing a client package would add.
+
 Trap met on the way: after the disk-full incident the locally cached image had zero-byte files
 (`dist/main.js`, `Docker/scripts/*.sh`), so the container exited 0 in silence and restarted in a
 loop. `docker image rm` and a fresh `docker compose pull` fixed it; the integrity check is
@@ -306,3 +312,6 @@ from the vendor and the five delivered messages; a message template section was 
 
 2026-11-12: the Evolution section gained the message length findings for B27, read from the source
 at git tag 2.3.7 and from Baileys 7.0.0-rc.9. No pin changed and no package was added.
+
+2026-11-12: B8 recorded how the standard library client fails. No pin changed and no package was
+added; the runtime stays at django, gunicorn and whitenoise.

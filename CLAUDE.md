@@ -85,7 +85,11 @@ replaced `Alert` (migration `0018`), the eleven business variables, the schedule
 minute, the state of today's list on the list screen in place of the per threshold chips, and
 `send_alerts --preview`. Two host side steps of it are still owed and are written in the item:
 confirming the production alert table is empty before the migration ships, and measuring the real
-message with the preview there. Phase two now waits only on B8's adapter.
+message with the preview there.
+The B8 adapter followed the same day on branch `b8-evolution-adapter`: `core/evolution.py`, the
+standard library over one vendor call, every failure answered `False`
+(`specs/adr/0008-evolution-adapter.md`). No real message was sent from it yet. Phase two is now
+host side work only, written as a procedure in the README.
 Stack, decided in the foundation: Python 3.13, Django 5.2 LTS with server-rendered templates and
 Django Forms, SQLite on a Docker volume, a plain virtualenv with pip and pinned requirements files,
 `mypy --strict` with django-stubs, ruff, pytest with pytest-django, Docker Compose from the first
@@ -125,7 +129,7 @@ crash or a missed day costs lateness at most, never a lost or duplicated list.
   combobox widgets, `identity.py` for name normalization, `terms.py` for the due date derivation,
   `export.py` for the CSV row, `backups.py` for the copy and its retention, `audit.py`,
   `clock.py` for the one place the time is read,
-  `engine.py` and `provider.py` for the daily engine, `management/commands/send_alerts.py` and
+  `engine.py` and `provider.py` for the daily engine, `evolution.py` for the adapter, `management/commands/send_alerts.py` and
   `backup_database.py`, `static/` with the brand assets), `manage.py` at the root.
   `backups/` holds the copies and is ignored except for its `.gitkeep`.
   `tests/` holds every test; each names the identifier it implements.
@@ -207,7 +211,9 @@ Each cites its invariant in the foundation; the acceptance test lives there in f
   countable (I8), never a login, and the IP and country stay beside it.
 - The notification provider is a narrow interface with one operation (deliver text to the
   configured destination, report acceptance). Evolution API is an adapter behind it. Tests fake the
-  interface; never mock the vendor SDK, never call the network in a unit test.
+  interface; never mock the vendor SDK, never call the network in a unit test. The adapter's
+  own tests stand a scripted gateway up on the loopback address (ADR 0008), and the one test that
+  reaches a real instance runs only with `EVOLUTION_LIVE_SEND=1`, because it messages a real group.
 - Client IP and country come from Cloudflare's forwarding headers only; that trust is part of the
   deployment contract (OQ-2).
 - The health endpoint is the single route outside the secret path; it touches no dependency.

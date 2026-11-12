@@ -16,6 +16,5 @@ shape B9 delivered, `0003-secret-path-and-log-redaction.md` the shape B5 deliver
 `0006-submitter-identity.md` were written ahead of B12 and B13, because the owner's revision of
 foundation sections 3 and 6 forced two model decisions that several items then depend on.
 `0007-service-term-and-derived-due-date.md` is written ahead of B19 for the same reason, the owner's
-revision of section 3 on 2026-08-31 that turned the due date into a derived value. Next is
-`0008-evolution-adapter.md`, which backlog B8 names and which OQ-1 stopped gating on 2026-10-27;
-after it, the interface shape B14 delivers, once the work forces it.
+revision of section 3 on 2026-08-31 that turned the due date into a derived value. `0008-evolution-adapter.md` records the shape B8 delivered on 2026-11-12. Next is the interface
+shape B14 delivers, once the work forces it.

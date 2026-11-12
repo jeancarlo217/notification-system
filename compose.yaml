@@ -68,8 +68,10 @@ services:
     depends_on:
       - evolution-postgres
       - evolution-redis
+    # Loopback only, like web, and the host side port is a variable for the same reason: the
+    # deployment host already runs other services. Only Compose reads it.
     ports:
-      - "127.0.0.1:8080:8080"
+      - "127.0.0.1:${EVOLUTION_PORT:-8080}:8080"
     volumes:
       - evolution_instances:/evolution/instances
     environment:

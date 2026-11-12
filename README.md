@@ -184,9 +184,9 @@ data and only `docker compose down -v` destroys it.
 `just up` starts everything instead: the web application, the scheduler, and Evolution API
 with its own Postgres and Redis. You want that only when working on the WhatsApp integration.
 Two warnings about the full stack. The scheduler polls `send_alerts` every minute and stays quiet
-until the send time, but from then on, with any service open, the day's list is marked failed and
-retried hourly with an error each time, because the Evolution adapter does not exist yet (backlog
-B8). And Evolution pulls three more containers, so give it disk.
+until the send time, and from then on it sends the day's list through whatever instance
+`EVOLUTION_BASE_URL` names, so on a machine paired to the company account it messages the real
+group. And Evolution pulls three more containers, so give it disk.
 
 ### Without Docker, for development
 
@@ -246,9 +246,9 @@ but the `chown` is what makes it unnecessary.
 **The `scheduler` service is deliberately absent from that line.** An owner decision of 2026-08-31
 ships this in two phases: the first one is registration and the export, with no WhatsApp delivery,
 because there is nothing worth notifying anybody about until the registry has something in it. The
-adapter behind the provider interface is not written (backlog B8), so a send fails loudly by
-design, and a scheduler started now would mark every morning's list failed and retry it every hour
-for the rest of the day. Phase two adds
+host has no gateway configured yet, so a send fails loudly by design, and a scheduler started
+now would mark every morning's list failed and retry it every hour for the rest of the day. Phase
+two, the procedure further down under turning the WhatsApp list on, adds
 `scheduler` to that command once the adapter exists. The `backup` service does run from day one,
 because the registry the first phase accumulates is then the only asset the company owns.
 
@@ -277,6 +277,122 @@ which is the whole procedure including the restore.
 
 Static files are handled: WhiteNoise serves them and `collectstatic` runs during the image build,
 under the secret segment like everything else.
+
+### Turning the WhatsApp list on
+
+Phase two, in the order that keeps a mistake from reaching the group. Everything runs on the
+production host, from the directory holding `compose.yaml`. The recipes named `just evolution-*`
+do the same calls where `just` and `jq` are installed; the plain commands are given because a
+server usually has neither.
+
+1. **Before pulling the new code, confirm the old alert table is empty.** The migration that ships
+   with this version deletes it, and it should hold nothing because the scheduler never ran here.
+
+   ```bash
+   docker compose exec web python manage.py shell -c "from django.db import connection; c = connection.cursor(); c.execute('select count(*) from core_alert'); print(c.fetchone()[0])"
+   ```
+
+   It must print `0`. If it prints anything else, stop and ask before going on.
+
+2. **Edit `.env`.** Add the eight message lines from `.env.example` exactly as they are there
+   (`DEADLINER_SEND_TIME`, `DEADLINER_MESSAGE_HEADER`, `DEADLINER_MESSAGE_TEMPLATE` replacing the
+   old one, and the five `DEADLINER_DEADLINE_` phrases). Then the gateway:
+
+   ```bash
+   EVOLUTION_BASE_URL=http://evolution:8080
+   EVOLUTION_INSTANCE_NAME=valeverde
+   ```
+
+   `EVOLUTION_API_KEY` and `EVOLUTION_DB_PASSWORD` are already there. If port 8080 is taken on the
+   host, check with `ss -ltn | grep 8080`, set `EVOLUTION_PORT` to a free one and use that port
+   wherever `8080` appears in the `curl` commands below. `EVOLUTION_BASE_URL` stays
+   `http://evolution:8080` either way, because that is the address inside the Docker network.
+
+3. **Update and restart the application, still without the scheduler.**
+
+   ```bash
+   git pull
+   docker compose up -d --build web backup
+   docker compose ps
+   ```
+
+   `web` has to come back healthy. If it restarts in a loop, `docker compose logs web` names the
+   variable that is missing or malformed.
+
+4. **Read the message that would be sent.** Nothing is sent by this.
+
+   ```bash
+   docker compose exec web python manage.py send_alerts --preview
+   ```
+
+5. **Start Evolution and create the instance.**
+
+   ```bash
+   docker compose up -d evolution
+   set -a; . ./.env; set +a
+   curl -s http://127.0.0.1:8080/
+   curl -s -X POST http://127.0.0.1:8080/instance/create -H "apikey: $EVOLUTION_API_KEY" -H "Content-Type: application/json" -d '{"instanceName":"valeverde","integration":"WHATSAPP-BAILEYS","qrcode":true}'
+   ```
+
+   The first `curl` answers with the version, `2.3.7`. Give the service a minute on its first
+   start, since it runs its own database migrations.
+
+6. **Pair the company phone.** The pairing done on a development machine in October lives on that
+   machine; this host pairs again. The QR code rotates every few seconds, so it has to be read
+   from something that refreshes it. From your own computer, open a tunnel to the host and use
+   Evolution's manager screen:
+
+   ```bash
+   ssh -L 8080:127.0.0.1:8080 user@the-host
+   ```
+
+   Then open `http://localhost:8080/manager` in a browser on your computer, sign in with the value
+   of `EVOLUTION_API_KEY`, open the instance `valeverde` and scan its QR code with the company
+   phone, in WhatsApp under linked devices. Back on the host, confirm:
+
+   ```bash
+   curl -s http://127.0.0.1:8080/instance/connectionState/valeverde -H "apikey: $EVOLUTION_API_KEY"
+   ```
+
+   The state has to read `open`.
+
+7. **Read the group identifier from the vendor and compare it with `.env`.** It is never typed
+   from memory.
+
+   ```bash
+   curl -s "http://127.0.0.1:8080/group/fetchAllGroups/valeverde?getParticipants=false" -H "apikey: $EVOLUTION_API_KEY"
+   grep DEADLINER_WHATSAPP_DESTINATION .env
+   ```
+
+   Find the group by its `subject` in the answer and make sure its `id`, which ends in `@g.us`, is
+   the value in `.env`. If you change `.env`, run step 3 again.
+
+8. **Send one test message to the group through the gateway.**
+
+   ```bash
+   curl -s -X POST http://127.0.0.1:8080/message/sendText/valeverde -H "apikey: $EVOLUTION_API_KEY" -H "Content-Type: application/json" -d "{\"number\":\"$DEADLINER_WHATSAPP_DESTINATION\",\"text\":\"Teste do sistema de avisos\"}"
+   ```
+
+   Somebody has to see it arrive on a phone. An answer from the gateway is acceptance, not
+   delivery.
+
+9. **Start the scheduler.**
+
+   ```bash
+   docker compose up -d --build web backup scheduler
+   ```
+
+   From here the command is polled every minute. If it is already past the send time and no list
+   went out today, the list is sent within a minute, which is the rule and not a defect: late
+   beats never. To wait for tomorrow morning instead, start the scheduler after midnight, or
+   before the send time.
+
+10. **Look at the list screen.** It says whether today's list was sent, and when, or that it
+    failed and when it is tried again. `docker compose logs scheduler` shows one `list_send` line
+    per attempt, with the number of services and the length of the message.
+
+To turn it off again: `docker compose stop scheduler`. Nothing is lost, and the next start sends
+that day's list if it is still owed.
 
 ### The reverse proxy, on a host that already runs other things
 
@@ -438,12 +554,11 @@ optional.
 
 ## Open questions, so you do not go looking for what is not there
 
-- **The WhatsApp integration is not finished, though its question (OQ-1) closed on 2026-10-27.**
-  Evolution API runs in Compose, the instance pairs and a real message reached the real group, but
-  the adapter behind the provider interface is not written (backlog B8), so `send_alerts` fails
-  loudly instead of sending. That is deliberate: the alternative is code that pretends to send.
-  The daily list itself is built (backlog B27) and `send_alerts --preview` prints it. Spike steps
-  are the `just evolution-*` recipes, findings in `specs/dependencies.md`.
+- **The WhatsApp integration is written and not yet switched on.** The daily list (backlog B27)
+  and the adapter that hands it to Evolution API (backlog B8) are both in the code, and where no
+  gateway is configured a send fails loudly instead of pretending. What remains is on the host and
+  is the procedure under turning the WhatsApp list on. No real message has been sent by the
+  adapter itself yet, only by hand during the spike.
 - **OQ-2, the Cloudflare mechanism**, as above.
 - **The message wording (OQ-3) closed on 2026-10-27** and its header changed on 2026-11-09. The
   text is the owner's voice and not a technical choice, and `.env.example` carries it.

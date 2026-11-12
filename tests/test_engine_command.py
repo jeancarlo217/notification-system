@@ -73,15 +73,6 @@ def test_a_run_that_owes_nothing_never_asks_for_a_provider(
     assert Dispatch.objects.count() == 0
 
 
-def test_the_provider_factory_refuses_while_the_adapter_is_missing() -> None:
-    """I2: with no adapter delivered yet (B8), resolving the provider fails loudly, never as a
-    silent no-op."""
-    from core.provider import get_provider
-
-    with pytest.raises(ImproperlyConfigured):
-        get_provider()
-
-
 @override_settings(DEADLINER=TEST_DEADLINER)
 def test_the_preview_prints_the_message_and_sends_nothing(
     monkeypatch: pytest.MonkeyPatch,

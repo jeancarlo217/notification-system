@@ -39,6 +39,11 @@ how long a message the vendor accepts, since the list now grows with the registr
 run: the empty alert table confirmed before the migration ships, and the real message read with
 the preview there. After it, phase two is B8, the adapter, and the host side of B11.
 
+**On 2026-11-12 the B8 adapter was delivered in code too**, so no code stands between the live
+system and its notifications. What remains is on the production host and is written as a numbered
+procedure in the README: the new configuration, the Evolution service brought up and paired with
+the company phone, the preview, and the `scheduler` service started.
+
 **Open beside that:** B11 is not finished. Cloudflare fronts nothing yet, so the audit trail
 carries no IP and no country until the zone migration that travels with Ecobalance 2.0.
 
@@ -101,7 +106,8 @@ foundation sections 2 and 5, I1, I2, I3. Delivered test first on branch `b7-aler
 developer B (19 behaviour tests); verified with `just gate` (ruff, `mypy --strict`, 105 tests,
 gitleaks) on 2026-08-28; merged to `main` by pull request #7.
 
-**B8. Evolution API spike, then adapter.** `spike done (2026-10-27), adapter todo`. Since the
+**B8. Evolution API spike, then adapter.** `spike done (2026-10-27), adapter done in code
+(2026-11-12)`, its delivery note at the end of this item. Since the
 owner decision of 2026-08-31 this and B27 are the whole of phase two: nothing else stands between
 the live system and the notifications it was built for. **The spike closed OQ-1 on 2026-10-27**,
 with the phone in the room: the instance paired, the destination group read back from the vendor as
@@ -132,6 +138,27 @@ absent from every log line (I5), and `get_provider` returning it instead of rais
 lands as `specs/adr/0008-evolution-adapter.md`. One trap already recorded in
 `specs/dependencies.md`: the vendor's own documentation page still shows the v1 send body
 (`textMessage.text`) and the 2.3.7 source takes a top level `text`.
+
+**The adapter, delivered on 2026-11-12 on branch `b8-evolution-adapter`**, stacked on
+`b27-daily-list`. `core/evolution.py` holds the pure `send_text_request` and `was_accepted` and
+the `EvolutionProvider` whose one call carries a fifteen second timeout; every failure answers
+`False`, acceptance is a 2xx with `key.id`, the log line of a failure carries a reason and a
+status and never the key, and `get_provider` returns the adapter or refuses where no gateway is
+configured. Shape in `specs/adr/0008-evolution-adapter.md`. Tested test first in
+`tests/test_evolution_adapter.py`, 39 tests and one opt in: the pure half as values, the transport
+against a gateway the test file stands up on the loopback address, so a refused connection, a
+hung gateway and a refusal are observed. Four mutations of the adapter were each caught.
+`compose.yaml` gained `EVOLUTION_PORT` for the host side port, because 8080 may be taken on the
+production host the way 8000 was.
+
+Verified with `ruff check`, `ruff format --check`, `mypy` and `pytest` (567 tests: 565 passed, 1
+skipped, 1 failed) on 2026-11-12, the failure and the two type errors being the `os.geteuid` of
+B22 on Windows. **Not verified, and it is the part that matters:** no message was sent to a real
+instance from this code, because Docker was down on the machine that wrote it. The opt in test,
+`EVOLUTION_LIVE_SEND=1 pytest tests/test_evolution_adapter.py -k real_instance`, is what proves
+it, and the first morning on the production host proves it again. The secret scan and the image
+build did not run either. The host side steps are in the README, under turning the WhatsApp list
+on.
 
 **B9. Scheduler.** `done (2026-08-28)`. The Compose piece that runs the daily command, with the
 run-twice test proving idempotency end to end. Trace: foundation section 5, I1, I3. Delivered on
@@ -962,3 +989,7 @@ because nothing accumulates. What B27 now has to measure is the longest message 
 `Dispatch` row per day, the eleven business variables, the scheduler polling every minute, the
 state of today's list on the list screen and `send_alerts --preview`. Two steps on the production
 host keep it open, the empty alert table and the real message read through the preview.
+
+2026-11-12: the B8 adapter delivered in code on branch `b8-evolution-adapter`, with ADR 0008. No
+real send was made from it, Docker being down on the machine, so the opt in live test and the
+first morning on the host are what prove it. Phase two is now host side work only.
