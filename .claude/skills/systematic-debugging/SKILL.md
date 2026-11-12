@@ -10,8 +10,8 @@ description: Four-phase debugging methodology with root cause analysis for this 
 **NO FIXES WITHOUT ROOT CAUSE FIRST.**
 
 Never apply a patch that masks the underlying problem. In this product the stakes are concrete: a lost
-warning is an expired license with a client's name on it, and a duplicated warning teaches the company
-phone to ignore the system.
+list is an expired license with a client's name on it, and a duplicated list teaches the company
+group to ignore the system.
 
 ## Four-phase framework
 
@@ -41,17 +41,19 @@ The fix addresses the cause, the reproduction test passes and would have failed 
 
 ## The failure modes this system actually has
 
-**Duplicate sends (I1).** Two messages for one warning is almost always the uniqueness rule missing or
-checked in Python instead of enforced by the database, or the scheduler and a manual run racing. The
-canonical probe: run the engine twice against the same records and count deliveries on the provider fake.
+**Duplicate sends (I1).** Two messages on one day is almost always the uniqueness rule on the day's
+dispatch row missing or checked in Python instead of enforced by the database, or the scheduler and a
+manual run racing. The canonical probe: run the engine twice past the send time against the same records
+and count deliveries on the provider fake.
 
-**Silent loss (I2).** A warning that never arrived and nothing shows it: an exception swallowed around
-the provider call, an alert state no view lists, or the daily query filtering out the failed state so the
-retry never happens. If a human cannot see it in the interface, it is lost even when a log line exists.
+**Silent loss (I2).** A list that never arrived and nothing shows it: an exception swallowed around
+the provider call, a dispatch state no view shows, a `pending` row nobody retries, or the owed decision
+ignoring the failed state so the hourly retry never happens. If a human cannot see it in the interface, it is lost even when a log line exists.
 
-**Time and timezone (I3).** "Today" computed in UTC instead of America/Campo_Grande fires alerts a day
-early or late around midnight. A naive datetime compared to an aware one. A decision function calling the
-real clock, which makes the bug unreproducible in a test. The catch-up rule not firing after missed days
+**Time and timezone (I3).** "Today" or the send time read in UTC, the production host's clock, instead
+of America/Campo_Grande sends the list at three in the morning or counts the days remaining wrong around
+midnight. A naive datetime compared to an aware one. A decision function calling the
+real clock, which makes the bug unreproducible in a test. A day's list not sent after the host was down at seven
 means owed-ness is being derived from something other than the persisted records.
 
 **Config that is secretly code (I4).** A behaviour that does not change when the configuration changes

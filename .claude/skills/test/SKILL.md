@@ -53,7 +53,7 @@ with no test is visible by grep. One behaviour per test; arrange, act, assert, v
 
 ## 3. Seams
 
-Tests live at public boundaries. The decisions (schedule computation, threshold evaluation, message
+Tests live at public boundaries. The decisions (schedule computation, the ordered lines of the list, message
 rendering, CSV shaping) are pure and carry the bulk of the tests with no Django machinery. The effects
 are faked at their interface: the notification provider (one operation), the clock (injected, never
 `sleep`, never the real time). **If a piece of logic can only be tested with the network or a live

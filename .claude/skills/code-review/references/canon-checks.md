@@ -12,10 +12,10 @@ logged entry, decided by the owner, not a compromise reached inside a review.
 
 | Invariant | What a violation looks like |
 | --- | --- |
-| **I1** one warning, one message | a send with no uniqueness rule on (service, threshold) persisted before the attempt; the engine deciding "already sent" from process memory, a flag on the service row, or anything a second concurrent run cannot see; a resend path that creates a fresh alert instead of reusing the record |
-| **I2** nothing fails silently | a caught exception around the provider call that logs and moves on without persisting a failed state; an alert state machine with a state no view lists; a failed alert the next run's query does not pick up |
+| **I1** one day, one list | a send with no uniqueness rule on the day's dispatch row persisted before the attempt; the engine deciding "already sent" from process memory, a flag on the service row, or anything a second concurrent run cannot see; a retry path that creates a fresh dispatch row instead of reusing the day's; a service listed twice in one message |
+| **I2** nothing fails silently | a caught exception around the provider call that logs and moves on without persisting a failed state; a dispatch state machine with a state no view shows; a failed or stuck `pending` day the hourly retry does not pick up |
 | **I3** the schedule survives death | owed-ness computed from anything but persisted records plus the injected date; `datetime.now()` or `timezone.now()` called inside a decision function; a naive datetime, or "today" computed in UTC instead of America/Campo_Grande; a scheduler that enqueues future sends at registration time |
-| **I4** business values are data | a threshold (30, 7, 0), the alert destination, a message template or the secret path segment as a literal in a function or a migration; a config value read somewhere other than the settings boundary |
+| **I4** business values are data | the send time (07:00), the alert destination, a message template or the secret path segment as a literal in a function or a migration; a config value read somewhere other than the settings boundary |
 | **I5** no secret in the repository | a credential, an API key, a real `.env`, a SQLite database file, or production data in the diff; a default in code that is a real credential; a fixture copied from the live database |
 | **I6** every write is attributed | a form POST handled with no audit log entry; the IP read from `REMOTE_ADDR` instead of the Cloudflare forwarding header; audit fields assembled in each view instead of once on a shared path |
 | **I7** the link never leaks into its own logs | a log line, error message or exception that can carry the full request path unredacted; the secret segment interpolated into a user-visible URL that gets logged; redaction implemented in callers instead of on the logging path |
@@ -24,7 +24,7 @@ logged entry, decided by the owner, not a compromise reached inside a review.
 
 | Check | Authority |
 | --- | --- |
-| decisions are pure: schedule computation, threshold evaluation, message rendering and CSV shaping take plain data in and out, no clock, no network, no ORM | `specs/testing.md` |
+| decisions are pure: schedule computation, the ordered lines of the list, message rendering and CSV shaping take plain data in and out, no clock, no network, no ORM | `specs/testing.md` |
 | the notification provider is one narrow interface with a real Evolution adapter and a test fake; no code outside the adapter imports the vendor's client or speaks its HTTP shapes | foundation section 4 |
 | the clock is an effect: anything depending on "now" receives it as a value or an injected clock | `specs/testing.md` |
 | migrations generated with `makemigrations`, never hand-authored | `CLAUDE.md` |

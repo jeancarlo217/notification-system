@@ -21,8 +21,9 @@ deletion.
 ## Decisions versus effects
 
 A decision is pure: plain data in, plain data out, no clock, no network, no database. In this
-project the decisions are the schedule computation (which warnings are owed, given records,
-thresholds and today's date), threshold evaluation, message rendering, and CSV row shaping. They
+project the decisions are the schedule computation (whether the day's list is owed, given the
+clock, the configured send time and today's dispatch record), the ordered lines of the list,
+message rendering, and CSV row shaping. They
 carry the bulk of the tests and need no Django machinery to run.
 
 An effect is I/O: the database, the clock, the outbound WhatsApp call, the emitted log. Effects

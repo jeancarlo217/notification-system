@@ -29,14 +29,14 @@ stop rather than inventing the answer.
 
 ## 3. Ground it in the shape the foundation decided
 
-- **Decision or effect?** Pure decisions (schedule computation, threshold evaluation, message rendering,
+- **Decision or effect?** Pure decisions (schedule computation, the ordered lines of the list, message rendering,
   CSV shaping) take plain data in and out, no clock, no network, no ORM, and carry the bulk of the tests.
   Effects (database, clock, Evolution HTTP, logging) sit behind narrow interfaces with a real adapter and
   a test fake.
 - **Does it send?** Then it needs the idempotency uniqueness (I1) and a visible failure state (I2).
 - **Does it depend on "now"?** The time arrives as a value or an injected clock, in America/Campo_Grande,
   computed from persisted records (I3).
-- **Is the value business data?** Thresholds, the alert destination, the templates, the secret path are
+- **Is the value business data?** The send time, the alert destination, the templates, the secret path are
   configuration, never literals (I4).
 - **Does it handle a request?** The audit entry (I6) and the secret-path redaction (I7) live on shared
   paths (middleware, the logging config), never in each view's diligence.

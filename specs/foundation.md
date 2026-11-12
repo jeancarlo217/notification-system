@@ -1,6 +1,6 @@
 # Deadline Notification System, foundation
 
-Status: active. Version 0.5, 2026-10-27.
+Status: active. Version 0.6, 2026-11-09.
 
 This document is the single source of truth for this project. Every other document, including
 `CLAUDE.md`, the ADRs and any future task spec, derives from it and loses to it on any disagreement.
@@ -42,23 +42,23 @@ client harmed and trust lost. The person who suffers is the employee who was sup
 and the client who paid them to.
 
 The product refuses to be a project management suite. It stores three facts per service, who the
-client is, what the service is, when it is due, and it makes one promise: before that date arrives,
-the company's WhatsApp receives a warning, and if the warning could not be delivered, a human can
-see that it failed.
+client is, what the service is, when it is due, and it makes one promise: every morning the
+company's WhatsApp group receives the list of every service still open, the nearest deadline first,
+and if the list could not be delivered, a human can see that it failed.
 
 Its moral line: it never fails silently. A send that did not happen is a visible fact in the
 system, never an absence.
 
-The design rule worth quoting on its own: **a deadline the system knows about is a deadline
-someone gets warned about, exactly once per warning.**
+The design rule worth quoting on its own: **a deadline the system knows about is in the company's
+morning list every day until a human closes it.**
 
 ## 1. What it is
 
 A small web application. A form writes flat records into a local database: who the client is,
 which service from the catalogue of section 3.1, when it starts and how many days it runs, an
-optional observation, and who is entering it. Once a day, an engine looks at every active record,
-decides which warnings are owed, and sends them to the company's WhatsApp number through a
-self-hosted Evolution API instance. Every submission is audited, every send attempt is recorded,
+optional observation, and who is entering it. Every morning at a configured hour, an engine reads
+every active record and sends the whole list, ordered by due date, as one message to the company's
+WhatsApp group through a self-hosted Evolution API instance. Every submission is audited, every send attempt is recorded,
 and the whole dataset exports to a spreadsheet in one click. The audience is the employees of one
 company, reachable through a short shared link with no login.
 
@@ -68,18 +68,18 @@ The question a system like this must answer first: where does the truth about wh
 and what happens when WhatsApp does not answer?
 
 **Decision.** The truth lives in the database, in persisted records, and nowhere else. The due
-date lives in a record. Whether a given warning was sent, and when, and whether it failed, lives in
+date lives in a record. Whether the day's list was sent, and when, and whether it failed, lives in
 a record. The daily run derives everything it does from those records and from the injected
 current date, never from process memory, a queue, or the memory of a previous run. Sending a
 WhatsApp message is an effect whose outcome is written back before anything else depends on it.
 
 *What this buys:* the machine can be off for a weekend, the container can restart mid-run, the
-Evolution instance can be down for a day, and the next successful run still sends every warning
-that is owed, exactly once, because owed-ness is computed from what is persisted. No warning is
-lost to a crash and none is duplicated by a retry.
+Evolution instance can be down for a day, and the next run still sends that day's list exactly
+once, because whether it is owed is computed from what is persisted. No list is lost to a crash and
+none is duplicated by a retry.
 
-*What this costs:* every send attempt does a database write before and after, and the alert table
-grows forever. At this company's scale, hundreds of records, that cost is noise.
+*What this costs:* every send attempt does a database write before and after, and the table of
+daily sends grows by one row a day forever. At this company's scale, hundreds of records, that cost is noise.
 
 Rejected alternatives: an in-memory scheduler (dies with the process), a message queue with
 delayed delivery (infrastructure this scale does not justify, and the queue would become a second
@@ -93,8 +93,9 @@ section 3.3 with the due date derived from them, status (active or completed), c
 and the submitter of section 6. The client is still a bare string,
 so there is still no client table. The only foreign keys a service record carries point at the two
 reference entities, the catalogue entry and the submitter; no service record points at another.
-Alongside it, one alert record per warning attempt, carrying the service it belongs to, which
-threshold it implements, its state and its timestamps.
+Alongside it, one dispatch record per day the list was attempted, carrying the date it belongs to,
+its state and its timestamps. Until 2026-11-09 this was one alert record per service and threshold;
+section 5 says why that went.
 
 *What this buys:* the brief demands a structure simple enough to export to a spreadsheet, and a
 flat record is a spreadsheet row by construction. A reference to a catalogue entry resolves to one
@@ -107,7 +108,7 @@ paying for version 1's simplicity, and it is the right direction to defer.
 
 Status is the whole lifecycle in version 1. A renewed or delivered service is marked completed by
 a human, or its deadline is moved by a human editing the start date or the term of section 3.3.
-Warnings are computed only for active services. Recurrence and automatic renewal are non-goals
+Only active services enter the list. Recurrence and automatic renewal are non-goals
 (see section 10).
 
 ### 3.1. The service catalogue
@@ -185,7 +186,7 @@ company stops offering is deactivated and never deleted, both catalogue foreign 
 and a tracked record already points at `Inventário de GEE`, so a delete would either fail loudly or
 take a deadline with it. Deactivating the category hides its five services from the registration
 form and hides nothing else, so records already pointing at one keep listing, keep being editable
-and keep earning their warnings. Delivery is backlog B20.
+and keep appearing in the daily list. Delivery is backlog B20.
 
 ### 3.3. The service term
 
@@ -193,8 +194,8 @@ and keep earning their warnings. Delivery is backlog B20.
 The employee types the date it starts and a term in days, and the deadline is the first plus the
 second: a service starting on the 5th with a term of twenty days is due twenty days after the 5th.
 Both facts are stored on the record. The due date survives as a stored field, derived from those
-two on every write, and it stays what the thresholds of section 5 and the warnings of section 4
-measure against, so nothing downstream of the record learns a new rule.
+two on every write, and it stays what the list of section 4 orders by and counts the days remaining
+against, so nothing downstream of the record learns a new rule.
 
 *What this buys:* the way the business already thinks about a deadline. A term counted from a date
 is what the contract says and what the employee has in front of them; the due date was arithmetic
@@ -238,13 +239,13 @@ ever replaced, one adapter changes.
 *What this costs:* a thin layer of indirection for a single vendor. It is the standing rule of the
 method and it costs a file.
 
-Failure modes, decided from the brief's purpose: a rejected or errored send puts the alert record
-into a failed state that a human can see in the interface. The next daily run picks up failed and
-never-attempted alerts alike, because both are simply alerts that are owed and not sent. There is
-no silent terminal state (I2), and no alert is delivered twice (I1).
+Failure modes, decided from the brief's purpose: a rejected or errored send puts the day's dispatch
+record into a failed state that a human can see in the interface, and the list is tried again every
+hour until one attempt is accepted that day (section 5). There is no silent terminal state (I2),
+and no day's list is delivered twice (I1).
 
 **Decision, owner, 2026-09-02: the destination is a WhatsApp group, held in one configuration
-variable.** The warnings land in a group the company's own people are in, not in one person's
+variable.** The list lands in a group the company's own people are in, not in one person's
 chat, and the variable that names it is the single destination the product has (I4). It accepts
 either a group identifier or a plain number, because the two differ only in the string that goes
 into the same field, and one variable cannot be ambiguous about which destination wins.
@@ -261,23 +262,30 @@ instance and not per project: it lives in the volume of the machine whose stack 
 the instance that serves production is paired on the production host with the phone in hand, and a
 pairing done anywhere else proves the mechanism without serving it.
 
-**Decision, owner, 2026-09-02: one run sends one message, a list of what is expiring.** The daily
-run does not send one message per warning. It renders every warning owed today as one line
-carrying the client, the service and the days remaining, and delivers the whole list as a single
-message. A run that owes nothing sends nothing. When one service owes more than one threshold in
-the same run, which the catch-up rule of section 5 makes possible, it takes one line and every
-owed pair behind it is recorded as sent, so no service is listed twice in one message.
+**Decision, owner, 2026-11-09: every morning, one message listing every open service.** It
+replaces two decisions: the one of 2026-09-02, which sent one message per run listing only the
+warnings owed that day, and the one of 2026-08-28 in section 5, which owed each service three
+warnings in its life. Now the list is the whole registry that is still open: every active service,
+overdue ones included, one line each carrying the client, the service and the days remaining,
+ordered by due date ascending so the nearest deadline is read first. A registry with no active
+service sends nothing. The same service is therefore in the list every morning until a human
+completes it or moves its deadline, which is the point and not a side effect.
 
-*What this buys:* a person reads one message and sees the whole day, which is what a warning is
-for, and the burst the two phase decision predicted becomes one long message instead of fifty
-short ones. *What this costs:* a failed send fails the whole list rather than one warning, which
-I2 already handles by retrying every unsent warning in the next run's list, and the message can
-grow long enough to be scrolled on the first run after a backlog of deadlines.
+*What this buys:* a person reads one message and sees everything that is open, and nothing has to
+reach a threshold to be seen. The question the two phase decision of 2026-08-31 left to the owner,
+whether the first run after phase two sends every warning already past its trigger date or records
+them as handled, stops existing: the first list is simply the registry, like every list after it.
+*What this costs:* the message grows with the registry and not with the day, so a registry of a few
+hundred open services is a long message every morning, and how long a message the vendor and
+WhatsApp accept has not been measured; B27 measures it. A deadline far away is also read every
+day, which the owner preferred to a deadline that only appears at thirty days.
 
 The destination and the templates are configuration, never literals (I4).
 
 **Decision, owner, 2026-10-27: the wording, which closes OQ-3.** The message heads with
-`Vencimentos de hoje, {date}. {count} serviços nesta lista.` and carries one line per service
+`Serviços em aberto, {date}. {count} serviços nesta lista.`, the header the owner chose on
+2026-11-09 when the list became every open service (it read `Vencimentos de hoje` before), and
+carries one line per service
 reading `• *{client}* | {service} | {deadline} ({due_date:%d/%m/%Y})`, the lines joined by a single newline
 with nothing blank between them, ordered by due date ascending and then by client. The asterisks
 around the client are what WhatsApp draws as bold, the due date is written in the order this
@@ -287,7 +295,7 @@ days remaining, `vence em {days} dias` from two days out, `vence amanhã` at one
 zero, `venceu ontem` at one day past and `venceu há {days} dias` beyond that.
 
 *What this buys:* a message a person reads at a glance, and Portuguese that is correct in every
-case the catch-up rule of section 5 can produce, where one template over a signed integer would
+case the list of section 4 can carry, overdue services included, where one template over a signed integer would
 have printed `vence em 0 dias` and `vence em -3 dias` on the days that matter most. The five
 phrases are also why the engine never has to decide wording, which stays the owner's voice.
 *What this costs:* five configuration values instead of one, and a message whose shape is now
@@ -301,30 +309,39 @@ separated by blank lines, which a phone turns into scrolling.
 
 ## 5. Timing and scheduling
 
-**Decision.** Three warnings per service: 30 days before the due date, 7 days before, and on the
-due date itself. Each is sent exactly once per service. The thresholds are data in versioned
-configuration, not code. A service registered inside a window receives only the warnings whose
-trigger date has not passed, plus catch-up as below.
+**Decision, owner, 2026-11-09: one list a day, at seven in the morning.** The list of section 4 is
+owed once per calendar day, at a send time held in versioned configuration and set to 07:00 in the
+America/Campo_Grande timezone, the same zone "today" is computed in, and never in the host's own
+clock, which on the production VPS would likely put the message at three in the morning. Before the
+send time nothing is owed. From the send time onward, a day with no delivered list owes exactly
+one, and a day whose list was delivered owes nothing more. A failed attempt is retried every hour
+until one is accepted that day.
 
-*What this buys:* a deterministic, testable rule that matches the brief's "about a week or a
-month". Changing the cadence is a config edit.
+This replaces the three warnings per service of 2026-08-28, 30 days before the due date, 7 before
+and on the day, each sent once. The thresholds stop existing, in code and in configuration, because
+a list of everything that is open has nothing left for them to select.
 
-*What this costs:* no per-service custom cadence in version 1. If a service type ever needs its
-own rule, that is a logged revision.
+*What this buys:* the message arrives at the start of the working day, at an hour a person can rely
+on, and the rule that decides it is one comparison against the clock rather than a schedule per
+service. *What this costs:* the hour is now a property of the product, so the scheduler stops
+being free to run whenever its container happened to start (ADR 0002 records the shape), and a
+list whose every attempt failed until midnight is not sent the next day as yesterday's: the next
+morning's list replaces it, and yesterday's failure stays visible (I2).
 
-**Decision.** The engine is a Django management command executed once a day by a scheduler that
-lives in the Compose stack, outside the web process. No Celery, no Redis, no queue.
+**Decision.** The engine is a Django management command executed by a scheduler that lives in the
+Compose stack, outside the web process. No Celery, no Redis, no queue.
 
-*What this buys:* zero extra infrastructure. Daily granularity is exact for thresholds measured
-in days.
+*What this buys:* zero extra infrastructure.
 
-*What this costs:* nothing intraday can be sent. For this product that is not a loss.
+*What this costs:* nothing intraday is sent beyond the one list and its retries. For this product
+that is not a loss.
 
-Catch-up rule: at each run, for every active service and every configured threshold whose trigger
-date is on or before today, with no sent alert for that pair, one alert is owed, and every alert
-owed by that run is delivered together as the single message of section 4, its text computed at
-send time from the current records. If runs were missed, warnings arrive late rather
-than never (I3). "Today" is computed in the America/Campo_Grande timezone from an injected clock.
+Late rule: at each run, if the injected clock is at or past today's send time in
+America/Campo_Grande and no list was delivered today, the list is owed, its text computed at send
+time from the current records. A host that was down at seven sends the day's list when it comes
+back, however late in the day, and a host that was down for days sends one list, today's, because
+each list is the whole open registry and the lists of the days it missed carry nothing today's does
+not (I3). "Today" is computed in the America/Campo_Grande timezone from an injected clock.
 
 ## 6. Access, identity and audit
 
@@ -440,34 +457,35 @@ vendor is chosen in application code.
 
 ## 9. Non-negotiable invariants
 
-**I1. One warning, one delivery.** A given service and threshold is carried by at most one
-delivered WhatsApp message, ever, by construction of a uniqueness rule on the persisted alert,
-never by the engine remembering. Since the digest decision of section 4 a message carries many
-warnings, so the guarantee is about the warning and not about the message: no warning appears in
-two delivered messages, and no service appears twice in one. Acceptance test: run the daily engine
-twice on the same day against the same records; the provider fake records one message on the first
-run, listing each owed warning once, and no message at all on the second. Scar (design reasoning):
-a retry after a partial failure, or an operator running the command by hand while the scheduler
-also fires, would otherwise warn the group twice and teach everyone to ignore it.
+**I1. One day, one list.** A calendar day in America/Campo_Grande is carried by at most one
+delivered WhatsApp message, by construction of a uniqueness rule on the persisted dispatch record
+for that date, never by the engine remembering; and no service appears twice in one list. Reworded
+on 2026-11-09, when the list became every open service and a guarantee per warning had no warning
+left to hold it. Acceptance test: past the send time, run the daily engine twice on the same day
+against the same records; the provider fake records one message on the first run, listing each
+active service once, and no message at all on the second; advance the injected clock to the next
+day's send time and run again, and a second message is recorded. Scar (design reasoning): a retry
+after a partial failure, or an operator running the command by hand while the scheduler also fires,
+would otherwise send the group the same list twice and teach everyone to ignore it.
 
-**I2. Nothing fails silently.** A send attempt that does not succeed leaves the alert in a failed
-state visible in the interface, and the state machine has no terminal state that a human cannot
-see. A rejected message fails every warning it carried, since none of them reached anybody.
-Acceptance test: with the provider fake rejecting, run the engine; the interface lists every alert
-the message carried as failed, and the next run lists them again. Scar (from the brief): the product exists
+**I2. Nothing fails silently.** A send attempt that does not succeed leaves the day's dispatch
+record in a failed state visible in the interface, and the state machine has no terminal state that
+a human cannot see. Acceptance test: with the provider fake rejecting, run the engine past the send
+time; the interface shows the day's list as failed, and a run an hour later attempts it again. Scar (from the brief): the product exists
 because silent forgetting is the failure mode of the current spreadsheet.
 
-**I3. The schedule survives death.** Which warnings are owed is computed from persisted records
-and the injected current date, never from process memory, and a run after missed days sends
-exactly the never-sent warnings whose trigger date has passed. Acceptance test: create records,
-advance the injected clock past two thresholds with no runs, run once; both warnings are sent
-once each. Scar (design reasoning): a host that is off over a weekend, or a crashed container,
-must cost lateness at most, never a lost warning.
+**I3. The schedule survives death.** Whether a list is owed is computed from persisted records and
+the injected clock, never from process memory, and a run late in a day with no delivered list sends
+that day's list. Acceptance test: create records, advance the injected clock three days with no
+runs to ten in the morning, run once; one message is sent, listing every active service; a run at
+six in the morning of a day with no list sends nothing. Scar (design reasoning): a host that is off
+over a weekend, or a crashed container, must cost lateness at most, never a lost list.
 
-**I4. Business values are data.** Thresholds, the alert destination, the message templates and
-the secret path live in versioned configuration, never as literals in code. Acceptance test: a
-unit test computes the owed warnings under two different threshold configurations and observes
-different schedules with no code change. Scar (prior art): a threshold buried in a function is
+**I4. Business values are data.** The send time, the alert destination, the message templates and
+the secret path live in versioned configuration, never as literals in code; until 2026-11-09 the
+list also named the thresholds, which no longer exist. Acceptance test: a unit test decides whether
+the list is owed at one instant under two different configured send times and observes different
+answers with no code change. Scar (prior art): a business value buried in a function is
 found by the person editing the wrong copy of it.
 
 **I5. No secret in the repository, no production data outside production.** Acceptance test: an
@@ -534,7 +552,8 @@ not a greenfield step. Delivery is backlog B11.
 **OQ-3. Message wording.** **Closed 2026-10-27 by owner approval.** The shape stopped being open
 on 2026-09-02, when the owner decided the message is a list, and the text itself closed on
 2026-10-27, when the owner approved the header, the line and the five deadline phrases now written
-in section 4. It was closed the way it had to be, by the owner reading candidates on their own
+in section 4. The owner changed the header on 2026-11-09, together with the list, and that change
+reopened nothing. It was closed the way it had to be, by the owner reading candidates on their own
 phone in the real group, and not by anybody reasoning about wording in a document.
 
 ## 12. Development method
@@ -676,3 +695,15 @@ at three packages. What this costs: no connection pooling and no retry helper, n
 this product wants, and the adapter carries its own timeout and its own error mapping by hand.
 Recorded here because it is the kind of choice a later session would otherwise reopen from habit;
 its shape belongs to the ADR that lands with backlog B8.
+
+2026-11-09, revision, owner decision, foundation v0.6, sections 0.5, 1, 2, 3, 4 and 5 and I1 to
+I4. The list stops being the warnings owed today and becomes every open service, every morning:
+all active services, overdue ones included, ordered by due date so the nearest is read first, sent
+once a day at a configured 07:00 in America/Campo_Grande and retried every hour until accepted that
+day. The thresholds of 30, 7 and 0 days stop existing, the alert record per service and threshold
+gives way to one dispatch record per day, I1 becomes one day, one list, and the header reads
+`Serviços em aberto`. The line and the five deadline phrases of 2026-10-27 are unchanged. What this
+buys: one message that shows everything open, at an hour people can rely on, and the end of the
+first run burst question phase two was carrying. What this costs: a message that grows with the
+registry instead of with the day, whose length limit nobody has measured yet, and a far deadline
+read every morning. Delivery is backlog B27, which is rewritten around it.
