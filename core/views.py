@@ -1,5 +1,5 @@
 import datetime
-from collections.abc import Iterable, Iterator, Sequence
+from collections.abc import Iterator, Sequence
 from dataclasses import dataclass
 
 from django.core.paginator import Page, Paginator
@@ -8,7 +8,9 @@ from django.http import HttpRequest, HttpResponse, StreamingHttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
+from core import clock
 from core.audit import log_service_submission
+from core.engine import RETRY_INTERVAL
 from core.export import (
     BYTE_ORDER_MARK,
     EXPORT_HEADER,
@@ -18,89 +20,97 @@ from core.export import (
     export_row,
 )
 from core.forms import ServiceEditForm, ServiceRegistrationForm
-from core.models import Alert, Service
+from core.models import Dispatch, Service
 from deadliner.config import get_config
 
 SERVICES_PER_PAGE = 20
 
-WARNING_NOT_REACHED = "waiting"
-WARNING_TEXT: dict[str, str] = {
-    WARNING_NOT_REACHED: "aguardando",
-    Alert.State.PENDING: "pendente",
-    Alert.State.SENT: "enviado",
-    Alert.State.FAILED: "falhou",
-}
-"""What each state of a warning is called on screen, in Portuguese (foundation section 12)."""
+DISPATCH_NOT_ATTEMPTED = "none"
 
 
 @dataclass(frozen=True, slots=True)
-class ListedWarning:
-    """One configured threshold beside what became of its warning (I2)."""
+class DispatchNotice:
+    """What the list screen says about today's list, in Portuguese (I2, foundation section 12).
 
-    label: str
+    ``earlier`` names the latest earlier day whose list was never delivered, and it is blank once
+    a later list has been.
+    """
+
     state: str
     text: str
+    earlier: str
 
 
-@dataclass(frozen=True, slots=True)
-class ListedService:
-    """One row of the list: the record, and one warning per configured threshold."""
+def dispatch_notice(
+    today: datetime.date, recent: Sequence[Dispatch], timezone: datetime.tzinfo
+) -> DispatchNotice:
+    """The notice for ``today``, from the dispatch rows up to it, newest first.
 
-    service: Service
-    warnings: tuple[ListedWarning, ...]
+    A pure decision: the rows and the zone in, the words out.
+    """
+    current = next((row for row in recent if row.local_date == today), None)
+    previous = next((row for row in recent if row.local_date < today), None)
+
+    delivered_today = current is not None and current.state == Dispatch.State.SENT
+    earlier = ""
+    if previous is not None and previous.state != Dispatch.State.SENT and not delivered_today:
+        earlier = f"A lista de {previous.local_date:%d/%m/%Y} não foi entregue."
+
+    if current is None:
+        return DispatchNotice(
+            state=DISPATCH_NOT_ATTEMPTED,
+            text="A lista de hoje ainda não foi enviada.",
+            earlier=earlier,
+        )
+
+    attempted = current.last_attempt_at.astimezone(timezone)
+    at = f"{attempted:%H:%M}"
+    retry = f"{attempted + RETRY_INTERVAL:%H:%M}"
+    if current.state == Dispatch.State.SENT:
+        text = f"Lista de hoje enviada às {at}."
+    elif current.state == Dispatch.State.FAILED:
+        text = f"O envio da lista de hoje falhou às {at}. Nova tentativa às {retry}."
+    else:
+        text = (
+            f"O envio da lista de hoje começou às {at} e não foi confirmado. "
+            f"Nova tentativa às {retry}."
+        )
+    return DispatchNotice(state=current.state, text=text, earlier=earlier)
 
 
 def service_list(request: HttpRequest) -> HttpResponse:
-    """The records, each with who registered it and what became of every warning it is owed."""
+    """The records, each with who registered it, under what became of today's list."""
     term = request.GET.get("q", "").strip()
     page = _page_of_services(_matching(term), request.GET.get("page"))
     context = {
-        "rows": _listed(page.object_list, get_config().alert_thresholds),
+        "rows": page.object_list,
         "page": page,
         "term": term,
+        "dispatch": _todays_notice(),
     }
     return render(request, "core/service_list.html", context)
+
+
+def _todays_notice() -> DispatchNotice:
+    """Today's notice, read in one query whatever the table holds (foundation section 8)."""
+    timezone = get_config().timezone
+    today = clock.now().astimezone(timezone).date()
+    recent = list(Dispatch.objects.filter(local_date__lte=today).order_by("-local_date")[:2])
+    return dispatch_notice(today, recent, timezone)
 
 
 def _matching(term: str) -> QuerySet[Service]:
     """The listing, narrowed to ``term`` when there is one.
 
     The catalogue name is reached through the join the listing already selects, so filtering on it
-    costs no extra query (foundation section 8). The alerts arrive in one further query for the
-    whole page, never one per row.
+    costs no extra query (foundation section 8).
     """
-    services = (
-        Service.objects.select_related("catalog_service", "submitter")
-        .prefetch_related("alerts")
-        .order_by("due_date", "pk")
+    services = Service.objects.select_related("catalog_service", "submitter").order_by(
+        "due_date", "pk"
     )
     if not term:
         return services
     return services.filter(Q(client__icontains=term) | Q(catalog_service__name__icontains=term))
-
-
-def _listed(services: Iterable[Service], thresholds: Sequence[int]) -> list[ListedService]:
-    """Each record beside one warning per configured threshold, in the configured order (I4)."""
-    return [
-        ListedService(
-            service=service,
-            warnings=tuple(_warning(service, threshold) for threshold in thresholds),
-        )
-        for service in services
-    ]
-
-
-def _warning(service: Service, threshold: int) -> ListedWarning:
-    """What the screen says about one threshold of one record.
-
-    No alert row means the threshold has not been reached, which is never the failed state (I2).
-    ``alerts.all()`` reads the prefetch, so this loop adds no query.
-    """
-    state = next(
-        (alert.state for alert in service.alerts.all() if alert.threshold == threshold),
-        WARNING_NOT_REACHED,
-    )
-    return ListedWarning(label=f"{threshold}d", state=state, text=WARNING_TEXT[state])
 
 
 def _page_of_services(services: QuerySet[Service], number: str | None) -> Page[Service]:
@@ -155,7 +165,7 @@ def service_export(request: HttpRequest) -> StreamingHttpResponse:
     read, never what the company owns.
     """
     timezone = get_config().timezone
-    taken_on = datetime.datetime.now(tz=timezone).date()
+    taken_on = clock.now().astimezone(timezone).date()
     return StreamingHttpResponse(
         _export_lines(timezone),
         content_type="text/csv; charset=utf-8",

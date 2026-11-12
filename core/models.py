@@ -118,8 +118,8 @@ class Service(models.Model):
     ) -> None:
         """Persist the row with its deadline derived from the start date and the term.
 
-        The deadline stays a stored column so the engine, the uniqueness rule of I1, the ordering
-        and the search can filter on it, and it is recomputed on every write so the column can
+        The deadline stays a stored column so the engine, the ordering and the search can
+        filter on it, and it is recomputed on every write so the column can
         never disagree with the two facts it comes from.
         """
         self.due_date = due_date_from(self.start_date, self.term_days)
@@ -132,26 +132,25 @@ class Service(models.Model):
         )
 
 
-class Alert(models.Model):
-    """One warning attempt per (service, threshold), unique by construction (I1)."""
+class Dispatch(models.Model):
+    """One day's list and what became of it, unique per local date by construction (I1).
+
+    The row is written ``pending`` before the provider is called and moved by the answer, so a
+    send that died mid flight is a visible record and two concurrent runs collide here instead
+    of both sending (foundation section 2, ADR 0002).
+    """
 
     class State(models.TextChoices):
         PENDING = "pending"
         SENT = "sent"
         FAILED = "failed"
 
-    service = models.ForeignKey(Service, on_delete=models.CASCADE, related_name="alerts")
-    threshold = models.PositiveIntegerField()
+    local_date = models.DateField(unique=True)
     state = models.CharField(max_length=7, choices=State, default=State.PENDING)
+    service_count = models.PositiveIntegerField()
+    last_attempt_at = models.DateTimeField()
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
-    class Meta:
-        constraints: ClassVar[list[models.BaseConstraint]] = [
-            models.UniqueConstraint(
-                fields=["service", "threshold"], name="one_alert_per_service_threshold"
-            )
-        ]
-
     def __str__(self) -> str:
-        return f"alert {self.threshold}d for service {self.service_id}: {self.state}"
+        return f"list of {self.local_date}: {self.state}"

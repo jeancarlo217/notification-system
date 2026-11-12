@@ -29,24 +29,23 @@ from core.backups import (
     copies_to_discard,
     copy_database,
 )
-from deadliner.config import ConfigError, DeadlinerConfig, get_backup_directory, load_config
+from deadliner.config import ConfigError, get_backup_directory, load_config
 from tests.builders import a_service
-
-TEST_DEADLINER = DeadlinerConfig(
-    alert_thresholds=(30, 7, 0),
-    whatsapp_destination="5567999998888",
-    message_template="{client}|{service}|{due_date}|{days_remaining}",
-    secret_path_segment="fake-segment-for-tests",
-    timezone=ZoneInfo("America/Campo_Grande"),
-)
+from tests.configuration import TEST_DEADLINER
 
 VALID_ENV = {
     "DJANGO_SECRET_KEY": "placeholder-value-for-tests-only",
     "DJANGO_DEBUG": "0",
     "DJANGO_ALLOWED_HOSTS": "prazos.example.com",
-    "DEADLINER_ALERT_THRESHOLDS": "30,7,0",
+    "DEADLINER_SEND_TIME": "07:00",
     "DEADLINER_WHATSAPP_DESTINATION": "5567999998888",
-    "DEADLINER_MESSAGE_TEMPLATE": "{client}: {service} vence em {days_remaining} dias.",
+    "DEADLINER_MESSAGE_HEADER": "Serviços em aberto, {date:%d/%m/%Y}. {count} nesta lista.",
+    "DEADLINER_MESSAGE_TEMPLATE": "• *{client}* | {service} | {deadline} ({due_date:%d/%m/%Y})",
+    "DEADLINER_DEADLINE_FUTURE": "vence em {days} dias",
+    "DEADLINER_DEADLINE_TOMORROW": "vence amanhã",
+    "DEADLINER_DEADLINE_TODAY": "vence hoje",
+    "DEADLINER_DEADLINE_YESTERDAY": "venceu ontem",
+    "DEADLINER_DEADLINE_OVERDUE": "venceu há {days} dias",
     "DEADLINER_SECRET_PATH_SEGMENT": "prazos",
     "DEADLINER_TIMEZONE": "America/Campo_Grande",
 }

@@ -1,9 +1,9 @@
 # Deadline Notification System
 
 An internal tool for Vale Verde Ambiental. A form records the services the company owes a client,
-each with the date it starts and the term in days that gives it its deadline; once a day an engine
-works out which warnings are owed and sends them, as one message listing them, to a company
-WhatsApp group. Every submission is audited and no warning is ever sent twice.
+each with the date it starts and the term in days that gives it its deadline; every morning at
+seven an engine sends one message listing every service still open, the nearest deadline first, to
+a company WhatsApp group. Every submission is audited and no day's list is ever sent twice.
 
 The canon lives in `specs/foundation.md`, which every other document derives from and loses to.
 `CLAUDE.md` is the working digest. This file is only about running the thing.
@@ -95,10 +95,30 @@ syntax.
 
 `DJANGO_DEBUG` (`0` or `1`, nothing else is accepted), `DJANGO_ALLOWED_HOSTS`,
 `DJANGO_DATABASE_PATH`, `DJANGO_BACKUP_DIRECTORY` (where the daily database copies land, `backups`
-by default and `/backups` inside the container), `DEADLINER_ALERT_THRESHOLDS` (`30,7,0`, the days
-before the due date that earn a warning), `DEADLINER_MESSAGE_TEMPLATE` (the Portuguese warning
-text, over the fields `client`, `service`, `due_date` and `days_remaining`) and
-`DEADLINER_TIMEZONE` (`America/Campo_Grande`, which decides what today means).
+by default and `/backups` inside the container), `DEADLINER_TIMEZONE` (`America/Campo_Grande`,
+which decides what today means), `DEADLINER_SEND_TIME` (`07:00`, the hour the daily list is owed
+from, written `HH:MM` and read in that time zone, never in the host's clock) and the seven values
+the message is made of: `DEADLINER_MESSAGE_HEADER` (over the fields `count` and `date`),
+`DEADLINER_MESSAGE_TEMPLATE` (one line of the list, over `client`, `service`, `due_date`,
+`days_remaining` and `deadline`) and the five phrases one of which fills `deadline`,
+`DEADLINER_DEADLINE_FUTURE`, `_TOMORROW`, `_TODAY`, `_YESTERDAY` and `_OVERDUE`, each over the
+single field `days`. `.env.example` carries the wording the owner approved.
+
+**`DEADLINER_ALERT_THRESHOLDS` no longer exists since backlog B27.** An existing `.env` may keep
+the line, which is ignored, but it has to gain `DEADLINER_SEND_TIME`, `DEADLINER_MESSAGE_HEADER`
+and the five `DEADLINER_DEADLINE_` phrases before the next deploy, or the process refuses to start
+and names each one that is missing. Its `DEADLINER_MESSAGE_TEMPLATE` also has to become the line
+in `.env.example`, since the placeholder it carried was one whole sentence per warning.
+
+To read the message the group would receive, without sending anything:
+
+```bash
+docker compose exec web python manage.py send_alerts --preview
+```
+
+It calls no provider, writes nothing and ignores the send time, so it is safe at any hour and as
+often as you like. It is also how the real message is read where the real records live, since
+production data never leaves the production host.
 
 The two path variables are infrastructure, not business values, so they are the only ones with a
 default in code. Everything named `DEADLINER_` is required and refuses to boot without a value.
@@ -145,7 +165,7 @@ are the company's responsibility from then on; adding, renaming or deactivating 
 never a schema change. Deactivate, never delete: tracked deadlines point at those rows and the
 foreign key will refuse. The five services under `Sustentabilidade e ESG` are deactivated in the
 seed since 2026-08-31, because the company stopped performing them; anything already registered
-against one still lists, still gets edited and still earns its warnings.
+against one still lists, still gets edited and still appears in the daily message.
 
 ## Running it
 
@@ -161,11 +181,12 @@ docker compose down                  # stop, keeping the database
 The SQLite file lives on a Docker volume mounted at `/data`, so `docker compose down` keeps your
 data and only `docker compose down -v` destroys it.
 
-`just up` starts everything instead: the web application, the daily scheduler, and Evolution API
+`just up` starts everything instead: the web application, the scheduler, and Evolution API
 with its own Postgres and Redis. You want that only when working on the WhatsApp integration.
-Two warnings about the full stack. The scheduler will fail on every run and retry hourly, because
-the Evolution adapter does not exist yet (see the open questions below). And Evolution pulls three
-more containers, so give it disk.
+Two warnings about the full stack. The scheduler polls `send_alerts` every minute and stays quiet
+until the send time, but from then on, with any service open, the day's list is marked failed and
+retried hourly with an error each time, because the Evolution adapter does not exist yet (backlog
+B8). And Evolution pulls three more containers, so give it disk.
 
 ### Without Docker, for development
 
@@ -225,8 +246,9 @@ but the `chown` is what makes it unnecessary.
 **The `scheduler` service is deliberately absent from that line.** An owner decision of 2026-08-31
 ships this in two phases: the first one is registration and the export, with no WhatsApp delivery,
 because there is nothing worth notifying anybody about until the registry has something in it. The
-adapter behind the provider interface is not written (OQ-1), so `send_alerts` fails loudly by
-design, and a scheduler started now would fail and retry every hour forever. Phase two adds
+adapter behind the provider interface is not written (backlog B8), so a send fails loudly by
+design, and a scheduler started now would mark every morning's list failed and retry it every hour
+for the rest of the day. Phase two adds
 `scheduler` to that command once the adapter exists. The `backup` service does run from day one,
 because the registry the first phase accumulates is then the only asset the company owns.
 
@@ -335,8 +357,8 @@ docker compose up -d --build web backup
 ```
 
 The `backup` service copies the database once a day into `./backups`, beside `compose.yaml` on the
-host, where a person can reach the files and copy them off the machine. It is the same shape as the
-alert scheduler: a shell loop, no cron and no queue, sleeping a day after a copy and an hour after
+host, where a person can reach the files and copy them off the machine. It is the shape the
+scheduler had before it began polling every minute: a shell loop, no cron and no queue, sleeping a day after a copy and an hour after
 a failure, which stays loud in `docker compose logs backup`.
 
 Each copy is named for the moment it was taken, in the configured time zone, so the directory sorts
@@ -416,16 +438,15 @@ optional.
 
 ## Open questions, so you do not go looking for what is not there
 
-- **OQ-1, the WhatsApp integration is not finished.** Evolution API runs in Compose and the
-  instance can be created and paired, but the adapter behind the provider interface is not written,
-  so `send_alerts` fails loudly instead of sending. That is deliberate: the alternative is code
-  that pretends to send. Spike steps are the `just evolution-*` recipes, findings in
-  `specs/dependencies.md`.
+- **The WhatsApp integration is not finished, though its question (OQ-1) closed on 2026-10-27.**
+  Evolution API runs in Compose, the instance pairs and a real message reached the real group, but
+  the adapter behind the provider interface is not written (backlog B8), so `send_alerts` fails
+  loudly instead of sending. That is deliberate: the alternative is code that pretends to send.
+  The daily list itself is built (backlog B27) and `send_alerts --preview` prints it. Spike steps
+  are the `just evolution-*` recipes, findings in `specs/dependencies.md`.
 - **OQ-2, the Cloudflare mechanism**, as above.
-- **OQ-3, the exact warning wording**, whose shape was decided on 2026-09-02 (one message, a list
-  of client, service and days remaining) and whose text is the owner's voice and not a technical
-  choice. The
-  template in `.env.example` is a placeholder that satisfies every test.
+- **The message wording (OQ-3) closed on 2026-10-27** and its header changed on 2026-11-09. The
+  text is the owner's voice and not a technical choice, and `.env.example` carries it.
 
 ## Troubleshooting
 

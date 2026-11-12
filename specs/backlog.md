@@ -13,7 +13,7 @@ cites. An item is done only when the gate is green and the fan-out ran, never wh
 exists. Update the status in place; this file is execution state, and the contract stays in the
 foundation.
 
-## Where this stands, 2026-10-27
+## Where this stands, 2026-11-09
 
 **Phase one is in production.** The registration form, the catalogue, the submitter identity, the
 list with its search, paging and alert state, the CSV export, the audit trail and the daily backup
@@ -27,12 +27,17 @@ the vendor, five messages reached it and the owner confirmed them, which closed 
 approved the wording on that same phone, which closed OQ-3. So nothing open gates phase two any
 more and what remains is work: B27, the daily list, and then B8, the adapter.
 
-One decision still has to be taken before phase two is switched on, and it is the owner's. The
-catch-up rule of I3 means the first successful run owes every warning whose trigger date has
-already passed. The digest decision of 2026-09-02 makes that one long message instead of fifty
-short ones, which is most of the problem gone, and the preview mode B27 now carries is what turns
-the rest of it into a number the owner can read before anything is sent. Whether those older
-warnings are sent or recorded as handled stays a decision and not an implementation detail.
+**On 2026-11-09 the owner changed what the list is** (foundation v0.6): every morning at 07:00 in
+America/Campo_Grande, one message listing every open service, nearest deadline first, retried
+hourly if it fails. The thresholds of 30, 7 and 0 days are gone. That also dissolved the decision
+this section used to hand back, whether the first run after phase two sends every warning already
+past its trigger date, because there are no warnings left to accumulate: the first list is the
+registry, like every list after it. One question takes its place and B27 answers it by measuring:
+how long a message the vendor accepts, since the list now grows with the registry.
+
+**On 2026-11-12 B27 was delivered in code** and stays `doing` until its two host side steps are
+run: the empty alert table confirmed before the migration ships, and the real message read with
+the preview there. After it, phase two is B8, the adapter, and the host side of B11.
 
 **Open beside that:** B11 is not finished. Cloudflare fronts nothing yet, so the audit trail
 carries no IP and no country until the zone migration that travels with Ecobalance 2.0.
@@ -636,70 +641,153 @@ still says `DEADLINER_WHATSAPP_NUMBER`, and the process refuses to start on a va
 find, naming it. Rename that line before the next deploy. Nothing else on the host has to change,
 because leaving the two gateway address variables unset is exactly phase one.
 
-**B27. One run, one message: the daily list.** `todo`, backend, after B26, which is done. Nothing
-gates it: both open questions closed on 2026-10-27 and its wording is decided. Foundation section 4
-v0.4 replaced one message per warning with one message per run, a list whose line carries the
-client, the service and the days remaining. Trace: foundation sections 4 and 5 v0.4, I1 as reworded,
-I2, I3, I4.
+**B27. Every open service, every morning at seven.** `doing`: delivered in code on 2026-11-12,
+with two steps on the production host still owed, written at the end of this item. Backend and
+interface, after B26, which is done. Nothing gates it. Rewritten on 2026-11-09 by the owner decision of foundation v0.6, which
+replaced what this item delivered before that date: the list of only the warnings owed today, over
+the thresholds 30, 7 and 0. That list was never built, so nothing delivered is undone; the tests
+already green against the old engine are what this item rewrites. Trace: foundation sections 4 and
+5 v0.6, I1, I2, I3, I4 as reworded on 2026-11-09, `specs/adr/0001-configuration-boundary.md` and
+`specs/adr/0002-scheduler-container.md`, both with their dated notes of 2026-11-09.
 
-The decision stays pure and the effect stays thin, which is where this item's tests live. Two
-functions beside `owed_warnings` and `render_message` in `core/engine.py`: one that turns the owed
-warnings plus the current records into the ordered lines of the list, and one that renders header
-and lines into the text. Then `run_daily_engine` calls the provider once instead of once per
-warning, and writes every included alert to `sent` or `failed` from that one answer.
+The decisions stay pure and the effect stays thin, which is where this item's tests live. In
+`core/engine.py`: one function that turns the active records and today's date into the ordered
+lines, one that renders header and lines into the text, and one that decides from the clock, the
+send time and today's dispatch record whether a list is owed at this instant. `owed_warnings` and
+the thresholds go. `run_daily_engine` then calls the provider at most once and writes the day's
+dispatch row from the answer.
 
-Six rules the list obeys, each of which is a test and none of which the implementer decides:
+Eight rules, each of which is a test and none of which the implementer decides:
 
-1. **One line per service, not per warning.** The catch-up rule makes a service owe 30, 7 and 0 at
-   once when the registry is older than its deadlines, and a person reading three lines for one
-   client learns nothing. The line shows the real days remaining, `due_date` minus today, and every
-   owed pair behind it is recorded together.
-2. **Order by due date ascending, then by client.** The most urgent is read first, and the order is
-   a property of the message rather than of the query.
-3. **An empty run sends nothing.** No message, no provider call, no alert row.
-4. **Acceptance writes every included pair, rejection fails every included pair.** A rejected
-   message reached nobody, so nothing in it is sent (I2), and the next run rebuilds the same list
-   plus whatever the day added.
-5. **Run twice, one message.** I1's acceptance test as reworded: the first run delivers one message
-   listing each owed warning once, the second delivers nothing at all.
-6. **The deadline phrase is chosen by the sign, and the count it is handed is never negative.** Five
+1. **Every active service, one line each.** Overdue ones included, completed ones never. No
+   threshold selects anything.
+2. **Order by due date ascending, then by client.** The nearest deadline is read first.
+3. **No active service, no message.** No provider call and no dispatch row.
+4. **Nothing before the send time.** At 06:59 in America/Campo_Grande nothing is owed; at 07:00 the
+   list is. The zone is the configured one and never the host's.
+5. **One day, one list.** I1 as reworded: run twice past the send time, one message; advance the
+   injected clock to the next day's send time, a second message.
+6. **A failure is visible and retried hourly.** A rejected send leaves today's row `failed`; a run
+   less than an hour later does nothing, a run an hour later tries again (I2). A row left `pending`
+   by a run that died is retried by the same rule.
+7. **Late beats never, once.** Three days with no run, then one run at ten: one message, today's,
+   listing every active service (I3).
+8. **The deadline phrase is chosen by the sign, and the count it is handed is never negative.** Five
    cases, five tests: two days out or more, tomorrow, today, yesterday, and two days past or more.
    A line for a service three days overdue reads `venceu há 3 dias` and contains no minus sign.
 
-Configuration, settled on 2026-10-27 when the owner approved the wording and OQ-3 closed, with the
-canonical names and validation in the dated note of that date in
-`specs/adr/0001-configuration-boundary.md`. `DEADLINER_MESSAGE_TEMPLATE` keeps its name, now means
-one line of the list, and gains a fifth allowed field, `deadline`.
-`DEADLINER_MESSAGE_HEADER` is added for what heads it, over the count and the date. And five
+Configuration, with the canonical names and validation in the dated notes of 2026-10-27 and
+2026-11-09 in `specs/adr/0001-configuration-boundary.md`. `DEADLINER_ALERT_THRESHOLDS` is removed and
+`DEADLINER_SEND_TIME=07:00` is added. `DEADLINER_MESSAGE_TEMPLATE` keeps its name, means one line of
+the list, and gains a fifth allowed field, `deadline`. `DEADLINER_MESSAGE_HEADER` is added and reads
+`Serviços em aberto, {date}. {count} serviços nesta lista.`, `count` being the services listed. Five
 variables carry the phrase that fills `deadline`, each over the single field `days`:
-`DEADLINER_DEADLINE_FUTURE`, `_TOMORROW`, `_TODAY`, `_YESTERDAY` and `_OVERDUE`. The approved
-Portuguese for all seven is in foundation section 4; none of it is a placeholder any more.
+`DEADLINER_DEADLINE_FUTURE`, `_TOMORROW`, `_TODAY`, `_YESTERDAY` and `_OVERDUE`. The Portuguese for
+all of them is in foundation section 4. The rename ripples to `.env.example`, the CI workflow, the
+`Dockerfile` build placeholders and the README, and the live `.env` on the host needs
+`DEADLINER_SEND_TIME` before the next deploy or the process refuses to start, naming it.
 
-**The sign of the days remaining is decided and is no longer handed back.** The owner chose the
-five phrase shape over one template on a signed integer, so the engine picks the phrase by the sign
-and hands the phrase a count, never a negative number. `vence em 0 dias` and `vence em -3 dias`
-cannot be produced, which was the whole point: those are the two days a person most needs the
-message to be right. Rule 6 below is the test.
+**The scheduler.** `compose.yaml` stops sleeping a day after each run and polls `send_alerts` every
+sixty seconds, per the 2026-11-09 note of ADR 0002, so the message lands within a minute of seven.
+A run that owes nothing is silent.
 
-**A sixth rule, and the one the owner asked for by name.** The command gains a mode that renders
-the message and sends nothing, touching no provider at all. It exists because the owner asked
-whether the real records could be read before any message leaves the system, and the honest answer
-is that the real records live on the production host and I5 keeps them there, so the way to read
-the real message is to render it where the data already is. It is also how the burst question below
-stops being a guess: the owner runs it on the host and reads how long the first message would be.
-It writes no alert row, which is what makes it safe to run twice.
+**The data.** One dispatch row per local date, unique, replaces `Alert`, and the migration that
+removes `Alert` is generated by the CLI. Before it ships, confirm on the production host that the
+alert table is empty, which it should be because the `scheduler` never ran there, and write the
+command that confirmed it into this item.
 
-**The burst of the first run** is still handed back, and this item makes it much smaller without
-answering it: the first run after phase two owes every warning whose trigger date has passed, now
-as one long message rather than fifty short ones, so the choice between accepting it and recording
-the older warnings as handled is still the owner's and still belongs to phase two. What changed is
-that the preview mode turns it into a number before the decision rather than after it.
+**The interface, which is what I2 is tested against.** B15's `Avisos` cell, one chip per threshold,
+has nothing left to show and goes. In its place the list screen shows the state of today's list:
+sent and when, failed and when it is tried again, or not sent yet today. Yesterday's failure stays
+on screen until a later list is sent. `tests/test_alert_state.py` is rewritten to that, and the
+layout claim is written with the screenshot that verified it, at the widths B21 measured.
 
-This item edits tests that are green today, which is unusual here and is the point: `tests/fakes.py`
-records one delivery per warning, and `test_engine_run.py`, `test_engine_message.py`,
-`test_engine_command.py` and `test_scheduler.py` assert against that shape. Window A rewrites them
-to the five rules above before any of them passes. `tests/test_alert_state.py` and the list screen
-it covers do not change, because per alert state is what the digest still writes.
+**The preview mode, which the owner asked for by name.** The command gains a mode that renders the
+message and sends nothing, touching no provider and writing no dispatch row, so it is safe to run
+twice and ignores the send time. It is how the real message is read where the real records live
+(I5). It is now also how the length question below is answered.
+
+**The length of the message.** The list grows with the registry, and how many characters the vendor
+and WhatsApp accept in one message is not known here. Load the vendor documentation for the pinned
+2.3.7 before deciding, record the limit in `specs/dependencies.md`, and run the preview on the host
+to measure today's length against it. If the registry can outgrow it, splitting the list is an
+owner decision, not an implementation detail.
+
+This item edits tests that are green today, which is unusual here and is the point:
+`tests/fakes.py`, `test_engine_run.py`, `test_engine_message.py`, `test_engine_schedule.py`,
+`test_engine_command.py`, `test_scheduler.py`, `test_alert_state.py`, `test_data_model.py` and
+`test_config.py` assert the threshold shape. Window A rewrites them to the eight rules above before
+any of them passes.
+
+**Delivered in code on 2026-11-12, on branch `b27-daily-list`, and not yet `done`.** One session
+ran both windows in sequence, the tests first and whole, then the implementation without editing
+them, which is the order of `specs/testing.md` without the isolation of two windows; what stands
+in for the second pair of eyes is a mutation check, recorded below. What landed: the three pure
+decisions `list_lines`, `list_is_owed` and `render_list` with `deadline_phrase` in
+`core/engine.py`; `run_daily_engine` taking `now`; the `Dispatch` model replacing `Alert` in the
+CLI generated migration `0018`; the eleven business variables at the boundary; `core/clock.py` as
+the one place the time is read; the command with `--now` and `--preview`; the scheduler polling
+every sixty seconds; and the list screen stating what became of today's list where the `Avisos`
+column was.
+
+Choices the item did not pin, made here and written down so nobody decides them again by accident.
+The header and the lines are joined by one newline, like the lines themselves. The header's `date`
+is a date and not text, so the approved header is configured as `{date:%d/%m/%Y}`. The injected
+clock of the command is `--now`, an ISO date and time, since a date alone can no longer say
+whether the send time has passed. A provider that raises leaves the row `failed` and raises again.
+The log line of a send is `list_send` and carries `dispatch_id`, `state`, `service_count` and
+`characters`, the last so that the length of every real message is on record. The words on screen
+are `A lista de hoje ainda não foi enviada.`, `Lista de hoje enviada às HH:MM.`,
+`O envio da lista de hoje falhou às HH:MM. Nova tentativa às HH:MM.`,
+`O envio da lista de hoje começou às HH:MM e não foi confirmado. Nova tentativa às HH:MM.` and,
+while no later list has been delivered, `A lista de DD/MM/AAAA não foi entregue.`; they are the
+developer's wording and a label is one line to change.
+
+Verified on 2026-11-12 on the owner's Windows machine with `ruff check`, `ruff format --check`,
+`mypy`, `pytest` (528 tests, 527 passed) and `manage.py makemigrations --check`. The one failure
+and the two type errors are `os.geteuid` in B22's backup code, which exists only on Unix and
+predates this item, exactly as B26 recorded. **The secret scan and the image build did not run**,
+because Docker Desktop was not up, so CI is what proves those two; the `Dockerfile` placeholder
+block was exercised instead by running `collectstatic` under exactly those values with nothing
+else in the environment. `just` was not on the path of the session either, so that its dotenv
+parser reads the accented, quoted values of `.env.example` is reasoned from the 2026-08-28 finding
+and not observed.
+
+The mutation check: eight single edits to `core/engine.py`, each restored afterwards. Seven turned
+the suite red at the first run (the send time comparison, the retry interval, the ordering key,
+the tomorrow boundary, the sign handed to the overdue phrase, a sent day treated as owed, and the
+empty registry guard). The eighth, dropping the failed state when the provider raises, stayed
+green, so a test was added for it.
+
+The layout claim, with its screenshots: Microsoft Edge 157.0.4341.46, headless, against
+`runserver` on a copy of the development database holding four services and a failed list for
+today and for yesterday, the worst case for the notice. At 360, 414, 768, 1024, 1088 and 1280 CSS
+pixels the notice sits above the records, wraps inside its box at 360, and
+`document.documentElement.scrollWidth` equals `window.innerWidth` at all six, so nothing scrolls
+sideways. Cards up to 1088 and the table at 1280, now six columns. One trap for whoever repeats
+it: a headless window refuses to be narrower than about 500 pixels, so `--window-size=360`
+silently photographs a 500 pixel layout cropped to 360, which looks like an overflow that is not
+there. The widths below 500 were taken through the DevTools protocol with
+`Emulation.setDeviceMetricsOverride`. Dark theme only, since that is what the machine reports.
+
+**The length of the message, as far as a development machine can answer it.** Read from source on
+2026-11-12 and recorded in `specs/dependencies.md`: neither Evolution 2.3.7 nor the Baileys it
+pins limits the text, and the only ceilings in code are transport sizes far above any list. What
+WhatsApp itself accepts on this path has no authoritative source: 4096 characters is Meta's
+documented limit for the official Cloud API, which this product does not use, and the 65536 often
+quoted for the app is repeated by third parties and stated by nobody who would know. Measured
+here, one line of the approved wording is about 80 to 95 characters and the header about 60, so
+4096 characters is roughly 45 services and 65536 roughly 700. Nothing is split and nothing is
+truncated: if the registry can pass a few dozen open services, whether to split the list is an
+owner decision, and the number that informs it is the one the preview prints on the host.
+
+**What keeps this item open, both on the production host and neither possible from a development
+machine (I5).** First, confirm the alert table is empty before migration `0018` ships, with
+`docker compose exec web python manage.py shell -c "from django.db import connection; c = connection.cursor(); c.execute('select count(*) from core_alert'); print(c.fetchone()[0])"`,
+run before the deploy, expecting `0`, and write the answer here. Second, add the eight new lines
+to the live `.env` (the send time, the header, the five phrases, and the line template replacing
+the old placeholder), deploy, and run `docker compose exec web python manage.py send_alerts --preview`
+there to read the real message and its length, which the command prints.
 
 The version 1 items B1 to B11 ran on the parallel plan below, decided by the owner on 2026-08-28
 for two developers.
@@ -864,3 +952,13 @@ five configuration variables for the deadline phrase, a sixth rule testing the c
 a preview mode that renders the real message without sending, which is the owner's answer to
 reading real records without taking them off the production host (I5). Foundation v0.5.
 
+2026-11-09: B27 rewritten by the owner decision that takes the foundation to v0.6. The daily
+message is every open service, nearest deadline first, at 07:00 America/Campo_Grande, retried
+hourly; the thresholds go, one dispatch row per day replaces `Alert`, B15's per threshold chips
+give way to the state of today's list, and the first run burst question this file carried is gone
+because nothing accumulates. What B27 now has to measure is the longest message the vendor accepts.
+
+2026-11-12: B27 delivered in code on branch `b27-daily-list` and left `doing`: the engine, the
+`Dispatch` row per day, the eleven business variables, the scheduler polling every minute, the
+state of today's list on the list screen and `send_alerts --preview`. Two steps on the production
+host keep it open, the empty alert table and the real message read through the preview.

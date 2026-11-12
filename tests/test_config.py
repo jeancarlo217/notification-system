@@ -5,8 +5,13 @@ default and the real environment file is untracked) and I7 (a secret never reach
 
 B26 widened it: the destination is a WhatsApp group or a number in one variable, and the gateway
 the adapter of B8 will speak to enters here too (foundation section 4 v0.4, ADR 0001).
+
+B27 moved it again (foundation v0.6, the notes of 2026-10-27 and 2026-11-09 in ADR 0001): the
+thresholds are gone, the send time arrives, and the message is a header, a line and five deadline
+phrases.
 """
 
+import datetime
 import os
 from pathlib import Path
 
@@ -15,6 +20,8 @@ from django.conf import settings
 from django.test import override_settings
 
 from deadliner.config import (
+    DEADLINE_PHRASE_FIELDS,
+    MESSAGE_HEADER_FIELDS,
     MESSAGE_TEMPLATE_FIELDS,
     Config,
     ConfigError,
@@ -32,9 +39,15 @@ VALID_ENV = {
     "DJANGO_DEBUG": "0",
     "DJANGO_ALLOWED_HOSTS": "prazos.example.com",
     "DJANGO_DATABASE_PATH": "db.sqlite3",
-    "DEADLINER_ALERT_THRESHOLDS": "30,7,0",
+    "DEADLINER_SEND_TIME": "07:00",
     "DEADLINER_WHATSAPP_DESTINATION": "5567999998888",
-    "DEADLINER_MESSAGE_TEMPLATE": "{client}: {service} vence em {days_remaining} dias.",
+    "DEADLINER_MESSAGE_HEADER": "Serviços em aberto, {date:%d/%m/%Y}. {count} nesta lista.",
+    "DEADLINER_MESSAGE_TEMPLATE": "• *{client}* | {service} | {deadline} ({due_date:%d/%m/%Y})",
+    "DEADLINER_DEADLINE_FUTURE": "vence em {days} dias",
+    "DEADLINER_DEADLINE_TOMORROW": "vence amanhã",
+    "DEADLINER_DEADLINE_TODAY": "vence hoje",
+    "DEADLINER_DEADLINE_YESTERDAY": "venceu ontem",
+    "DEADLINER_DEADLINE_OVERDUE": "venceu há {days} dias",
     "DEADLINER_SECRET_PATH_SEGMENT": "abcdefghijklmnop",
     "DEADLINER_TIMEZONE": "America/Campo_Grande",
 }
@@ -45,10 +58,20 @@ EVOLUTION_ENV = {
     "EVOLUTION_API_KEY": "placeholder-value-for-tests-only",
 }
 
+DEADLINE_PHRASE_VARIABLES = [
+    "DEADLINER_DEADLINE_FUTURE",
+    "DEADLINER_DEADLINE_TOMORROW",
+    "DEADLINER_DEADLINE_TODAY",
+    "DEADLINER_DEADLINE_YESTERDAY",
+    "DEADLINER_DEADLINE_OVERDUE",
+]
+
 BUSINESS_VARIABLES = [
-    "DEADLINER_ALERT_THRESHOLDS",
+    "DEADLINER_SEND_TIME",
     "DEADLINER_WHATSAPP_DESTINATION",
+    "DEADLINER_MESSAGE_HEADER",
     "DEADLINER_MESSAGE_TEMPLATE",
+    *DEADLINE_PHRASE_VARIABLES,
     "DEADLINER_SECRET_PATH_SEGMENT",
     "DEADLINER_TIMEZONE",
 ]
@@ -76,34 +99,47 @@ def parse_env_file(path: Path) -> dict[str, str]:
     return values
 
 
-def test_alert_thresholds_are_read_from_the_environment() -> None:
-    """I4: the warning schedule is configuration, never a literal in code."""
+def test_the_send_time_is_read_from_the_environment() -> None:
+    """I4: the hour the list is owed from is configuration, never a literal in code."""
+    config = load_config(env_with(DEADLINER_SEND_TIME="07:00"))
+
+    assert config.deadliner.send_time == datetime.time(7, 0)
+
+
+def test_two_send_time_configurations_differ_with_no_code_change() -> None:
+    """I4: its acceptance test at this layer; the schedule decision carries the other half."""
+    company_schedule = load_config(env_with(DEADLINER_SEND_TIME="07:00"))
+    other_schedule = load_config(env_with(DEADLINER_SEND_TIME="18:45"))
+
+    assert company_schedule.deadliner.send_time == datetime.time(7, 0)
+    assert other_schedule.deadliner.send_time == datetime.time(18, 45)
+
+
+def test_the_send_time_carries_no_zone_of_its_own() -> None:
+    """ADR 0001, note of 2026-11-09: the time is read in `DEADLINER_TIMEZONE`, so the value
+    itself is a wall clock reading with no zone attached."""
+    config = load_config(env_with(DEADLINER_SEND_TIME="07:00"))
+
+    assert config.deadliner.send_time.tzinfo is None
+
+
+@pytest.mark.parametrize(
+    "value",
+    ["", "   ", "7:00", "07:00:00", "24:00", "07:60", "7", "0700", "07h00", "sete", "07:00 AM"],
+)
+def test_a_send_time_that_is_not_a_24_hour_hh_mm_is_rejected(value: str) -> None:
+    """ADR 0001, note of 2026-11-09: a value that half parses is the one nobody notices is
+    wrong, so `7:00` is an error and not seven o'clock."""
+    with pytest.raises(ConfigError, match="DEADLINER_SEND_TIME"):
+        load_config(env_with(DEADLINER_SEND_TIME=value))
+
+
+def test_a_leftover_threshold_variable_is_ignored() -> None:
+    """ADR 0001, note of 2026-11-09: a live `.env` still carrying the removed variable boots
+    unchanged, because an unknown variable is not read."""
     config = load_config(env_with(DEADLINER_ALERT_THRESHOLDS="30,7,0"))
 
-    assert config.deadliner.alert_thresholds == (30, 7, 0)
-
-
-def test_two_threshold_configurations_differ_with_no_code_change() -> None:
-    """I4: its acceptance test at this layer; B7 carries the schedule half of it."""
-    company_schedule = load_config(env_with(DEADLINER_ALERT_THRESHOLDS="30,7,0"))
-    other_schedule = load_config(env_with(DEADLINER_ALERT_THRESHOLDS="45,10"))
-
-    assert company_schedule.deadliner.alert_thresholds == (30, 7, 0)
-    assert other_schedule.deadliner.alert_thresholds == (45, 10)
-
-
-def test_thresholds_are_ordered_from_the_earliest_warning_to_the_due_date() -> None:
-    """B2: the loader owns the order, so no caller has to sort them again."""
-    config = load_config(env_with(DEADLINER_ALERT_THRESHOLDS=" 0,30 , 7 "))
-
-    assert config.deadliner.alert_thresholds == (30, 7, 0)
-
-
-@pytest.mark.parametrize("value", ["", "   ", "30,x,0", "30,-7,0", "30,7,7", "30,,0", "30.5"])
-def test_an_unusable_threshold_list_is_rejected(value: str) -> None:
-    """B2: a threshold is a distinct whole number of days before the due date, or it is an error."""
-    with pytest.raises(ConfigError, match="DEADLINER_ALERT_THRESHOLDS"):
-        load_config(env_with(DEADLINER_ALERT_THRESHOLDS=value))
+    assert isinstance(config, Config)
 
 
 @pytest.mark.parametrize(
@@ -156,8 +192,8 @@ def test_a_destination_that_is_neither_a_number_nor_a_group_is_rejected(value: s
 
 
 def test_the_message_template_is_read_from_the_environment() -> None:
-    """I4: the wording is configuration, and OQ-3 leaves the final text to the owner."""
-    template = "Ola! {client} tem {service} vencendo em {days_remaining} dias ({due_date})."
+    """I4: the wording of one line of the list is configuration (foundation section 4)."""
+    template = "• *{client}* | {service} | {deadline} ({due_date:%d/%m/%Y}) {days_remaining}"
     config = load_config(env_with(DEADLINER_MESSAGE_TEMPLATE=template))
 
     assert config.deadliner.message_template == template
@@ -190,6 +226,7 @@ def test_a_template_may_carry_escaped_braces_as_literal_text() -> None:
         "{0} vence",
         "{client.upper} vence",
         "{client[0]} vence",
+        "{count} servicos",
     ],
 )
 def test_a_template_the_engine_could_not_render_is_rejected(value: str) -> None:
@@ -198,9 +235,71 @@ def test_a_template_the_engine_could_not_render_is_rejected(value: str) -> None:
         load_config(env_with(DEADLINER_MESSAGE_TEMPLATE=value))
 
 
-def test_the_template_contract_is_the_four_fields_the_foundation_names() -> None:
-    """I4: foundation section 4 fixes the fields, and B7 renders against this same set."""
-    assert {"client", "service", "due_date", "days_remaining"} == MESSAGE_TEMPLATE_FIELDS
+def test_the_line_contract_is_the_five_fields_the_canon_names() -> None:
+    """I4, ADR 0001 note of 2026-10-27: the four fields the record provides and `deadline`, the
+    one the engine computes."""
+    assert {
+        "client",
+        "service",
+        "due_date",
+        "days_remaining",
+        "deadline",
+    } == MESSAGE_TEMPLATE_FIELDS
+
+
+def test_the_message_header_is_read_from_the_environment() -> None:
+    """I4: what heads the list is configuration (foundation section 4)."""
+    header = "Serviços em aberto, {date:%d/%m/%Y}. {count} serviços nesta lista."
+    config = load_config(env_with(DEADLINER_MESSAGE_HEADER=header))
+
+    assert config.deadliner.message_header == header
+
+
+def test_a_header_may_use_no_field_at_all() -> None:
+    """ADR 0001: validation stays quiet when the owner's header is plain text."""
+    config = load_config(env_with(DEADLINER_MESSAGE_HEADER="Serviços em aberto"))
+
+    assert config.deadliner.message_header == "Serviços em aberto"
+
+
+@pytest.mark.parametrize("value", ["", "   ", "{client} em aberto", "{count", "{} servicos"])
+def test_a_header_the_engine_could_not_render_is_rejected(value: str) -> None:
+    """ADR 0001, note of 2026-09-02: the header is validated like the line, over its own
+    fields, so a field of the line is an error in it."""
+    with pytest.raises(ConfigError, match="DEADLINER_MESSAGE_HEADER"):
+        load_config(env_with(DEADLINER_MESSAGE_HEADER=value))
+
+
+def test_the_header_contract_is_the_count_and_the_date() -> None:
+    """I4, ADR 0001: the two fields a header may reference."""
+    assert {"count", "date"} == MESSAGE_HEADER_FIELDS
+
+
+def test_the_five_deadline_phrases_are_read_from_the_environment() -> None:
+    """I4, foundation section 4: the five phrases are the owner's voice, so they are data."""
+    config = load_config(VALID_ENV)
+
+    phrases = config.deadliner.deadline_phrases
+
+    assert phrases.future == "vence em {days} dias"
+    assert phrases.tomorrow == "vence amanhã"
+    assert phrases.today == "vence hoje"
+    assert phrases.yesterday == "venceu ontem"
+    assert phrases.overdue == "venceu há {days} dias"
+
+
+@pytest.mark.parametrize("name", DEADLINE_PHRASE_VARIABLES)
+@pytest.mark.parametrize("value", ["", "   ", "vence em {dias} dias", "{days", "{days_remaining}"])
+def test_a_deadline_phrase_the_engine_could_not_render_is_rejected(name: str, value: str) -> None:
+    """ADR 0001, note of 2026-10-27: each phrase is a format string over the single field
+    `days`, and anything else is caught at startup."""
+    with pytest.raises(ConfigError, match=name):
+        load_config(env_with(**{name: value}))
+
+
+def test_the_phrase_contract_is_the_single_field_days() -> None:
+    """I4, ADR 0001 note of 2026-10-27: a phrase is handed a count and nothing else."""
+    assert {"days"} == DEADLINE_PHRASE_FIELDS
 
 
 def test_the_path_segment_is_read_from_the_environment() -> None:
@@ -440,7 +539,7 @@ def test_an_unconfigured_gateway_reads_as_none_rather_than_as_an_error() -> None
 def test_every_problem_in_an_environment_is_reported_at_once() -> None:
     """B2: filling in a .env is not a game of whack-a-mole."""
     broken = env_with(
-        DEADLINER_ALERT_THRESHOLDS="thirty",
+        DEADLINER_SEND_TIME="seven",
         DEADLINER_WHATSAPP_DESTINATION="not-a-destination",
         DEADLINER_TIMEZONE="Mars/Olympus_Mons",
     )
@@ -448,7 +547,7 @@ def test_every_problem_in_an_environment_is_reported_at_once() -> None:
     with pytest.raises(ConfigError) as raised:
         load_config(broken)
 
-    assert "DEADLINER_ALERT_THRESHOLDS" in str(raised.value)
+    assert "DEADLINER_SEND_TIME" in str(raised.value)
     assert "DEADLINER_WHATSAPP_DESTINATION" in str(raised.value)
     assert "DEADLINER_TIMEZONE" in str(raised.value)
 

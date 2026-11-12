@@ -8,7 +8,6 @@ have happened by the time a row exists) and I4 (the term is data on the record).
 """
 
 import datetime
-from zoneinfo import ZoneInfo
 
 import pytest
 from django.contrib import admin
@@ -20,7 +19,6 @@ from django.urls import reverse
 from core.engine import run_daily_engine
 from core.forms import ServiceEditForm
 from core.models import Service
-from deadliner.config import DeadlinerConfig
 from tests.builders import (
     a_catalog_service,
     a_service,
@@ -28,17 +26,10 @@ from tests.builders import (
     edit_payload,
     registration_payload,
 )
+from tests.configuration import TEST_DEADLINER, local
 from tests.fakes import FakeProvider
 
 pytestmark = pytest.mark.django_db
-
-TEST_DEADLINER = DeadlinerConfig(
-    alert_thresholds=(30, 7, 0),
-    whatsapp_destination="5567999998888",
-    message_template="{client}|{service}|{due_date}|{days_remaining}",
-    secret_path_segment="fake-segment-for-tests",
-    timezone=ZoneInfo("America/Campo_Grande"),
-)
 
 
 def _page(client: Client, name: str, *args: int) -> str:
@@ -268,15 +259,17 @@ def test_the_edit_screen_offers_the_stored_start_date_and_term(client: Client) -
 
 
 @override_settings(DEADLINER=TEST_DEADLINER)
-def test_a_service_earns_its_warnings_from_the_derived_deadline() -> None:
+def test_a_service_is_listed_by_its_derived_deadline() -> None:
     """I3: what is owed is computed from the persisted due date, so the derivation has to have
     happened by the time the engine reads the row."""
     a_service(start_date=datetime.date(2026, 12, 5), term_days=20)
     provider = FakeProvider()
 
-    run_daily_engine(provider=provider, today=datetime.date(2026, 12, 15))
+    run_daily_engine(provider=provider, now=local(2026, 12, 15))
 
-    assert provider.deliveries == ["Fazenda Boa Vista|Licenciamentos Ambientais|2026-12-25|10"]
+    assert provider.deliveries == [
+        "2026-12-15|1\nFazenda Boa Vista|Licenciamentos Ambientais|2026-12-25|in 10"
+    ]
 
 
 def test_the_administration_site_registers_the_service_record() -> None:

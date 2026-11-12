@@ -15,9 +15,15 @@ COPY . .
 # business value and writes no URL into what it collects; the runtime environment is the real one.
 RUN DJANGO_SECRET_KEY=build-time-placeholder \
     DJANGO_ALLOWED_HOSTS=127.0.0.1 \
-    DEADLINER_ALERT_THRESHOLDS=30,7,0 \
+    DEADLINER_SEND_TIME=07:00 \
     DEADLINER_WHATSAPP_DESTINATION=550000000000 \
+    DEADLINER_MESSAGE_HEADER="{count}" \
     DEADLINER_MESSAGE_TEMPLATE="{client}" \
+    DEADLINER_DEADLINE_FUTURE=placeholder \
+    DEADLINER_DEADLINE_TOMORROW=placeholder \
+    DEADLINER_DEADLINE_TODAY=placeholder \
+    DEADLINER_DEADLINE_YESTERDAY=placeholder \
+    DEADLINER_DEADLINE_OVERDUE=placeholder \
     DEADLINER_SECRET_PATH_SEGMENT=build-time-placeholder \
     DEADLINER_TIMEZONE=UTC \
     python manage.py collectstatic --noinput

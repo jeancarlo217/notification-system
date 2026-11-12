@@ -100,6 +100,25 @@ standard library by the owner decision of 2026-09-02, so the runtime stays at dj
 whitenoise. One POST a day against a service on the same Docker network needs a timeout and an
 error mapping, both of which the adapter writes itself, and nothing a client library adds.
 
+Message length, read on 2026-11-12 for backlog B27, because the list of foundation section 4
+v0.6 grows with the registry. Every row was read from the source or the page named, none from
+memory.
+
+| Question | Source consulted | Finding |
+| --- | --- | --- |
+| Does Evolution limit the text | `src/validate/message.schema.ts`, `src/api/dto/sendMessage.dto.ts` and the send path in `whatsapp.baileys.service.ts`, all at git tag `2.3.7` | No. `text` is `{ type: 'string' }` with no `maxLength`, and the only check on the way out is that it is not empty. |
+| The HTTP body it accepts | `src/main.ts` at tag `2.3.7` | `json({ limit: '136mb' })`, far above any list. |
+| Does Baileys limit the text | `package.json` at tag `2.3.7` pins `baileys` `7.0.0-rc.9`; `src/Utils/messages.ts` at that tag | No length check and no truncation. The only ceilings are structural, a frame length written in three bytes, about 16 MB. |
+| What WhatsApp accepts through the official API | Meta developer documentation, Cloud API text messages | 4096 characters for the body. That is the Cloud API, which this product rejected on 2026-09-02, so nothing on the Baileys path enforces it. |
+| What WhatsApp accepts on the linked device path | WhatsApp Help Center, searched and not answered | **Not established.** 65536 characters is repeated by third party sites and stated by no source with authority, and what the servers do with a longer text, reject it, drop it or deliver something a phone will not draw, is not documented anywhere consulted. |
+
+So the vendor encodes no limit and this project encodes none either. One line of the approved
+wording runs about 80 to 95 characters and the header about 60, which puts 4096 characters near 45
+open services and 65536 near 700. The engine logs the length of every message it sends
+(`characters` on the `list_send` line) and `send_alerts --preview` prints it, so the real number
+is read on the production host rather than argued about here. The vendor's own documentation page
+for this call still shows the v1 body, the trap already recorded above.
+
 Trap met on the way: after the disk-full incident the locally cached image had zero-byte files
 (`dist/main.js`, `Docker/scripts/*.sh`), so the container exited 0 in silence and restarted in a
 loop. `docker image rm` and a fresh `docker compose pull` fixed it; the integrity check is
@@ -284,3 +303,6 @@ was added.
 2026-10-27: the Evolution section records OQ-1 closing, with the pairing, the group identifier read
 from the vendor and the five delivered messages; a message template section was added for the two
 `str.format` findings behind the approved wording. No pin changed and no package was added.
+
+2026-11-12: the Evolution section gained the message length findings for B27, read from the source
+at git tag 2.3.7 and from Baileys 7.0.0-rc.9. No pin changed and no package was added.

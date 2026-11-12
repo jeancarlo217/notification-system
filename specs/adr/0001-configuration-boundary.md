@@ -27,7 +27,8 @@ Purity is the point. The rules below are testable with literal dictionaries, wit
 patching and no Django machinery, which is what `specs/testing.md` asks of a decision.
 
 **Variable names.** `DJANGO_SECRET_KEY`, `DJANGO_DEBUG`, `DJANGO_ALLOWED_HOSTS` and
-`DJANGO_DATABASE_PATH` for infrastructure, unchanged from B1. `DEADLINER_ALERT_THRESHOLDS`,
+`DJANGO_DATABASE_PATH` for infrastructure, unchanged from B1. `DEADLINER_SEND_TIME`
+(`DEADLINER_ALERT_THRESHOLDS` until the dated note of 2026-11-09 below),
 `DEADLINER_WHATSAPP_DESTINATION` (`DEADLINER_WHATSAPP_NUMBER` until B26 delivered the dated note
 below), `DEADLINER_MESSAGE_TEMPLATE`, `DEADLINER_SECRET_PATH_SEGMENT` and `DEADLINER_TIMEZONE` for
 the business values.
@@ -47,7 +48,6 @@ because that text reaches the logs (I7).
 
 | Value | Form | Reason |
 | --- | --- | --- |
-| Thresholds | `tuple[int, ...]`, distinct, ordered from the earliest warning to the due date | the loader owns the order, so no caller sorts again |
 | Destination | a group identifier `<digits>@g.us` kept verbatim, or digits only, country code first, no plus sign | foundation section 4 v0.4 sends the warnings to a group; the vendor's `createJid` at tag 2.3.7 passes an `@g.us` string through untouched, so one field carries both and the loader validates rather than transforms |
 | Template | a `str.format` string over `MESSAGE_TEMPLATE_FIELDS` | those four fields are the ones foundation section 4 names |
 | Path segment | at least 3 characters of `A-Za-z0-9_-` | foundation section 6, revised on 2026-08-31, wants a short link people can be sent and can type; the floor only keeps the URL mount from being handed an empty or one letter value |
@@ -136,9 +136,10 @@ variables carry the phrase that fills `deadline`, each a `str.format` string ove
 days past or more. `days` is handed to them as a count and never as a signed integer, because the
 sign is what chose the phrase, so no phrase has to render a minus sign. All five are required and
 have no default in code, exactly like the five values this ADR opens with (I4), which takes the
-required business block from six variables to twelve.
+required business block from six variables to eleven. (Corrected 2026-11-12: this note said twelve,
+which six and five do not make; B27 counted them while delivering.)
 
-Twelve required strings for one message is the cost of this shape and it is worth naming rather
+Eleven required strings for one message is the cost of this shape and it is worth naming rather
 than discovering. The alternative was one template over a signed integer, which costs one variable
 and prints `vence em 0 dias` on the due date and `vence em -3 dias` after it, in the two cases a
 person most needs to read. Portuguese inflects and a template cannot, so either the engine chooses
@@ -151,3 +152,24 @@ Two behaviours of `str.format` were confirmed by running them on 2026-10-27 and 
 untouched. The destination rule is also no longer reasoned from source alone: the group identifier
 of the real destination group loaded through this boundary and was accepted on 2026-10-27, when
 OQ-1 closed.
+
+**Note, 2026-11-09, the thresholds go and the send time arrives.** Foundation section 5 v0.6
+replaces the three warnings per service with one list of every open service a day, so
+`DEADLINER_ALERT_THRESHOLDS` and `DeadlinerConfig.alert_thresholds` are removed, together with the
+Thresholds row of the table above. `DEADLINER_SEND_TIME` takes their place in the required block,
+which therefore stays at eleven variables: a 24 hour `HH:MM` string with no seconds, canonical form
+a `datetime.time` with no zone attached, read in `DEADLINER_TIMEZONE` and never in the host's
+clock, and an error naming the variable on anything else, `7:00` included, because a value that
+half parses is the one nobody notices is wrong. `DEADLINER_MESSAGE_HEADER` keeps its two fields,
+and `count` now counts the services listed rather than the warnings owed. A live `.env` still
+carrying the threshold variable boots unchanged, since an unknown variable is not read, while one
+missing the send time refuses to start naming it; the trap of 2026-09-03 in `specs/log.md` and the
+`Dockerfile` finding of 2026-10-27 both apply to that rename. Delivery is backlog B27.
+
+**Delivered by B27 on 2026-11-12**, which settled three things the notes above left open. The five
+phrases arrive as one `DeadlinePhrases` value on `DeadlinerConfig.deadline_phrases`, since the
+engine chooses among them together and never reads one alone. The header's `date` reaches the
+template as a date and not as text, exactly like `due_date`, so `.env.example` writes
+`{date:%d/%m/%Y}` and a bare `{date}` prints ISO order. And the header, the line and the phrases
+are validated by one reader over their own field sets, `MESSAGE_HEADER_FIELDS`,
+`MESSAGE_TEMPLATE_FIELDS` and `DEADLINE_PHRASE_FIELDS`.

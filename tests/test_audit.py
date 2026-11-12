@@ -13,7 +13,6 @@ import json
 import logging
 from collections.abc import Iterator
 from typing import Any
-from zoneinfo import ZoneInfo
 
 import pytest
 from django.core.management import call_command
@@ -21,22 +20,14 @@ from django.test import Client, override_settings
 from django.urls import reverse
 
 from core.identity import normalize_person_name
-from core.models import Service, Submitter
-from deadliner.config import DeadlinerConfig
+from core.models import Dispatch, Service, Submitter
 from tests.builders import a_service, a_submitter, edit_payload, registration_payload
+from tests.configuration import TEST_DEADLINER
 from tests.fakes import FakeProvider
 
 pytestmark = pytest.mark.django_db
 
 CLOUDFLARE_HEADERS = {"cf-connecting-ip": "203.0.113.7", "cf-ipcountry": "BR"}
-
-TEST_DEADLINER = DeadlinerConfig(
-    alert_thresholds=(30, 7, 0),
-    whatsapp_destination="5567999998888",
-    message_template="{client}|{service}|{due_date}|{days_remaining}",
-    secret_path_segment="fake-segment-for-tests",
-    timezone=ZoneInfo("America/Campo_Grande"),
-)
 
 
 class _Captured:
@@ -302,14 +293,16 @@ def test_a_daily_run_carries_its_own_correlation_keys(
     captured: _Captured,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Foundation section 8: a run binds its keys once, and each send names what it touched."""
+    """Foundation section 8: a run binds its keys once, and the send names the day's dispatch
+    row it wrote and what became of it."""
     monkeypatch.setattr("core.provider.get_provider", lambda: FakeProvider())
-    service = _registered()
+    _registered()
 
-    call_command("send_alerts", today="2026-12-25")
+    call_command("send_alerts", now="2026-12-25T07:00")
 
-    sends = [entry for entry in captured.entries() if entry.get("event") == "alert_send"]
+    sends = [entry for entry in captured.entries() if entry.get("event") == "list_send"]
 
     assert sends[0]["run_id"]
-    assert sends[0]["service_id"] == service.pk
-    assert sends[0]["alert_id"]
+    assert sends[0]["dispatch_id"] == Dispatch.objects.get().pk
+    assert sends[0]["state"] == "sent"
+    assert sends[0]["service_count"] == 1

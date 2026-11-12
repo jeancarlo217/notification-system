@@ -3,11 +3,10 @@
 Traces: foundation section 3.1 rule 3 (a service the company stops offering is deactivated,
 never deleted, because deadlines already point at it), ADR 0005 (an inactive category hides every
 service under it from the registration form and hides nothing else, and both catalogue foreign
-keys are PROTECT) and I3 (a deadline the system knows about keeps earning its warnings).
+keys are PROTECT) and I3 (a deadline the system knows about stays in the daily list).
 """
 
 import datetime
-from zoneinfo import ZoneInfo
 
 import pytest
 from django.test import Client, override_settings
@@ -15,7 +14,6 @@ from django.urls import reverse
 
 from core.engine import run_daily_engine
 from core.models import CatalogService, Service, ServiceCategory
-from deadliner.config import DeadlinerConfig
 from tests.builders import (
     RETIRED_CATEGORY,
     a_catalog_service,
@@ -23,17 +21,11 @@ from tests.builders import (
     edit_payload,
     registration_payload,
 )
+from tests.configuration import TEST_DEADLINER, local
 from tests.fakes import FakeProvider
 
 pytestmark = pytest.mark.django_db
 
-TEST_DEADLINER = DeadlinerConfig(
-    alert_thresholds=(30, 7, 0),
-    whatsapp_destination="5567999998888",
-    message_template="{client}|{service}|{due_date}|{days_remaining}",
-    secret_path_segment="fake-segment-for-tests",
-    timezone=ZoneInfo("America/Campo_Grande"),
-)
 
 RETIRED_SERVICES = (
     "Diagnóstico Global ESG",
@@ -179,12 +171,14 @@ def test_the_edit_screen_widens_the_menu_for_nobody_but_the_record_that_holds_it
 
 
 @override_settings(DEADLINER=TEST_DEADLINER)
-def test_a_deadline_pointing_at_a_retired_esg_service_still_earns_its_warnings() -> None:
+def test_a_deadline_pointing_at_a_retired_esg_service_stays_in_the_daily_list() -> None:
     """I3: retiring a menu entry must never silence a deadline the system already knows about,
     which is the exact failure this product exists to prevent."""
     _tracked_deadline()
     provider = FakeProvider()
 
-    run_daily_engine(provider=provider, today=datetime.date(2026, 7, 30))
+    run_daily_engine(provider=provider, now=local(2026, 7, 30))
 
-    assert provider.deliveries == ["Ceramica Sao Jorge|Inventário de GEE|2026-08-28|29"]
+    assert provider.deliveries == [
+        "2026-07-30|1\nCeramica Sao Jorge|Inventário de GEE|2026-08-28|in 29"
+    ]

@@ -28,12 +28,38 @@
     {% endif %}
   </form>
 
+  {% comment %}
+  What became of today's list, on every state of this screen, a search that finds nothing
+  included: a send that did not happen is a visible fact and never an absence (I2). The sentence
+  carries the state; the class and the mark only draw it.
+  {% endcomment %}
+  <div class="dispatch dispatch--{{ dispatch.state }}" role="status">
+    {% if dispatch.state == "sent" %}
+      <svg class="dispatch__mark" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+           stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M20 6 9 17l-5-5"/>
+      </svg>
+    {% elif dispatch.state == "failed" %}
+      <svg class="dispatch__mark" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+           stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M18 6 6 18"/><path d="M6 6l12 12"/>
+      </svg>
+    {% else %}
+      <svg class="dispatch__mark" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+           stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>
+      </svg>
+    {% endif %}
+    <p>{{ dispatch.text }}</p>
+    {% if dispatch.earlier %}<p class="dispatch__earlier">{{ dispatch.earlier }}</p>{% endif %}
+  </div>
+
   {% if rows %}
     {% comment %}
     Below 68rem the table is laid out as a grid of cards, which drops the implicit table
     semantics in every browser, so each row and cell states its ARIA role by hand and each cell
     carries the column name that layout prints in front of it. Nothing ever scrolls sideways:
-    the table shape is used only at the widths where all seven columns fit.
+    the table shape is used only at the widths where every column fits.
     {% endcomment %}
     <div class="card card--clipped card--bleed">
       <table class="table" role="table">
@@ -44,60 +70,25 @@
             <th role="columnheader" scope="col">Vencimento</th>
             <th role="columnheader" scope="col">Responsável</th>
             <th role="columnheader" scope="col">Status</th>
-            <th role="columnheader" scope="col">Avisos</th>
             <th role="columnheader" scope="col">Ações</th>
           </tr>
         </thead>
         <tbody role="rowgroup">
-          {% for row in rows %}
+          {% for service in rows %}
             <tr role="row">
-              <td role="cell" class="table__client" data-label="Cliente">{{ row.service.client }}</td>
-              <td role="cell" class="table__service" data-label="Serviço">{{ row.service.catalog_service.name }}</td>
+              <td role="cell" class="table__client" data-label="Cliente">{{ service.client }}</td>
+              <td role="cell" class="table__service" data-label="Serviço">{{ service.catalog_service.name }}</td>
               <td role="cell" class="table__date" data-label="Vencimento">
-                <time datetime="{{ row.service.due_date|date:'Y-m-d' }}">{{ row.service.due_date|date:"d/m/Y" }}</time>
+                <time datetime="{{ service.due_date|date:'Y-m-d' }}">{{ service.due_date|date:"d/m/Y" }}</time>
               </td>
-              <td role="cell" class="table__submitter" data-label="Responsável">{{ row.service.submitter.display_name }}</td>
+              <td role="cell" class="table__submitter" data-label="Responsável">{{ service.submitter.display_name }}</td>
               <td role="cell" class="table__status" data-label="Status">
-                <span class="badge badge--{{ row.service.status }}">{{ row.service.get_status_display }}</span>
-              </td>
-              {% comment %}
-              One chip per configured threshold, so a threshold nobody has reached reads as
-              waiting and never as a failure (I2), and adding or removing one is a configuration
-              change and not an edit here (I4). The sentence reaches assistive technology and the
-              chip is the same fact drawn short; the mark is what keeps the colour from being the
-              only channel, and the failed state is the one that also keeps its word, because a
-              warning that did not arrive is what this product exists to surface.
-              {% endcomment %}
-              <td role="cell" class="table__warnings" data-label="Avisos">
-                <ul class="warnings">
-                  {% for warning in row.warnings %}
-                    <li class="warn warn--{{ warning.state }}" title="{{ warning.label }} {{ warning.text }}">
-                      {% if warning.state == "sent" %}
-                        <svg class="warn__mark" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                             stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                          <path d="M20 6 9 17l-5-5"/>
-                        </svg>
-                      {% elif warning.state == "failed" %}
-                        <svg class="warn__mark" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                             stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                          <path d="M18 6 6 18"/><path d="M6 6l12 12"/>
-                        </svg>
-                      {% elif warning.state == "pending" %}
-                        <svg class="warn__mark" viewBox="0 0 24 24" fill="currentColor" stroke="none"
-                             aria-hidden="true">
-                          <circle cx="12" cy="12" r="5"/>
-                        </svg>
-                      {% endif %}
-                      <span class="warn__label">{{ warning.label }}</span>
-                      <span class="warn__word{% if warning.state != 'failed' %} visually-hidden{% endif %}">{{ warning.text }}</span>
-                    </li>
-                  {% endfor %}
-                </ul>
+                <span class="badge badge--{{ service.status }}">{{ service.get_status_display }}</span>
               </td>
               <td role="cell" class="table__actions" data-label="Ações">
-                <a class="btn btn--ghost btn--sm" href="{% url 'service-edit' row.service.pk %}">Editar</a>
-                {% if row.service.status == "active" %}
-                  <form class="inline" method="post" action="{% url 'service-complete' row.service.pk %}">
+                <a class="btn btn--ghost btn--sm" href="{% url 'service-edit' service.pk %}">Editar</a>
+                {% if service.status == "active" %}
+                  <form class="inline" method="post" action="{% url 'service-complete' service.pk %}">
                     {% csrf_token %}
                     <button class="btn btn--soft btn--sm" type="submit">Concluir</button>
                   </form>

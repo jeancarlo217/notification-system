@@ -12,7 +12,6 @@ import datetime
 from collections.abc import Callable
 from contextlib import AbstractContextManager
 from typing import Any
-from zoneinfo import ZoneInfo
 
 import pytest
 from django.contrib import admin
@@ -24,7 +23,6 @@ from django.urls import reverse
 
 from core.engine import run_daily_engine
 from core.models import CatalogService, Service, ServiceCategory
-from deadliner.config import DeadlinerConfig
 from tests.builders import (
     RETIRED_CATEGORY,
     a_catalog_service,
@@ -34,17 +32,11 @@ from tests.builders import (
     edit_payload,
     registration_payload,
 )
+from tests.configuration import TEST_DEADLINER, local
 from tests.fakes import FakeProvider
 
 pytestmark = pytest.mark.django_db
 
-TEST_DEADLINER = DeadlinerConfig(
-    alert_thresholds=(30, 7, 0),
-    whatsapp_destination="5567999998888",
-    message_template="{client}|{service}|{due_date}|{days_remaining}",
-    secret_path_segment="fake-segment-for-tests",
-    timezone=ZoneInfo("America/Campo_Grande"),
-)
 
 DECLARED_CATALOGUE: tuple[tuple[str, tuple[str, ...]], ...] = (
     (
@@ -104,8 +96,7 @@ def _page(client: Client, name: str, *args: int) -> str:
 def _reads(captured: Any) -> int:
     """How many times the block asked the database for rows.
 
-    A run writes one row per warning it sends, so the total query count grows with the work done;
-    what must not grow with the number of records is how often the data is read (section 8).
+    What must not grow with the number of records is how often the data is read (section 8).
     """
     return len(
         [
@@ -405,9 +396,9 @@ def test_a_record_pointing_at_a_deactivated_entry_is_still_editable(client: Clie
 
 
 @override_settings(DEADLINER=TEST_DEADLINER)
-def test_a_record_pointing_at_a_deactivated_entry_still_earns_its_warnings() -> None:
+def test_a_record_pointing_at_a_deactivated_entry_stays_in_the_daily_list() -> None:
     """ADR 0005: deactivation removes a service from the menu and does nothing else, so a
-    deadline already tracked keeps being warned about. Silently stopping the warnings is the
+    deadline already tracked keeps being listed every morning. Silently dropping it is the
     failure mode this product exists to prevent."""
     retired = a_catalog_service("Sensoriamento Remoto", category="Geotecnologias")
     a_service(catalog_service=retired, due_date=datetime.date(2026, 12, 25))
@@ -415,9 +406,11 @@ def test_a_record_pointing_at_a_deactivated_entry_still_earns_its_warnings() -> 
     retired.save(update_fields=["is_active"])
     provider = FakeProvider()
 
-    run_daily_engine(provider=provider, today=datetime.date(2026, 12, 15))
+    run_daily_engine(provider=provider, now=local(2026, 12, 15))
 
-    assert provider.deliveries == ["Fazenda Boa Vista|Sensoriamento Remoto|2026-12-25|10"]
+    assert provider.deliveries == [
+        "2026-12-15|1\nFazenda Boa Vista|Sensoriamento Remoto|2026-12-25|in 10"
+    ]
 
 
 def test_a_service_under_an_inactive_category_is_not_offered_for_registration(
@@ -465,8 +458,8 @@ def test_a_record_under_an_inactive_category_is_still_editable(client: Client) -
 
 
 @override_settings(DEADLINER=TEST_DEADLINER)
-def test_a_record_under_an_inactive_category_still_earns_its_warnings() -> None:
-    """ADR 0005: records under a retired category keep earning warnings, because a menu edit
+def test_a_record_under_an_inactive_category_stays_in_the_daily_list() -> None:
+    """ADR 0005: records under a retired category stay in the daily list, because a menu edit
     that quietly silenced a deadline would be the worst outcome in this file."""
     category = a_category("Geotecnologias", position=2)
     entry = a_catalog_service("Sensoriamento Remoto", category="Geotecnologias")
@@ -475,15 +468,17 @@ def test_a_record_under_an_inactive_category_still_earns_its_warnings() -> None:
     category.save(update_fields=["is_active"])
     provider = FakeProvider()
 
-    run_daily_engine(provider=provider, today=datetime.date(2026, 12, 15))
+    run_daily_engine(provider=provider, now=local(2026, 12, 15))
 
-    assert provider.deliveries == ["Fazenda Boa Vista|Sensoriamento Remoto|2026-12-25|10"]
+    assert provider.deliveries == [
+        "2026-12-15|1\nFazenda Boa Vista|Sensoriamento Remoto|2026-12-25|in 10"
+    ]
 
 
 @override_settings(DEADLINER=TEST_DEADLINER)
-def test_the_warning_text_names_the_catalogue_entry_and_not_the_observation() -> None:
+def test_the_list_line_names_the_catalogue_entry_and_not_the_observation() -> None:
     """ADR 0005: the engine renders {service} from the catalogue name; the message template
-    contract of ADR 0001 keeps its four fields and no configured template breaks."""
+    contract of ADR 0001 keeps the four fields it had and no configured template breaks."""
     a_service(
         catalog_service=a_catalog_service("Outorga de Recursos Hídricos"),
         notes="Protocolo interno 4471",
@@ -491,9 +486,11 @@ def test_the_warning_text_names_the_catalogue_entry_and_not_the_observation() ->
     )
     provider = FakeProvider()
 
-    run_daily_engine(provider=provider, today=datetime.date(2026, 12, 15))
+    run_daily_engine(provider=provider, now=local(2026, 12, 15))
 
-    assert provider.deliveries == ["Fazenda Boa Vista|Outorga de Recursos Hídricos|2026-12-25|10"]
+    assert provider.deliveries == [
+        "2026-12-15|1\nFazenda Boa Vista|Outorga de Recursos Hídricos|2026-12-25|in 10"
+    ]
 
 
 def test_the_list_costs_the_same_queries_for_thirty_records_as_for_one(
@@ -520,17 +517,17 @@ def test_a_daily_run_reads_the_same_number_of_times_for_thirty_services_as_for_o
     django_assert_max_num_queries: QueryCounter,
 ) -> None:
     """Foundation section 8 and ADR 0005: the run selects the catalogue name in the same query as
-    the records, so the daily engine does not walk the table once per warning."""
+    the records, so the daily engine does not walk the table once per line of the list."""
     a_service(client="Cliente 0")
 
     with django_assert_max_num_queries(20) as one_service:
-        run_daily_engine(provider=FakeProvider(), today=datetime.date(2026, 12, 18))
+        run_daily_engine(provider=FakeProvider(), now=local(2026, 12, 18))
 
     for number in range(1, 30):
         a_service(client=f"Cliente {number}")
 
-    with django_assert_max_num_queries(300) as thirty_services:
-        run_daily_engine(provider=FakeProvider(), today=datetime.date(2026, 12, 18))
+    with django_assert_max_num_queries(20) as thirty_services:
+        run_daily_engine(provider=FakeProvider(), now=local(2026, 12, 19))
 
     assert _reads(thirty_services) == _reads(one_service)
 

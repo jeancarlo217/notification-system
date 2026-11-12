@@ -1,47 +1,54 @@
-"""B9, the scheduler: the daily command is idempotent end to end.
+"""B9 and B27, the scheduler: the polled command is idempotent end to end.
 
-Traces: foundation section 5 (one daily run by a scheduler that lives outside the web process),
-I1 (run twice, one delivery per warning), I3 (owed-ness derives from persisted records, so a
-second run on the same day finds nothing left to send). The Compose scheduler service invokes
-exactly what this test invokes, the ``send_alerts`` command; the provider is faked at its
-interface, since OQ-1 keeps the real adapter out until B8.
+Traces: foundation section 5 (the scheduler lives outside the web process and, since the note of
+2026-11-09 in ADR 0002, polls the command every minute), I1 (one day, one list), I3 (owed-ness
+derives from persisted records, so a later poll of the same day finds nothing left to send). The
+Compose scheduler service invokes exactly what this test invokes, the ``send_alerts`` command; the
+provider is faked at its interface.
 """
 
 import datetime
-from zoneinfo import ZoneInfo
 
 import pytest
 from django.core.management import call_command
 from django.test import override_settings
 
-from core.models import Alert
-from deadliner.config import DeadlinerConfig
+from core.models import Dispatch
 from tests.builders import a_service
+from tests.configuration import TEST_DEADLINER
 from tests.fakes import FakeProvider
 
 pytestmark = pytest.mark.django_db
 
-TEST_DEADLINER = DeadlinerConfig(
-    alert_thresholds=(30, 7, 0),
-    whatsapp_destination="5567999998888",
-    message_template="{client}|{service}|{due_date}|{days_remaining}",
-    secret_path_segment="fake-segment-for-tests",
-    timezone=ZoneInfo("America/Campo_Grande"),
-)
-
 
 @override_settings(DEADLINER=TEST_DEADLINER)
-def test_running_the_command_twice_delivers_each_owed_warning_once(
+def test_polling_the_command_through_a_morning_delivers_one_list(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """I1 and I3 end to end: the scheduler and an operator can both fire the command on the
-    same day and the company phone still receives one message per owed warning."""
+    """I1 and I3 end to end: the scheduler polls every minute and an operator may fire the
+    command by hand, and the group still receives one message that day."""
     fake = FakeProvider()
     monkeypatch.setattr("core.provider.get_provider", lambda: fake)
     a_service(due_date=datetime.date(2026, 12, 25))
 
-    call_command("send_alerts", today="2026-12-18")
-    call_command("send_alerts", today="2026-12-18")
+    call_command("send_alerts", now="2026-12-18T06:59")
+    call_command("send_alerts", now="2026-12-18T07:00")
+    call_command("send_alerts", now="2026-12-18T07:01")
+    call_command("send_alerts", now="2026-12-18T07:02")
+
+    assert len(fake.deliveries) == 1
+    assert Dispatch.objects.filter(state="sent").count() == 1
+
+
+@override_settings(DEADLINER=TEST_DEADLINER)
+def test_the_next_morning_is_a_new_list(monkeypatch: pytest.MonkeyPatch) -> None:
+    """I1 acceptance, the other side: the next day's send time owes a second message."""
+    fake = FakeProvider()
+    monkeypatch.setattr("core.provider.get_provider", lambda: fake)
+    a_service(due_date=datetime.date(2026, 12, 25))
+
+    call_command("send_alerts", now="2026-12-18T07:00")
+    call_command("send_alerts", now="2026-12-19T06:59")
+    call_command("send_alerts", now="2026-12-19T07:00")
 
     assert len(fake.deliveries) == 2
-    assert Alert.objects.filter(state="sent").count() == 2

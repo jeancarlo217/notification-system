@@ -2,11 +2,10 @@
 
 Trace: foundation section 1, whose audience is the employees of one company reached through a
 link, on whatever device they open it with. The defect this item repairs is specific: the list
-answered the seven columns of B15 with a sideways scrollbar, which put the actions column off
+answered the seven columns of B15 with a sideways scrollbar (six since B27 removed the
+warning chips), which put the actions column off
 screen on a tablet, so completing a service was unreachable without scrolling the table itself.
 """
-
-import re
 
 import pytest
 from django.test import Client
@@ -16,18 +15,9 @@ from tests.builders import a_service
 
 pytestmark = pytest.mark.django_db
 
-_WARNINGS_CELL = re.compile(r'data-label="Avisos">(.*?)</td>', re.DOTALL)
-
 
 def _page(name: str = "service-list") -> str:
     return Client().get(reverse(name)).content.decode()
-
-
-def _warnings_cell() -> str:
-    page = _page()
-    found = _WARNINGS_CELL.search(page)
-    assert found is not None
-    return found.group(1)
 
 
 def test_nothing_in_the_list_is_reached_by_scrolling_sideways() -> None:
@@ -46,7 +36,7 @@ def test_every_column_of_the_list_carries_its_name_for_the_card_layout() -> None
 
     page = _page()
 
-    for column in ("Cliente", "Serviço", "Vencimento", "Responsável", "Status", "Avisos", "Ações"):
+    for column in ("Cliente", "Serviço", "Vencimento", "Responsável", "Status", "Ações"):
         assert f'data-label="{column}"' in page
 
 
@@ -56,41 +46,21 @@ def test_every_cell_of_the_list_is_addressable_by_the_layout() -> None:
 
     page = _page()
 
-    for cell in ("client", "service", "date", "submitter", "status", "warnings", "actions"):
+    for cell in ("client", "service", "date", "submitter", "status", "actions"):
         assert f'class="table__{cell}"' in page
 
 
-def test_a_warning_draws_its_state_and_never_only_prints_its_colour() -> None:
-    """I2: a chip short enough to fit needs a shape, or the colour is the only channel left."""
+def test_the_state_of_the_days_list_is_one_block_above_the_records_and_not_a_column() -> None:
+    """B27: the per threshold chips of B15 have nothing left to show, so the list is six columns
+    and the state of today's list is said once, above them, where no width can push it off
+    screen."""
     a_service()
 
-    cell = _warnings_cell()
+    page = _page()
 
-    assert cell.count("<li") == 3
-    assert "warn--waiting" in cell
-
-
-def test_a_failed_warning_keeps_its_word_where_an_eye_can_read_it() -> None:
-    """I2: the state a person has to act on is the one that never hides behind an icon."""
-    from core.models import Alert
-
-    service = a_service()
-    Alert.objects.create(service=service, threshold=30, state=Alert.State.FAILED)
-
-    cell = _warnings_cell()
-    failed = cell[cell.index("warn--failed") :]
-
-    assert "falhou" in failed
-    assert 'warn__word visually-hidden">falhou' not in failed
-
-
-def test_a_warning_that_did_not_fail_still_says_its_state_to_a_reader_who_cannot_see() -> None:
-    """I2: the word is in the markup for every state, drawn or not."""
-    a_service()
-
-    cell = _warnings_cell()
-
-    assert cell.count('class="warn__word visually-hidden">aguardando') == 3
+    assert 'data-label="Avisos"' not in page
+    assert "table__warnings" not in page
+    assert page.index('class="dispatch') < page.index('<table class="table"')
 
 
 def test_the_two_halves_of_the_deadline_sit_where_the_layout_can_pair_them() -> None:

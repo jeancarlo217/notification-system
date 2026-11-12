@@ -1,8 +1,9 @@
-"""B3, data model: the flat service record and the alert record with its uniqueness rule.
+"""B3 and B27, data model: the flat service record and the dispatch record of one day's list.
 
 Traces: foundation section 3 (flat data model, whose only foreign keys point at the catalogue
-entry and the submitter), I1 (one warning, one message, by construction of a uniqueness rule on
-the persisted alert), I2 (a failed send is a visible persisted state).
+entry and the submitter, and one dispatch record per day the list was attempted), I1 (one day,
+one list, by construction of a uniqueness rule on the persisted dispatch record), I2 (a failed
+send is a visible persisted state).
 """
 
 import datetime
@@ -11,8 +12,9 @@ import pytest
 from django.core.management import call_command
 from django.db import IntegrityError
 
-from core.models import Alert, Service
+from core.models import Dispatch, Service
 from tests.builders import a_catalog_service, a_service, a_submitter
+from tests.configuration import local
 
 pytestmark = pytest.mark.django_db
 
@@ -61,62 +63,73 @@ def test_a_service_records_its_created_timestamp() -> None:
     assert stored.created_at is not None
 
 
-def test_a_second_alert_for_the_same_service_and_threshold_is_rejected() -> None:
-    """I1: at most one alert exists per (service, threshold), enforced by the database,
-    never by the engine remembering."""
-    service = a_service()
-    Alert.objects.create(service=service, threshold=30)
+def _a_dispatch(day: datetime.date, **fields: object) -> Dispatch:
+    return Dispatch.objects.create(
+        local_date=day,
+        service_count=1,
+        last_attempt_at=local(day.year, day.month, day.day),
+        **fields,
+    )
+
+
+def test_a_second_dispatch_for_the_same_day_is_rejected() -> None:
+    """I1: at most one dispatch row exists per local date, enforced by the database, never by
+    the engine remembering."""
+    _a_dispatch(datetime.date(2026, 12, 18))
 
     with pytest.raises(IntegrityError):
-        Alert.objects.create(service=service, threshold=30)
+        _a_dispatch(datetime.date(2026, 12, 18))
 
 
-def test_different_thresholds_on_the_same_service_are_both_allowed() -> None:
-    """I1, the quiet side: the uniqueness rule blocks only the same (service, threshold) pair."""
-    service = a_service()
+def test_two_days_each_have_their_own_dispatch() -> None:
+    """I1, the quiet side: the uniqueness rule blocks only the same date."""
+    _a_dispatch(datetime.date(2026, 12, 18))
+    _a_dispatch(datetime.date(2026, 12, 19))
 
-    Alert.objects.create(service=service, threshold=30)
-    Alert.objects.create(service=service, threshold=7)
-
-    assert Alert.objects.filter(service=service).count() == 2
+    assert Dispatch.objects.count() == 2
 
 
-def test_the_same_threshold_on_different_services_is_allowed() -> None:
-    """I1, the quiet side: the uniqueness rule is per service, never global per threshold."""
-    first = a_service(client="Fazenda Boa Vista")
-    second = a_service(client="Sitio Santa Fe")
+def test_a_new_dispatch_starts_in_the_pending_state() -> None:
+    """Core thesis, section 2: the row is written before the send, so a crash mid-run leaves a
+    visible pending record, never an absence."""
+    _a_dispatch(datetime.date(2026, 12, 18))
 
-    Alert.objects.create(service=first, threshold=0)
-    Alert.objects.create(service=second, threshold=0)
-
-    assert Alert.objects.count() == 2
-
-
-def test_a_new_alert_starts_in_the_pending_state() -> None:
-    """Core thesis, section 2: the alert row is written before the send, so a crash mid-run
-    leaves a visible pending record, never an absence."""
-    Alert.objects.create(service=a_service(), threshold=7)
-
-    stored = Alert.objects.get()
+    stored = Dispatch.objects.get()
 
     assert stored.state == "pending"
 
 
 @pytest.mark.parametrize("state", ["pending", "sent", "failed"])
-def test_an_alert_persists_each_lifecycle_state(state: str) -> None:
+def test_a_dispatch_persists_each_lifecycle_state(state: str) -> None:
     """I2: sent and failed are persisted, visible states; no outcome lives only in memory."""
-    Alert.objects.create(service=a_service(), threshold=7, state=state)
+    _a_dispatch(datetime.date(2026, 12, 18), state=state)
 
-    stored = Alert.objects.get()
+    stored = Dispatch.objects.get()
 
     assert stored.state == state
 
 
-def test_a_new_alert_records_its_timestamps() -> None:
-    """Foundation section 3: the alert record carries its timestamps."""
-    Alert.objects.create(service=a_service(), threshold=30)
+def test_a_dispatch_records_its_day_its_count_and_its_last_attempt() -> None:
+    """Foundation section 3, ADR 0002 note of 2026-11-09: the date the list belongs to, the
+    number of services listed and the time of the last attempt."""
+    Dispatch.objects.create(
+        local_date=datetime.date(2026, 12, 18),
+        service_count=42,
+        last_attempt_at=local(2026, 12, 18, 8, 0),
+    )
 
-    stored = Alert.objects.get()
+    stored = Dispatch.objects.get()
+
+    assert stored.local_date == datetime.date(2026, 12, 18)
+    assert stored.service_count == 42
+    assert stored.last_attempt_at == local(2026, 12, 18, 8, 0)
+
+
+def test_a_new_dispatch_records_its_timestamps() -> None:
+    """Foundation section 3: the dispatch record carries its timestamps."""
+    _a_dispatch(datetime.date(2026, 12, 18))
+
+    stored = Dispatch.objects.get()
 
     assert stored.created_at is not None
     assert stored.updated_at is not None

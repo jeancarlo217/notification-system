@@ -608,7 +608,6 @@ Measured ratios: specs/dependencies.md, B16 section.
   .table__date,
   .table__submitter,
   .table__status,
-  .table__warnings,
   .table__actions {
     width: 1%;
   }
@@ -656,68 +655,58 @@ Measured ratios: specs/dependencies.md, B16 section.
     color: var(--text-low);
   }
 
-  .warnings {
-    display: flex;
-    flex-wrap: nowrap;
-    gap: var(--space-1);
+  /* What became of today's list, said once above the records and never per row (B27). The
+     state is a sentence, a shape is drawn beside it, and the colour is a third channel and never
+     the only one (I2). Reading steps only, the pairs B15 measured: green 12 on green 3, red 11 on
+     red 3, sage 12 on sage 3, and sage 11 on the panel. */
+  .dispatch {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: start;
+    gap: var(--space-1) var(--space-2);
+    margin-bottom: var(--space-4);
+    padding: var(--space-3) var(--space-4);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-5);
+    color: var(--text-low);
+    font-size: var(--text-3);
+    line-height: 1.4;
+  }
+
+  .dispatch p {
+    grid-column: 2;
     margin: 0;
-    padding: 0;
-    list-style: none;
   }
 
-  /* Every chip carries its condition as a word in the markup, hidden from the eye except when it
-     failed, and draws a shape beside the threshold, so the colour is a third channel and never
-     the only one (I2). The shape is an SVG rather than a character because the cell is read as
-     text by the tests and by assistive technology, and a tick mark is a drawing, not a word.
-     Reading steps only: green 12 on green 3 measures 11.00:1 light and 11.45:1 dark, red 11 on
-     red 3 measures 4.54:1 and 7.75:1, sage 12 on sage 3 measures 14.43:1 and 13.73:1, sage 11 on
-     the panel measures 5.83:1 and 8.44:1. */
-  .warn {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--space-1);
-    padding: var(--space-1) var(--space-2);
-    border: 1px solid transparent;
-    border-radius: var(--radius-full);
-    font-size: var(--text-2);
-    font-weight: 500;
-    line-height: 1.2;
-    white-space: nowrap;
-  }
-
-  .warn__label {
-    font-variant-numeric: tabular-nums;
-  }
-
-  .warn__mark {
-    width: 0.75rem;
-    height: 0.75rem;
+  .dispatch__mark {
+    width: 1rem;
+    height: 1rem;
+    margin-top: 0.2em;
     flex: none;
   }
 
-  .warn--sent {
+  .dispatch--sent {
     background: var(--accent-bg);
     border-color: var(--accent-border);
     color: var(--accent-text-high);
   }
 
-  .warn--failed {
+  .dispatch--failed {
     background: var(--danger-bg);
     border-color: var(--danger-border);
     color: var(--danger-text);
     font-weight: 600;
   }
 
-  .warn--pending {
+  .dispatch--pending {
     background: var(--component);
     border-color: var(--border);
     color: var(--text-high);
   }
 
-  .warn--waiting {
-    background: transparent;
-    border-color: var(--border-subtle);
-    color: var(--text-low);
+  .dispatch__earlier {
+    color: var(--danger-text);
+    font-weight: 600;
   }
 
   /* The label is read aloud and never drawn: a placeholder alone leaves the box unnamed for a
@@ -1100,7 +1089,6 @@ Measured ratios: specs/dependencies.md, B16 section.
         "client   status"
         "service  service"
         "date     submitter"
-        "warnings warnings"
         "actions  actions";
       align-items: start;
       gap: var(--space-2) var(--space-4);
@@ -1158,15 +1146,6 @@ Measured ratios: specs/dependencies.md, B16 section.
     .table__status {
       grid-area: status;
       justify-self: end;
-    }
-
-    .table__warnings {
-      grid-area: warnings;
-    }
-
-    /* The card is narrow and the number of thresholds is configuration, so here they wrap. */
-    .warnings {
-      flex-wrap: wrap;
     }
 
     /* A grid rather than a wrapping flex row: auto-fit decides the number of columns from the

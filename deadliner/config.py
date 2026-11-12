@@ -4,6 +4,7 @@ Every value the application takes from its environment is parsed and validated h
 startup. Nothing else in the project reads ``os.environ``.
 """
 
+import datetime
 import re
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -19,9 +20,15 @@ LANGUAGE_CODE = "pt-br"
 USE_I18N = True
 
 MESSAGE_TEMPLATE_FIELDS: frozenset[str] = frozenset(
-    {"client", "service", "due_date", "days_remaining"}
+    {"client", "service", "due_date", "days_remaining", "deadline"}
 )
-"""The field names a warning template may reference (foundation section 4)."""
+"""The field names one line of the list may reference (foundation section 4)."""
+
+MESSAGE_HEADER_FIELDS: frozenset[str] = frozenset({"count", "date"})
+"""The field names the header of the list may reference (foundation section 4)."""
+
+DEADLINE_PHRASE_FIELDS: frozenset[str] = frozenset({"days"})
+"""The single field a deadline phrase may reference, always a count and never signed."""
 
 # Three, not sixteen: foundation section 6 v0.2 made the segment a short link meant to be sent to
 # people, so the floor is only what the URL configuration can mount and a person can type.
@@ -35,6 +42,9 @@ _NUMBER_SEPARATORS = re.compile(r"[\s()+.-]")
 # a string already carrying `@g.us` untouched, so a group travels in the same field as a number
 # (specs/dependencies.md).
 _GROUP_IDENTIFIER = re.compile(r"\d+@g\.us")
+# Two digits each and nothing else: `7:00` half parses, and a value that half parses is the one
+# nobody notices is wrong (ADR 0001, note of 2026-11-09).
+_SEND_TIME = re.compile(r"([01]\d|2[0-3]):([0-5]\d)")
 _EVOLUTION_ADDRESS_VARIABLES = ("EVOLUTION_BASE_URL", "EVOLUTION_INSTANCE_NAME")
 _EVOLUTION_VARIABLES = (*_EVOLUTION_ADDRESS_VARIABLES, "EVOLUTION_API_KEY")
 _DEFAULT_DATABASE_PATH = "db.sqlite3"
@@ -76,16 +86,32 @@ class DjangoConfig:
 
 
 @dataclass(frozen=True, slots=True)
+class DeadlinePhrases:
+    """The five phrases one of which fills ``deadline`` in a line (foundation section 4).
+
+    Each is a format string over ``days``, a count the engine never hands over signed.
+    """
+
+    future: str
+    tomorrow: str
+    today: str
+    yesterday: str
+    overdue: str
+
+
+@dataclass(frozen=True, slots=True)
 class DeadlinerConfig:
     """The business values the product is defined by, never literals in code (I4).
 
-    ``alert_thresholds`` is ordered from the earliest warning to the due date, and
+    ``send_time`` is a wall clock reading in ``timezone`` with no zone of its own, and
     ``whatsapp_destination`` holds a group identifier or digits only, country code first.
     """
 
-    alert_thresholds: tuple[int, ...]
+    send_time: datetime.time
     whatsapp_destination: str
+    message_header: str
     message_template: str
+    deadline_phrases: DeadlinePhrases
     secret_path_segment: str
     timezone: ZoneInfo
 
@@ -115,9 +141,21 @@ def load_config(env: Mapping[str, str]) -> Config:
         evolution=_read_evolution(env, problems),
     )
     deadliner_config = DeadlinerConfig(
-        alert_thresholds=_read_thresholds(env, problems),
+        send_time=_read_send_time(env, problems),
         whatsapp_destination=_read_whatsapp_destination(env, problems),
-        message_template=_read_message_template(env, problems),
+        message_header=_read_format_string(
+            env, problems, "DEADLINER_MESSAGE_HEADER", MESSAGE_HEADER_FIELDS
+        ),
+        message_template=_read_format_string(
+            env, problems, "DEADLINER_MESSAGE_TEMPLATE", MESSAGE_TEMPLATE_FIELDS
+        ),
+        deadline_phrases=DeadlinePhrases(
+            future=_read_deadline_phrase(env, problems, "DEADLINER_DEADLINE_FUTURE"),
+            tomorrow=_read_deadline_phrase(env, problems, "DEADLINER_DEADLINE_TOMORROW"),
+            today=_read_deadline_phrase(env, problems, "DEADLINER_DEADLINE_TODAY"),
+            yesterday=_read_deadline_phrase(env, problems, "DEADLINER_DEADLINE_YESTERDAY"),
+            overdue=_read_deadline_phrase(env, problems, "DEADLINER_DEADLINE_OVERDUE"),
+        ),
         secret_path_segment=_read_secret_path_segment(env, problems),
         timezone=_read_timezone(env, problems),
     )
@@ -193,25 +231,19 @@ def _read_backup_directory(env: Mapping[str, str]) -> Path:
     return Path(env.get("DJANGO_BACKUP_DIRECTORY", "").strip() or _DEFAULT_BACKUP_DIRECTORY)
 
 
-def _read_thresholds(env: Mapping[str, str], problems: list[str]) -> tuple[int, ...]:
-    raw = env.get("DEADLINER_ALERT_THRESHOLDS")
+def _read_send_time(env: Mapping[str, str], problems: list[str]) -> datetime.time:
+    raw = env.get("DEADLINER_SEND_TIME")
     if raw is None:
-        problems.append("DEADLINER_ALERT_THRESHOLDS is required and has no default in code (I4).")
-        return ()
+        problems.append("DEADLINER_SEND_TIME is required and has no default in code (I4).")
+        return datetime.time()
 
-    tokens = [token.strip() for token in raw.split(",")]
-    if not all(token.isascii() and token.isdecimal() for token in tokens):
+    matched = _SEND_TIME.fullmatch(raw.strip())
+    if matched is None:
         problems.append(
-            "DEADLINER_ALERT_THRESHOLDS must be whole numbers of days separated by commas, "
-            f"got {raw!r}."
+            f"DEADLINER_SEND_TIME must be a 24 hour time written HH:MM, such as 07:00, got {raw!r}."
         )
-        return ()
-
-    days = [int(token) for token in tokens]
-    if len(set(days)) != len(days):
-        problems.append(f"DEADLINER_ALERT_THRESHOLDS must not repeat a threshold, got {raw!r}.")
-        return ()
-    return tuple(sorted(days, reverse=True))
+        return datetime.time()
+    return datetime.time(int(matched.group(1)), int(matched.group(2)))
 
 
 def _read_whatsapp_destination(env: Mapping[str, str], problems: list[str]) -> str:
@@ -297,29 +329,38 @@ def _read_evolution_instance_name(value: str, problems: list[str]) -> str:
     return value
 
 
-def _read_message_template(env: Mapping[str, str], problems: list[str]) -> str:
-    raw = env.get("DEADLINER_MESSAGE_TEMPLATE")
+def _read_format_string(
+    env: Mapping[str, str], problems: list[str], name: str, allowed: frozenset[str]
+) -> str:
+    """One configured piece of the message, checked against the fields it may reference.
+
+    A wording defect is refused here, at startup, so the daily run never meets it at send time.
+    """
+    raw = env.get(name)
     if raw is None:
-        problems.append("DEADLINER_MESSAGE_TEMPLATE is required and has no default in code (I4).")
+        problems.append(f"{name} is required and has no default in code (I4).")
         return ""
     if not raw.strip():
-        problems.append("DEADLINER_MESSAGE_TEMPLATE must not be blank.")
+        problems.append(f"{name} must not be blank.")
         return ""
 
     try:
-        fields = {name for _, name, _, _ in Formatter().parse(raw) if name is not None}
+        fields = {field for _, field, _, _ in Formatter().parse(raw) if field is not None}
     except ValueError as malformed:
-        problems.append(f"DEADLINER_MESSAGE_TEMPLATE is not a valid format string: {malformed}.")
+        problems.append(f"{name} is not a valid format string: {malformed}.")
         return ""
 
-    unknown = sorted(fields - MESSAGE_TEMPLATE_FIELDS)
+    unknown = sorted(fields - allowed)
     if unknown:
         problems.append(
-            f"DEADLINER_MESSAGE_TEMPLATE references {unknown}, and the fields a warning can "
-            f"carry are {sorted(MESSAGE_TEMPLATE_FIELDS)}."
+            f"{name} references {unknown}, and the fields it can carry are {sorted(allowed)}."
         )
         return ""
     return raw
+
+
+def _read_deadline_phrase(env: Mapping[str, str], problems: list[str], name: str) -> str:
+    return _read_format_string(env, problems, name, DEADLINE_PHRASE_FIELDS)
 
 
 def _read_secret_path_segment(env: Mapping[str, str], problems: list[str]) -> str:

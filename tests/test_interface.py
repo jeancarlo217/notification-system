@@ -270,7 +270,6 @@ def test_the_list_screen_names_its_columns_in_portuguese(client: Client) -> None
         "Vencimento",
         "Responsável",
         "Status",
-        "Avisos",
         "Ações",
     ):
         assert heading in page
